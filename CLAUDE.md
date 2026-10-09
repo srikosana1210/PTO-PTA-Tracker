@@ -11,6 +11,9 @@ Read `docs/PLANNING.md` first. It describes the system, the rules, and the decis
 - **Writes take the script lock** (`LockService`), as in `onFormSubmit` / `reviewItem`.
 - **Bump `VERSION`** in `Code.gs` whenever behaviour changes. If a menu step or a rule changes, say so in the summary so FACE can update the sheet's Start Here tab.
 - `tools/*.bat` must keep CRLF line endings (see `.gitattributes`).
+- **Keep `PAGE_STAMP` in `Dashboard.html` equal to the date in `VERSION`**, or the footer warns about mismatched files.
+- **A change to a live sheet's layout needs a one-time menu update** that makes a backup first and is safe to run twice (see `updateOctober2026`). Keep the template `.xlsx` in step: run the update on it in the harness and copy the result in.
+- **Run the tests before pushing:** `node tests/test-script.js` and `node tests/test-dashboard.js`. Add tests for new behaviour in `tests/test-new.js` (or a new file required from `test-script.js`).
 
 ## Deploying
 

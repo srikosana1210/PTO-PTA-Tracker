@@ -12,9 +12,13 @@
  *      campus taken from the form's school question, and Officer Information marked Received.
  *   4. Serves the dashboard as a web page that reads the tabs every time it is opened. Clicking a campus shows its
  *      checklist, what is pending, its activity, and (for staff only) its officers.
- *   5. Helps C1s and FACE staff ask a PTO/PTA to resend a document that was marked Needs Correction. The dashboard writes the email
- *      (to the officers, copying INBOX) and opens it in Outlook for the person to send; this script cannot send from Outlook, so it sends
- *      nothing. logResendRequest only writes a line in the Submission Log after the person says they sent it.
+ *   5. Lets C1s and FACE staff go through each campus's checklist on the dashboard: each document is there, needs correction, is not
+ *      there, or is not needed for that PTO/PTA, with a remark, plus overall remarks for the PTO/PTA (saveChecklist).
+ *   6. Helps them email the PTO/PTA about what is still needed and what needs correction, with those remarks. The dashboard writes the
+ *      email (to the officers, copying INBOX) and opens it in Outlook for the person to send; this script cannot send from Outlook, so it
+ *      sends nothing. logResendRequest only writes a line in the Submission Log after the person says they sent it.
+ *   7. Lists every campus of every Area Office from the Area Office Campuses tab (addAreaCampuses), marking the campuses the Texas PTA
+ *      roster lists as PTAs.
  *
  * Do not rename the tabs or the column headers in the sheet: the script finds things by those names.
  */
@@ -28,27 +32,41 @@ var CFG = {
   TAB_C1: 'C1 Assignments',
   TAB_SIGNINS: 'Dashboard Sign-ins',
   TAB_PASS: 'New Passcodes',
+  TAB_CAMPUSES: 'Area Office Campuses',
   FORM_TITLE: 'PTO/PTA Documents Received',
   ROOT_DOCS: 'Parent Org Documents',
   DASHBOARD_TITLE: 'PTO/PTA Registration',
   // The mailbox the PTO/PTAs send documents to. The "ask them to resend" email copies it, so a reply comes back to the people who work it.
   INBOX: 'ParentOrgDocs@houstonisd.org',
-  // One entry per requirement. key = column header in Campus Register. title = form question title.
+  // One entry per requirement. key = column header in Campus Register. title = form question title. label = the words FACE uses for it
+  // everywhere (dashboard, emails, Start Here); the dashboard has the same labels in its DOCS list.
   // A file question is matched by the START of its title (or of any formAliases entry), so the wording after the key can be changed freely.
   // reg = counts toward Registered. optional = tracked, but not needed to be Legalized. Both are the defaults: the Settings tab
   // ("Counts toward Registered?" and "Needed to be Legalized?" rows) overrides them. Optional items stay last in the list.
   // Everything is filed in the campus's folder under Parent Org Documents.
   ITEMS: [
-    { key: 'Bylaws',                    title: 'Bylaws',                                                                          upload: true,  reg: true },
-    { key: 'Officer Information',       title: 'Officer Information form submitted',                                              upload: false, reg: true },
-    { key: 'Training Certificate',      title: 'Training Certificate',                                                            upload: true,  reg: true },
-    { key: 'Budget or Financial Report', title: 'Budget or Financial Report (annual budget report, or meeting minutes showing budget approval)', upload: true },
-    { key: 'Proof of 501c Status',      title: 'Proof of 501c Status',                                                            upload: true },
+    { key: 'Bylaws',                    title: 'Bylaws',                                                                          upload: true,  reg: true,
+      label: 'The organization\'s bylaws' },
+    { key: 'Officer Information',       title: 'Officer Information form submitted',                                              upload: false, reg: true,
+      label: 'The officer information form' },
+    { key: 'Training Certificate',      title: 'Training Certificate',                                                            upload: true,  reg: true,
+      label: 'Training certificate' },
+    { key: 'Budget or Financial Report', title: 'Budget or Financial Report (annual budget report, or meeting minutes showing budget approval)', upload: true,
+      label: 'Annual budget report or meeting minutes showing budget approval' },
+    { key: 'Proof of 501c Status',      title: 'Proof of 501c Status',                                                            upload: true,
+      label: 'Proof of 501(c) status' },
     { key: 'Bank and EIN Letter',       title: 'Bank and EIN Letter (bank verification letter listing two authorized signers, together with the Tax ID EIN letter)', upload: true,
-      formAliases: ['Bank Account Info', 'Tax ID EIN Letter'], headerAliases: ['Bank Account Info'] },
-    { key: 'Articles of Incorporation', title: 'Articles of Incorporation',                                                       upload: true },
-    { key: 'Insurance',                 title: 'Insurance (liability and property). Optional',                                    upload: true,  optional: true }
+      formAliases: ['Bank Account Info', 'Tax ID EIN Letter'], headerAliases: ['Bank Account Info'],
+      label: 'Bank account verification letter from financial institution listing two authorized account signers' },
+    // Not needed to be Legalized since 2026-10-09 (FACE's wording lists six documents). Still tracked when a PTO/PTA sends it.
+    { key: 'Articles of Incorporation', title: 'Articles of Incorporation',                                                       upload: true,  optional: true,
+      label: 'Articles of incorporation' },
+    { key: 'Insurance',                 title: 'Insurance (liability and property). Optional',                                    upload: true,  optional: true,
+      label: 'Liability and property insurance' }
   ],
+  // A file question starting with this holds several documents in one file, or anything else. The file is filed in the campus folder
+  // and logged, and changes no item: a reviewer opens it and checks off on the dashboard what it contains.
+  Q_OTHER: 'Other documents',
   // Names the tracker used before 2026-10-02 (see updateDocumentList).
   OLD_BANK_HEADER: 'Bank Account Info',
   OLD_TAX_HEADER: 'Tax ID EIN Letter',
@@ -61,12 +79,14 @@ var CFG = {
   Q_NOTES: 'Notes',
   HAS_PTO: ['Yes', 'No', 'Not Yet Confirmed'],
   ORG_TYPES: ['PTA', 'PTO', 'SPO', 'PAC'],
-  STATUS_CODE: { 'Accepted': 'A', 'Received': 'R', 'Needs Correction': 'C', 'Not Received': 'N' },
+  // Not Needed: a reviewer decided this PTO/PTA does not need the document (for example a PTA covered by Texas PTA). It counts as done.
+  STATUS_CODE: { 'Accepted': 'A', 'Received': 'R', 'Needs Correction': 'C', 'Not Received': 'N', 'Not Needed': 'X' },
+  ITEM_STATUSES: ['Not Received', 'Received', 'Accepted', 'Needs Correction', 'Not Needed'],
   LOG_HEADERS: ['Received', 'Submitted By', 'Campus', 'Document Type', 'File Name', 'File Link', 'School Year', 'Notes'],
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-05a (eight documents, ask a PTO/PTA to resend by Outlook email)';
+var VERSION = 'Script version 2026-10-09a (checklist review with remarks, every campus listed, Legalized = six documents)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -76,7 +96,9 @@ function onOpen() {
     .addItem('1. Create the form (first time only)', 'createForm')
     .addItem('2. Check setup', 'checkSetup')
     .addItem('Update to the new document list (run once)', 'updateDocumentList')
+    .addItem('Update the tracker: October 2026 changes (run once)', 'updateOctober2026')
     .addSeparator()
+    .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
@@ -124,6 +146,7 @@ function createForm() {
   var lines = ['The form, the Drive folder and the trigger are ready.', '',
     'One step is left that Google does not let a script do. Open the form editor and add a "File upload" question for each of these, in this order:', ''];
   CFG.ITEMS.forEach(function (it) { if (it.upload) lines.push('   ' + it.title); });
+  lines.push('   ' + OTHER_TITLE);
   lines.push('', 'For each one: Question type = File upload, allow PDF, Document and Image, maximum 5 files, 100 MB, leave it not required.',
     'Then run "2. Check setup" from the menu.', '', 'Form editor: ' + form.getEditUrl());
   ui.alert('Form created', lines.join('\n'), ui.ButtonSet.OK);
@@ -176,7 +199,9 @@ function checkSetup_() {
     var found = uploadTitles.some(function (ti) { return titleIsItem_(ti, it); });
     if (!found) problems.push('The form has no File upload question starting with "' + it.key + '".');
   });
+  if (!uploadTitles.some(isOtherTitle_)) fixed.push('Tip: add a File upload question named "' + OTHER_TITLE + '" for an email whose documents are all in one file. Its files are filed in the campus folder, and a reviewer checks off on the dashboard what they contain.');
   uploadTitles.forEach(function (ti) {
+    if (isOtherTitle_(ti)) return;
     if (!CFG.ITEMS.some(function (it) { return it.upload && titleIsItem_(ti, it); })) problems.push('The file question "' + ti + '" does not start with one of the item names, so its files will not be filed.');
   });
   // The old separate questions still file correctly (both go to Bank and EIN Letter). Say so, and say what to tidy.
@@ -249,14 +274,15 @@ function onFormSubmit(e) {
 
 /** Turns a FormResponse into a plain object. */
 function parseResponse_(response) {
-  var sub = { timestamp: response.getTimestamp(), email: '', campus: '', hasPto: '', orgType: '', orgName: '', notes: '', officer: false, uploads: [], unknown: [] };
+  var sub = { timestamp: response.getTimestamp(), email: '', campus: '', hasPto: '', orgType: '', orgName: '', notes: '', officer: false, uploads: [], unknown: [], other: [] };
   try { sub.email = response.getRespondentEmail() || ''; } catch (err) { sub.email = ''; }
   response.getItemResponses().forEach(function (ir) {
     var item = ir.getItem(), title = String(item.getTitle()).trim(), type = String(item.getType()), val = ir.getResponse();
     if (type === 'FILE_UPLOAD') {
       var ids = Array.isArray(val) ? val : (val ? [val] : []);
       var it = itemForTitle_(title);
-      if (it && it.upload) sub.uploads.push({ item: it, ids: ids });
+      if (isOtherTitle_(title)) { if (ids.length) sub.other.push({ ids: ids }); }
+      else if (it && it.upload) sub.uploads.push({ item: it, ids: ids });
       else if (ids.length) sub.unknown.push({ title: title, ids: ids });
       return;
     }
@@ -282,9 +308,13 @@ function processSubmission_(sub) {
   t = table_(CFG.TAB_REGISTER);
   var logRows = [];
 
-  // Has PTO or PTA, org type and name. A "Not Yet Confirmed" answer never overwrites a Yes or a No.
+  // Has PTO or PTA, org type and name. A "Not Yet Confirmed" answer never overwrites a Yes or a No. A campus that sends documents has a
+  // PTO/PTA: when the answer is Not Yet Confirmed (or blank) and something was attached, it becomes Yes, unless the register says No.
   var cur = String(t.values[rowNum - 1][t.col['Has PTO or PTA']] || '').trim();
-  if (sub.hasPto && (sub.hasPto !== 'Not Yet Confirmed' || (cur !== 'Yes' && cur !== 'No'))) setCell_(t, rowNum, 'Has PTO or PTA', sub.hasPto);
+  var sent = sub.officer || sub.other.length > 0 || sub.uploads.some(function (u) { return u.ids.length > 0; });
+  var pto = sub.hasPto;
+  if ((!pto || pto === 'Not Yet Confirmed') && sent && cur !== 'No') pto = 'Yes';
+  if (pto && (pto !== 'Not Yet Confirmed' || (cur !== 'Yes' && cur !== 'No'))) setCell_(t, rowNum, 'Has PTO or PTA', pto);
   if (sub.orgType) setCell_(t, rowNum, 'Org Type', sub.orgType);
   if (sub.orgName) setCell_(t, rowNum, 'Org Name', sub.orgName);
   var anything = false;
@@ -293,23 +323,18 @@ function processSubmission_(sub) {
     var used = {};
     u.ids.forEach(function (id) {
       anything = true;
-      var fileName = '', link = '', note2 = '';
-      try {
-        var file = DriveApp.getFileById(id);
-        var root = rootFolder_();
-        var folder = campusFolder_(root, sub.campus);
-        var original = file.getName();
-        var name = uniqueName_(folder, year + ' - ' + u.item.key + ' - ' + safeName_(sub.campus), extensionOf_(original), dateStr);
-        file.setName(name);
-        file.moveTo(folder);
-        fileName = name; link = file.getUrl();
-      } catch (err) {
-        note2 = 'Could not file this document (' + err.message + '). It is still in the form\'s upload folder in Drive.';
-        try { link = DriveApp.getFileById(id).getUrl(); fileName = DriveApp.getFileById(id).getName(); } catch (err2) { /* leave blank */ }
-      }
-      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, fileName, link, year, note2]);
+      var f = fileIntoCampus_(id, sub.campus, year, u.item.key, dateStr);
+      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, f.name, f.link, year, f.note]);
     });
     if (u.ids.length) setCell_(t, rowNum, u.item.key, 'Received');   // a new file always goes back to review
+  });
+
+  sub.other.forEach(function (u) {
+    u.ids.forEach(function (id) {
+      anything = true;
+      var f = fileIntoCampus_(id, sub.campus, year, OTHER_TITLE, dateStr);
+      logRows.push([sub.timestamp, sub.email, sub.campus, OTHER_TITLE, f.name, f.link, year, f.note || 'Check what this file contains and check off each document on the dashboard.']);
+    });
   });
 
   sub.unknown.forEach(function (u) {
@@ -337,11 +362,37 @@ function processSubmission_(sub) {
   return { year: year, row: rowNum, logged: logRows.length };
 }
 
+/** Renames one uploaded file "year - what - campus" and moves it into the campus folder. Returns { name, link, note }; note says why not. */
+function fileIntoCampus_(id, campus, year, what, dateStr) {
+  var out = { name: '', link: '', note: '' };
+  try {
+    var file = DriveApp.getFileById(id);
+    var folder = campusFolder_(rootFolder_(), campus);
+    var name = uniqueName_(folder, year + ' - ' + what + ' - ' + safeName_(campus), extensionOf_(file.getName()), dateStr);
+    file.setName(name);
+    file.moveTo(folder);
+    out.name = name; out.link = file.getUrl();
+  } catch (err) {
+    out.note = 'Could not file this document (' + err.message + '). It is still in the form\'s upload folder in Drive.';
+    try { out.link = DriveApp.getFileById(id).getUrl(); out.name = DriveApp.getFileById(id).getName(); } catch (err2) { /* leave blank */ }
+  }
+  return out;
+}
+
+var OTHER_TITLE = CFG.Q_OTHER;
+function isOtherTitle_(title) { return startsWith_(title, CFG.Q_OTHER); }
+
 /** Finds the campus row for the school year, or creates one (from last year's row when there is one). */
 function ensureRegisterRow_(t, year, campus) {
   var found = findRow_(t, year, campus);
   if (found) return found;
-  var carry = carrySettings_();
+  var row = firstEmptyRow_(t);
+  writeInputRows_(t, row, [newRegisterObj_(t, year, campus, carrySettings_())]);
+  return row;
+}
+
+/** A new Campus Register row: nothing received, Has PTO or PTA Not Yet Confirmed, or carried over from the campus's latest earlier year. */
+function newRegisterObj_(t, year, campus, carry) {
   var prev = latestRowFor_(t, campus, year);
   var obj = { 'School Year': year, 'Campus': campus, 'Area Office': '', 'Has PTO or PTA': 'Not Yet Confirmed', 'Org Type': '', 'Org Name': '' };
   CFG.ITEMS.forEach(function (it) { obj[it.key] = 'Not Received'; });
@@ -349,9 +400,7 @@ function ensureRegisterRow_(t, year, campus) {
     ['Area Office', 'Has PTO or PTA', 'Org Type', 'Org Name'].forEach(function (h) { obj[h] = prev[h]; });
     CFG.ITEMS.forEach(function (it) { if (carry[it.key] === 'One-time') obj[it.key] = prev[it.key] || 'Not Received'; });
   }
-  var row = firstEmptyRow_(t);
-  writeInputRows_(t, row, [obj]);
-  return row;
+  return obj;
 }
 
 /* ================================================================== officer import */
@@ -387,7 +436,7 @@ function officerSummary_(r) {
   if (r.pick) L.push('', plural_(r.pick, 'form needs', 'forms need') + ' a campus picked. On the Officers tab, filter the Match column for "' + M_NONE + '" or "' + M_PICK + '", type the campus in the Campus column, then run this import again.');
   if (r.bad) L.push('', plural_(r.bad, 'Campus entry was', 'Campus entries were') + ' not recognized. Use a name from the Campus Register. A campus the register does not have is added only when it is typed exactly as the form spelled it (the Notes column shows that spelling), or when its Campus cell is cleared.');
   if (r.noPto) L.push('', plural_(r.noPto, 'form is', 'forms are') + ' from a campus marked No for PTO/PTA in the register. Check the Notes column.');
-  if (r.unconfirmed) L.push('', plural_(r.unconfirmed, 'form is', 'forms are') + ' from a campus still marked Not Yet Confirmed. An officer form suggests a parent organization exists, so you may want to set Has PTO or PTA to Yes.');
+  if (r.madeYes) L.push('', plural_(r.madeYes, 'campus is', 'campuses are') + ' now marked as having a PTO/PTA (Has PTO or PTA = Yes), because an officer form arrived for ' + (r.madeYes === 1 ? 'it' : 'them') + '.');
   if (r.empty) L.push('', plural_(r.empty, 'response listed', 'responses listed') + ' no officers and ' + (r.empty === 1 ? 'was' : 'were') + ' skipped.');
   if (r.booster) L.push('', plural_(r.booster, 'response is', 'responses are') + ' from a booster club and ' + (r.booster === 1 ? 'was' : 'were') + ' left out. Booster clubs are not tracked, so nothing was added to the Officers tab or the Campus Register for ' + (r.booster === 1 ? 'it' : 'them') + '.');
   return L.join('\n');
@@ -404,7 +453,7 @@ function importOfficersLocked_() {
   var ss = SpreadsheetApp.getActive();
   var tz = ss.getSpreadsheetTimeZone();
   var settings = readSettings_();
-  var res = { read: 0, added: 0, officers: 0, already: 0, registerSet: 0, pick: 0, bad: 0, noPto: 0, unconfirmed: 0, empty: 0, booster: 0, newCampuses: [], formSynced: -1 };
+  var res = { read: 0, added: 0, officers: 0, already: 0, registerSet: 0, pick: 0, bad: 0, noPto: 0, madeYes: 0, empty: 0, booster: 0, newCampuses: [], formSynced: -1 };
 
   var paste = ss.getSheetByName(CFG.TAB_PASTE);
   if (!paste) { ensureTab_(CFG.TAB_PASTE, null); throw new Error('The tab "' + CFG.TAB_PASTE + '" was missing, so it has been added. Paste the Excel export of the officer update form into it, starting at cell A1 with the column titles, then run the import again.'); }
@@ -532,13 +581,15 @@ function importOfficersLocked_() {
     if (orgName && !cellText_(reg[rt.col['Org Name']])) { setCell_(rt, regRow, 'Org Name', orgName); reg[rt.col['Org Name']] = orgName; }
     if (orgType && !cellText_(reg[rt.col['Org Type']])) { setCell_(rt, regRow, 'Org Type', orgType); reg[rt.col['Org Type']] = orgType; }
 
-    var wk = key + '||' + campus, warn = '';
+    var wk = key + '||' + campus;
     var pto = cellText_(reg[rt.col['Has PTO or PTA']]);
-    if (pto === 'No') warn = 'The register says this campus has no PTO/PTA.';
-    else if (pto !== 'Yes') warn = 'The register still says Not Yet Confirmed for this campus.';
-    if (warn) {
-      if (!warned[wk]) { warned[wk] = true; if (pto === 'No') res.noPto++; else res.unconfirmed++; }
-      setCell_(ot, rowNum, 'Notes', addNote_(v[oc['Notes']], warn));
+    if (pto === 'No') {
+      if (!warned[wk]) { warned[wk] = true; res.noPto++; }
+      setCell_(ot, rowNum, 'Notes', addNote_(v[oc['Notes']], 'The register says this campus has no PTO/PTA.'));
+    } else if (pto !== 'Yes') {
+      // an officer form means the campus has a parent organization
+      setCell_(rt, regRow, 'Has PTO or PTA', 'Yes'); reg[rt.col['Has PTO or PTA']] = 'Yes';
+      if (!warned[wk]) { warned[wk] = true; res.madeYes++; }
     }
     if (!applied[wk]) {          // one log row per form response, not per officer
       applied[wk] = true;
@@ -827,6 +878,7 @@ function signInRows_() {
   var ni = head.indexOf('name'), ri = head.indexOf('role');
   if (ni < 0 || ri < 0) throw new Error('The tab "' + CFG.TAB_SIGNINS + '" needs the headings Name and Role in row 1.');
   out.status = head.indexOf('passcode status');
+  var ei = head.indexOf('email');
   out.rows = [];
   for (var i = 1; i < vals.length; i++) {
     var nm = cellText_(vals[i][ni]), r = norm_(vals[i][ri]);
@@ -835,7 +887,7 @@ function signInRows_() {
     var role = (r === 'c1' || r === 'c1 coordinator') ? 'c1' : (r === 'staff' || r === 'face staff' || r === 'admin') ? 'staff' : '';
     var k = norm_(nm);
     if (!role || out.byKey[k]) continue;              // an unknown role means no access; the first row for a name wins
-    out.byKey[k] = { name: nm, role: role };
+    out.byKey[k] = { name: nm, role: role, email: ei >= 0 ? cellText_(vals[i][ei]) : '' };
     out.order.push(k);
   }
   return out;
@@ -970,10 +1022,148 @@ function reviewItem(token, campus, year, itemKey, status, reason) {
   } finally { lock.releaseLock(); }
 }
 
+/* ---------- the checklist: what a reviewer decides about each document, and the remarks ---------- */
+
+// What a reviewer may choose for one document. Received (waiting for review) is not a choice: it is what arriving sets.
+var CHECK_STATUSES = ['Accepted', 'Needs Correction', 'Not Received', 'Not Needed'];
+var REMARK_MAX = 300, CAMPUS_REMARK_MAX = 1000;
+var CAMPUS_REMARK = 'Remarks for the PTO/PTA';
+
+function cleanText_(s, max) { return cellText_(s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max); }
+
+/**
+ * The log note for one document. Every note starts with words that say what happened and names the item, so itemNote_ can read the
+ * newest remark back. The "Needs correction, <item>: <reason>" and "Accepted: <item>" forms are the ones the tracker always wrote.
+ */
+function checkNote_(status, key, remark, statusChanged) {
+  if (!statusChanged) return remark ? 'Remark, ' + key + ': ' + remark : 'Remark cleared, ' + key;
+  if (status === 'Accepted') return 'Accepted: ' + key + (remark ? '. Remark: ' + remark : '');
+  if (status === 'Needs Correction') return 'Needs correction, ' + key + ': ' + remark;
+  if (status === 'Not Needed') return 'Not needed, ' + key + ': ' + remark;
+  if (status === 'Not Received') return 'Not there, ' + key + (remark ? ': ' + remark : '');
+  return 'Put back to Received (waiting for review): ' + key;
+}
+
+/** Reads a log note back: { key, remark } for a note about one document, { campus: remark } for overall remarks, or null. */
+function itemNote_(note) {
+  var n = cellText_(note);
+  if (!n) return null;
+  if (n.indexOf(CAMPUS_REMARK + ': ') === 0) return { campus: n.slice(CAMPUS_REMARK.length + 2) };
+  if (n === CAMPUS_REMARK + ' cleared.') return { campus: '' };
+  var forms = [['Needs correction, ', ': '], ['Not needed, ', ': '], ['Not there, ', ': '], ['Remark, ', ': '], ['Remark cleared, ', ''], ['Accepted: ', '. Remark: '],
+    ['Put back to Received (waiting for review): ', '']];
+  for (var f = 0; f < forms.length; f++) {
+    var pre = forms[f][0], sep = forms[f][1];
+    if (n.indexOf(pre) !== 0) continue;
+    var rest = n.slice(pre.length);
+    for (var i = 0; i < CFG.ITEMS.length; i++) {
+      var k = CFG.ITEMS[i].key;
+      if (rest === k) return { key: k, remark: '' };
+      if (sep && rest.indexOf(k + sep) === 0) return { key: k, remark: rest.slice(k.length + sep.length) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Called from the page's checklist by a signed-in C1 or FACE staff member. Saves, for one campus and school year, any number of
+ * documents ({ key, status, remark }; status '' keeps the status and changes only the remark) and, when campusRemark is not null,
+ * the overall remarks for the PTO/PTA. Every change is one line in the Submission Log with the person's name. Checking a document off
+ * for a campus that is not marked as having a PTO/PTA marks it Yes (unless the register says No). Returns what the page needs to redraw.
+ */
+function saveChecklist(token, campus, year, changes, campusRemark) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var who = sessionFrom_(token);
+    if (!who) throw new Error('Your sign-in has ended. Sign in again.');
+    campus = cellText_(campus); year = cellText_(year);
+    if (who.role === 'c1' && !who.campuses[norm_(campus)]) throw new Error(campus + ' is not on your list of campuses.');
+    var t = table_(CFG.TAB_REGISTER);
+    var row = findRow_(t, year, campus);
+    if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
+    var canon = cellText_(t.values[row - 1][t.col['Campus']]);
+    var known = remarksFor_(canon, year);
+    var list = Array.isArray(changes) ? changes : [];
+    var plan = [], seen = {};
+    list.forEach(function (c) {
+      var item = itemByKey_(cellText_(c && c.key));
+      if (!item) throw new Error('That document type is not recognized.');
+      if (seen[item.key]) throw new Error(item.key + ' is listed twice.');
+      seen[item.key] = 1;
+      var status = cellText_(c.status), remark = cleanText_(c.remark, REMARK_MAX);
+      if (status && CHECK_STATUSES.indexOf(status) < 0) throw new Error('That status cannot be set here.');
+      var cur = cellText_(t.values[row - 1][t.col[item.key]]) || 'Not Received';
+      var next = status || cur;
+      if (next === 'Needs Correction' && !remark) throw new Error('Say what needs to be corrected in ' + item.key + '.');
+      if (next === 'Not Needed' && !remark) throw new Error('Say why ' + item.key + ' is not needed.');
+      var statusChanged = next !== cur, remarkChanged = remark !== (known.items[item.key] || '');
+      if (statusChanged || remarkChanged) plan.push({ item: item, status: next, remark: remark, statusChanged: statusChanged });
+    });
+    var cr = campusRemark == null ? null : cleanText_(campusRemark, CAMPUS_REMARK_MAX);
+    var crChanged = cr !== null && cr !== known.campus;
+    if (!plan.length && !crChanged) return { ok: true, changed: false, d: codesOf_(t, row), remarks: known };
+
+    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), now = new Date();
+    var by = who.name + (who.role === 'c1' ? ' (C1)' : ' (FACE)'), logs = [], notes = [];
+    plan.forEach(function (p) {
+      if (p.statusChanged) { setCell_(t, row, p.item.key, p.status); t.values[row - 1][t.col[p.item.key]] = p.status; }
+      var note = checkNote_(p.status, p.item.key, p.remark, p.statusChanged);
+      logs.push([now, by, canon, '', '', '', year, note]); notes.push(note);
+      known.items[p.item.key] = p.remark;
+    });
+    if (crChanged) {
+      var cn = cr ? CAMPUS_REMARK + ': ' + cr : CAMPUS_REMARK + ' cleared.';
+      logs.push([now, by, canon, '', '', '', year, cn]); notes.push(cn);
+      known.campus = cr;
+    }
+    var madeYes = false;
+    var pto = cellText_(t.values[row - 1][t.col['Has PTO or PTA']]);
+    if (pto !== 'Yes' && pto !== 'No' && plan.some(function (p) { return p.statusChanged && p.status !== 'Not Received'; })) {
+      setCell_(t, row, 'Has PTO or PTA', 'Yes'); madeYes = true;
+      var yn = 'Marked as having a PTO/PTA (Has PTO or PTA = Yes) because documents were checked off.';
+      logs.push([now, by, canon, '', '', '', year, yn]); notes.push(yn);
+    }
+    appendLog_(logs);
+    return { ok: true, changed: true, d: codesOf_(t, row), pto: madeYes ? 'Yes' : '', notes: notes, by: by, date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), remarks: known };
+  } finally { lock.releaseLock(); }
+}
+
+/** The status letters of one register row, in CFG.ITEMS order (the dashboard's "d" string). */
+function codesOf_(t, row) {
+  return CFG.ITEMS.map(function (it) { return CFG.STATUS_CODE[cellText_(t.values[row - 1][t.col[it.key]])] || 'N'; }).join('');
+}
+
+/** The newest remark for each document of one campus and school year, and the overall remarks: { items: { key: text }, campus: text }. */
+function remarksFor_(campus, year) {
+  var all = remarksByCampus_({}), k = norm_(campus) + '||' + year;
+  return all[k] || { items: {}, campus: '' };
+}
+
+/** Every campus's remarks from the Submission Log, keyed by normalised campus || year. only (optional) limits it to some campuses. */
+function remarksByCampus_(only) {
+  var out = {}, sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_LOG);
+  if (!sh) return out;
+  var lt = table_(CFG.TAB_LOG), c = lt.col;
+  for (var i = lt.values.length - 1; i >= 1; i--) {         // newest first: the first note found for an item is its current remark
+    var v = lt.values[i], campus = cellText_(v[c['Campus']]), year = cellText_(v[c['School Year']]);
+    if (!campus || !year || cellText_(v[c['Document Type']])) continue;
+    if (only && Object.keys(only).length && !only[norm_(campus)]) continue;
+    var n = itemNote_(v[c['Notes']]);
+    if (!n) continue;
+    var k = norm_(campus) + '||' + year, rec = out[k] || (out[k] = { items: {}, campus: '', seen: {} });
+    if (n.campus !== undefined) { if (!rec.seen['@campus']) { rec.seen['@campus'] = 1; rec.campus = n.campus; } }
+    else if (!rec.seen[n.key]) { rec.seen[n.key] = 1; rec.items[n.key] = n.remark; }
+  }
+  Object.keys(out).forEach(function (k) { delete out[k].seen; });
+  return out;
+}
+
 /**
  * Called from the page after a signed-in C1 or FACE staff member has written the "please resend" email in Outlook and sent it.
- * The script sends nothing itself (it can only send from Google, not Outlook). This writes one line in the Submission Log, naming the items that
- * were marked Needs Correction at that moment, so the dashboard can show that the campus was asked, when, and by whom.
+ * The script sends nothing itself (it can only send from Google, not Outlook). This writes one line in the Submission Log, naming what the
+ * email asked for at that moment (required documents still not there, documents needing correction, the overall remarks), so the
+ * dashboard can show that the campus was emailed, when, and by whom.
  * sentTo is the list of addresses the person emailed; it is only recorded.
  */
 function logResendRequest(token, campus, year, sentTo) {
@@ -988,15 +1178,29 @@ function logResendRequest(token, campus, year, sentTo) {
     var row = findRow_(t, year, campus);
     if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
     var canon = cellText_(t.values[row - 1][t.col['Campus']]);
-    var names = CFG.ITEMS.filter(function (it) { return cellText_(t.values[row - 1][t.col[it.key]]) === 'Needs Correction'; }).map(function (it) { return it.key; });
-    if (!names.length) throw new Error('Nothing is marked as needing correction for ' + canon + ' now, so there is nothing to ask them to resend.');
-    var to = cellText_(sentTo).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    var ask = emailAsks_(t, row, canon, year);
+    if (!ask.parts.length) throw new Error('Nothing is missing or needs correction for ' + canon + ' now, and there are no remarks, so there is nothing to email about.');
+    var to = cleanText_(sentTo, 200);
     var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), now = new Date();
-    var note = 'Asked to resend by email: ' + names.join(', ') + (to ? '. To: ' + to : '');
+    var note = 'Emailed the PTO/PTA about ' + ask.parts.join('; ') + (to ? '. To: ' + to : '');
     var by = who.name + (who.role === 'c1' ? ' (C1)' : ' (FACE)');
     appendLog_([[now, by, canon, '', '', '', year, note]]);
     return { ok: true, date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), note: note, by: by };
   } finally { lock.releaseLock(); }
+}
+
+/** What an email to the PTO/PTA would ask for now: { parts: ['still needed: A, B', 'needs correction: C', 'remarks'] }. */
+function emailAsks_(t, row, campus, year) {
+  var flags = itemFlags_(), need = [], fix = [], parts = [];
+  CFG.ITEMS.forEach(function (it, i) {
+    var st = cellText_(t.values[row - 1][t.col[it.key]]) || 'Not Received';
+    if (st === 'Needs Correction') fix.push(it.key);
+    else if (st === 'Not Received' && flags.req[i]) need.push(it.key);
+  });
+  if (need.length) parts.push('still needed: ' + need.join(', '));
+  if (fix.length) parts.push('needs correction: ' + fix.join(', '));
+  if (remarksFor_(campus, year).campus) parts.push('remarks');
+  return { parts: parts };
 }
 
 /* ---------- passcodes (menu) ---------- */
@@ -1041,6 +1245,7 @@ function setUpSignIns_() {
   }
   var statusCol = rows.status;
   if (statusCol < 0) { var lc = Math.max(sh.getLastColumn(), 1) + 1; sh.getRange(1, lc).setValue('Passcode status'); statusCol = lc - 1; }
+  ensureEmailColumn_(sh);
   var made = [];
   rows.order.forEach(function (k) {
     var p = rows.byKey[k];
@@ -1064,6 +1269,14 @@ function setUpSignIns_() {
   if (made.length) writePasscodeTab_(made);
   res.made = made;
   return res;
+}
+
+/** Adds an Email heading to the Dashboard Sign-ins tab if it has none. A C1's email there is used for the review reminder emails. */
+function ensureEmailColumn_(sh) {
+  var head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(function (h) { return norm_(h); });
+  if (head.indexOf('email') >= 0) return false;
+  sh.getRange(1, head.length + 1).setValue('Email');
+  return true;
 }
 
 /** Writes the New Passcodes tab (replacing whatever was there). It is the only place a passcode ever appears in plain text. */
@@ -1238,8 +1451,23 @@ function getPayload_(access) {
   else if (c1) { var priv = buildDetail_(true, tz, c1.campuses); Object.keys(priv).forEach(function (k) { detail[k] = priv[k]; }); }
   return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: 'c1', name: c1.name } : null,
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
-    itemKeys: CFG.ITEMS.map(function (it) { return it.key; }), reg: flags.reg, req: flags.req, inbox: CFG.INBOX, source: 'the PTO/PTA tracker',
+    itemKeys: CFG.ITEMS.map(function (it) { return it.key; }), labels: CFG.ITEMS.map(function (it) { return it.label || it.key; }),
+    reg: flags.reg, req: flags.req, inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
+    c1s: staff ? c1Contacts_() : null,
     asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), rows: rows, detail: detail };
+}
+
+/** For FACE staff: every C1 with their email (Dashboard Sign-ins tab) and campuses (C1 Assignments tab), for the review reminders. */
+function c1Contacts_() {
+  var out = [];
+  try {
+    var a = c1Assignments_(), rows = signInRows_();
+    a.order.forEach(function (k) {
+      var rec = a.names[k], p = rows.byKey[k];
+      out.push({ n: rec.name, e: p && p.email ? p.email : '', c: Object.keys(rec.campuses).map(function (x) { return rec.campuses[x]; }) });
+    });
+  } catch (err) { /* the dashboard still opens without the reminder list */ }
+  return out;
 }
 
 /**
@@ -1301,6 +1529,15 @@ function buildDetail_(staff, tz, only) {
         detail[k].o.sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : (Number(b.id) || 0) - (Number(a.id) || 0); });   // newest submission first
       });
     }
+  }
+  if (staff) {
+    // the newest remark for each document and the overall remarks, for the checklist and the email (signed-in only, like the notes)
+    var rm = remarksByCampus_(only || {});
+    Object.keys(rm).forEach(function (k) {
+      var parts = k.split('||'), found = null;
+      Object.keys(detail).forEach(function (dk) { var p = dk.split('||'); if (!found && norm_(p[0]) === parts[0] && p[1] === parts[1]) found = dk; });
+      if (found) detail[found].rm = rm[k];
+    });
   }
   return detail;
 }
@@ -1657,8 +1894,9 @@ function updateSettings_() {
   sh.getRange(L.legalRow, 1).setFontWeight('bold');
 }
 
-/** Rewrites the seven calculated columns of Campus Register (only in rows that already hold formulas). Returns how many rows. */
-function rewriteRegisterFormulas_() {
+/** Rewrites the seven calculated columns of Campus Register (only in rows that already hold formulas). Returns how many rows.
+ *  Accepted and Not Needed both count toward Registered and Legalized. */
+function rewriteRegisterFormulas_(fillMissing) {
   var L = settingsLayout_();
   var t = table_(CFG.TAB_REGISTER), sh = t.sh;
   var itemCols = [];
@@ -1687,18 +1925,20 @@ function rewriteRegisterFormulas_() {
   var nrows = t.values.length - 1;
   if (nrows < 1) return 0;
   var existing = sh.getRange(2, statusCol + 1, nrows, 1).getFormulas();
+  var campusVals = sh.getRange(2, t.col['Campus'] + 1, nrows, 1).getValues();
   function build(r) {
     var g = fl + r + ':' + ll + r, camp = '$' + h['Campus'] + r, pto = '$' + h['Has PTO or PTA'] + r;
     var P = '$' + h['Items Received'] + r, Q = '$' + h['Registration Items Accepted'] + r, R = '$' + h['Legalization Items Accepted'] + r;
     var parts = CFG.ITEMS.map(function (it) {
       var cl = colLetter_(t.col[it.key]);
       var sc = colLetter_(L.first + (t.col[it.key] - lo));
-      return 'IF(AND(' + cl + r + '<>"Accepted",Settings!$' + sc + '$' + L.legalRow + '="Yes"),", "&' + cl + '$1,"")';
+      return 'IF(AND(' + cl + r + '<>"Accepted",' + cl + r + '<>"Not Needed",Settings!$' + sc + '$' + L.legalRow + '="Yes"),", "&' + cl + '$1,"")';
     }).join('&');
     var f = {};
     f['Items Received'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Accepted")+COUNTIF(' + g + ',"Received")+COUNTIF(' + g + ',"Needs Correction"))';
-    f['Registration Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(--(' + g + '="Accepted"),--(' + flagsReg + '="Yes")))';
-    f['Legalization Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(--(' + g + '="Accepted"),--(' + flagsReq + '="Yes")))';
+    // Not Needed (a reviewer decided this PTO/PTA does not need the document) counts the same as Accepted
+    f['Registration Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(((' + g + '="Accepted")+(' + g + '="Not Needed"))*(' + flagsReg + '="Yes")))';
+    f['Legalization Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(((' + g + '="Accepted")+(' + g + '="Not Needed"))*(' + flagsReq + '="Yes")))';
     f['Status'] = '=IF(' + camp + '="","",IF(' + pto + '="No","No PTO/PTA",IF(' + pto + '<>"Yes","Not Yet Confirmed",IF(' + R + '>=' + sLeg + ',"Legalized",IF(' + Q + '>=' + sReg + ',"Registered",IF(' + P + '>0,"In Progress","Not Started"))))))';
     f['Items Awaiting Review'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Received"))';
     f['Items Needing Correction'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Needs Correction"))';
@@ -1709,7 +1949,8 @@ function rewriteRegisterFormulas_() {
   var cols = {}; calc.forEach(function (k) { cols[k] = []; });
   var count = 0;
   for (var i = 0; i < nrows; i++) {
-    var hasF = String(existing[i][0] || '').charAt(0) === '=';
+    // fillMissing: also give formulas to campus rows that have none (rows added below the ones the workbook came with)
+    var hasF = String(existing[i][0] || '').charAt(0) === '=' || (!!fillMissing && cellText_(campusVals[i][0]) !== '');
     var f2 = hasF ? build(i + 2) : null;
     if (hasF) count++;
     calc.forEach(function (k) { cols[k].push([hasF ? f2[k] : '']); });
@@ -1816,6 +2057,282 @@ function scanForErrors_() {
     }
   });
   return bad;
+}
+
+/* ================================================================== every campus of every Area Office */
+
+/** Settings "Current school year", else the newest year in the register. */
+function currentYear_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_SETTINGS);
+  if (sh) {
+    var vals = sh.getDataRange().getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (norm_(vals[i][0]) === 'current school year') { var y = cellText_(vals[i][2]); if (/^\d{4}-\d{2}$/.test(y)) return y; }
+    }
+  }
+  return latestYear_(table_(CFG.TAB_REGISTER));
+}
+
+/** Menu: makes sure every campus on the Area Office Campuses tab is on the Campus Register for the current school year. */
+function addAreaCampuses() {
+  var ui = SpreadsheetApp.getUi();
+  try { ui.alert('Campuses added', areaSummary_(addAreaCampuses_()).join('\n'), ui.ButtonSet.OK); }
+  catch (err) { ui.alert('No campuses were added', err.message, ui.ButtonSet.OK); }
+}
+
+function areaSummary_(r) {
+  var L = ['School year ' + r.year + ': the Area Office Campuses tab lists ' + plural_(r.listed, 'campus', 'campuses') + '.'];
+  L.push(r.added ? plural_(r.added, 'campus was', 'campuses were') + ' added to the Campus Register, with nothing received yet.' : 'Every campus was already on the Campus Register.');
+  if (r.areaFilled) L.push('Area Office was filled in for ' + plural_(r.areaFilled, 'campus', 'campuses') + ' that had none.');
+  if (r.ptaYes || r.ptaType) L.push('Texas PTA roster: ' + plural_(r.ptaYes, 'campus is', 'campuses are') + ' now marked as having a PTO/PTA, and Org Type was set to PTA for ' + plural_(r.ptaType, 'campus', 'campuses') + '.');
+  if (r.ptaNo.length) L.push('On the Texas PTA roster but marked No in the register, so left alone: ' + r.ptaNo.join(', ') + '.');
+  if (r.formSynced > 0) L.push('The document form now lists ' + r.formSynced + ' campuses.');
+  else if (r.added && r.formSynced === 0) L.push('Use "Refresh the campus list in the form" so the form lists the new campuses.');
+  return L;
+}
+
+/**
+ * Reads the Area Office Campuses tab (Campus, Area Office, and optionally Name in the register, Texas PTA, Texas PTA status) and, for the
+ * current school year:
+ *   - adds every campus the register does not have (nothing received, Has PTO or PTA Not Yet Confirmed: "nothing received yet"),
+ *   - fills in Area Office where the register has none (it never changes one that is filled in),
+ *   - for a campus with Yes in Texas PTA: Has PTO or PTA becomes Yes (unless it is No) and an empty Org Type becomes PTA.
+ * "Name in the register" says which register row a campus is when the two lists spell it differently. Safe to run again.
+ */
+function addAreaCampuses_() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_CAMPUSES);
+    if (!sh) throw new Error('There is no "' + CFG.TAB_CAMPUSES + '" tab. Import the Area Office Campuses file as a new tab with that name (File > Import > Upload > Insert new sheet), then run this again.');
+    var vals = sh.getDataRange().getValues(), head = vals[0].map(function (x) { return norm_(x); });
+    var ci = head.indexOf('campus'), ai = head.indexOf('area office'), ri = head.indexOf('name in the register'), pi = head.indexOf('texas pta');
+    if (ci < 0 || ai < 0) throw new Error('The "' + CFG.TAB_CAMPUSES + '" tab needs the headings Campus and Area Office in row 1.');
+    var year = currentYear_();
+    var t = table_(CFG.TAB_REGISTER), map = campusMap_(), carry = carrySettings_();
+    var res = { year: year, listed: 0, added: 0, areaFilled: 0, ptaYes: 0, ptaType: 0, ptaNo: [], formSynced: -1 };
+    var fresh = [], freshKeys = {};
+    for (var i = 1; i < vals.length; i++) {
+      var campus = cellText_(vals[i][ci]), area = cellText_(vals[i][ai]);
+      if (!campus) continue;
+      res.listed++;
+      var name = (ri >= 0 ? cellText_(vals[i][ri]) : '') || campus;
+      var pta = pi >= 0 && norm_(vals[i][pi]) === 'yes';
+      var canon = lookup_(map, name) || lookup_(map, campus) || name;
+      var row = findRow_(t, year, canon);
+      if (!row) {
+        if (freshKeys[norm_(canon)]) continue;
+        freshKeys[norm_(canon)] = 1;
+        var obj = newRegisterObj_(t, year, canon, carry);
+        if (!cellText_(obj['Area Office'])) obj['Area Office'] = area;
+        if (pta) {
+          if (obj['Has PTO or PTA'] !== 'No') { obj['Has PTO or PTA'] = 'Yes'; res.ptaYes++; } else res.ptaNo.push(canon);
+          if (!cellText_(obj['Org Type'])) { obj['Org Type'] = 'PTA'; res.ptaType++; }
+        }
+        fresh.push(obj); addToMap_(map, canon); res.added++;
+        continue;
+      }
+      var v = t.values[row - 1];
+      if (area && !cellText_(v[t.col['Area Office']])) { setCell_(t, row, 'Area Office', area); res.areaFilled++; }
+      if (pta) {
+        var has = cellText_(v[t.col['Has PTO or PTA']]);
+        if (has === 'No') res.ptaNo.push(canon);
+        else if (has !== 'Yes') { setCell_(t, row, 'Has PTO or PTA', 'Yes'); res.ptaYes++; }
+        if (!cellText_(v[t.col['Org Type']])) { setCell_(t, row, 'Org Type', 'PTA'); res.ptaType++; }
+      }
+    }
+    if (fresh.length) {
+      fresh.sort(function (a, b) { return String(a['Campus']).localeCompare(String(b['Campus'])); });
+      writeInputRows_(t, firstEmptyRow_(t), fresh);
+      try { rewriteRegisterFormulas_(true); } catch (err) { /* the rows are added; the formulas follow the next time the update runs */ }
+      try { res.formSynced = syncFormCampuses_(); } catch (err) { res.formSynced = 0; }
+    }
+    return res;
+  } finally { lock.releaseLock(); }
+}
+
+/* ================================================================== one-time update: the October 2026 changes */
+
+/**
+ * Menu: brings a tracker that already has data up to the October 9, 2026 changes. It
+ *   - saves a backup copy of this spreadsheet in Drive first,
+ *   - makes Legalized the six documents in FACE's wording (Articles of Incorporation is no longer needed; it is still tracked),
+ *   - adds the Not Needed status (a reviewer decided a PTO/PTA does not need a document; it counts as done) to the sheet's lists and formulas,
+ *   - adds an Email column to Dashboard Sign-ins, for reminding C1s,
+ *   - optionally sets campuses marked Yes that have sent nothing back to Not Yet Confirmed (shown as "nothing received yet"),
+ *   - adds every campus from the Area Office Campuses tab, if that tab is there,
+ *   - updates the wording on Start Here.
+ * Safe to run again: each step only changes what still needs changing.
+ */
+function updateOctober2026() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Update the tracker: October 2026 changes',
+    'This brings this spreadsheet up to the October 2026 changes:\n\n' +
+    '- Legalized means the six documents in FACE\'s wording. Articles of Incorporation is still tracked but no longer needed.\n' +
+    '- Reviewers can mark a document Not Needed for a PTO/PTA. It counts as done.\n' +
+    '- Dashboard Sign-ins gets an Email column, used to remind C1s.\n' +
+    '- Every campus on the Area Office Campuses tab is added, if you have added that tab.\n' +
+    '- The Start Here tab gets the new wording.\n\n' +
+    'A backup copy of this spreadsheet is saved in your Drive first. Running this again is safe.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  var reset = false, n = 0;
+  try { n = unstartedYes_(currentYear_(), false); } catch (err) { n = 0; }
+  if (n) {
+    reset = ui.alert('Campuses that have sent nothing',
+      plural_(n, 'campus is', 'campuses are') + ' marked Yes for Has PTO or PTA but ' + (n === 1 ? 'has' : 'have') + ' sent nothing this school year (no documents, no officer form, nothing in the log).\n\n' +
+      'Set ' + (n === 1 ? 'it' : 'them') + ' to Not Yet Confirmed, so the dashboard counts only campuses that have sent something (and the PTAs on the Texas PTA roster) as PTO/PTAs? ' +
+      'A campus becomes Yes again by itself as soon as it sends something.\n\nYes = set them to Not Yet Confirmed. No = leave them as Yes.', ui.ButtonSet.YES_NO) === ui.Button.YES;
+  }
+  var res;
+  try { res = applyOctober2026_({ reset: reset }); }
+  catch (err) { ui.alert('Not updated', err.message, ui.ButtonSet.OK); return; }
+  ui.alert(res.ok ? 'Updated' : 'Updated, but please check', res.lines.join('\n'), ui.ButtonSet.OK);
+}
+
+function applyOctober2026_(opts) {
+  opts = opts || {};
+  var ss = SpreadsheetApp.getActive(), lines = [];
+  if (!ss.getSheetByName(CFG.TAB_REGISTER)) throw new Error('The tab "' + CFG.TAB_REGISTER + '" was not found. Nothing was changed.');
+  if (!ss.getSheetByName(CFG.TAB_SETTINGS)) throw new Error('The tab "' + CFG.TAB_SETTINGS + '" was not found. Nothing was changed.');
+  var t = table_(CFG.TAB_REGISTER);
+  CFG.ITEMS.forEach(function (it) { if (t.col[it.key] === undefined) throw new Error('Campus Register has no column headed "' + it.key + '". If it still has Bank Account Info and Tax ID EIN Letter, run "Update to the new document list" first. Nothing was changed.'); });
+  var L = settingsLayout_();
+  if (!L.rows['needed to be legalized?']) throw new Error('The Settings tab has no "Needed to be Legalized?" row. Run "Update to the new document list" first. Nothing was changed.');
+
+  // 1. backup
+  var tz = ss.getSpreadsheetTimeZone();
+  var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before the October 2026 update ' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss'));
+  lines.push('Backup saved in your Drive: ' + copy.getName());
+
+  // 2. Settings: Legalized = six documents; Not Needed in the status list; the wording next to the counts
+  var s = settingsOctober_();
+  lines.push(s.articles ? 'Settings: Articles of Incorporation is no longer needed to be Legalized (row "Needed to be Legalized?" is now No). Legalized means the six documents in FACE\'s wording.'
+    : 'Settings: Legalized already means the six documents.');
+  if (s.listAdded) lines.push('Settings: Not Needed was added to the Item Status list.');
+
+  // 3. Campus Register: formulas count Not Needed as done; the document dropdowns offer it
+  var nf = rewriteRegisterFormulas_(true);
+  setItemValidation_();
+  lines.push('Campus Register: recalculated the Status and count columns for ' + nf + ' rows (Not Needed counts like Accepted), and the document dropdowns now offer Not Needed.');
+
+  // 4. sign-ins: an Email column
+  var si = ss.getSheetByName(CFG.TAB_SIGNINS);
+  if (si && ensureEmailColumn_(si)) lines.push('Dashboard Sign-ins: added an Email column. Type each C1\'s email there; the Review tab uses it to remind C1s.');
+
+  // 5. campuses marked Yes that have sent nothing
+  if (opts.reset) {
+    var nr = unstartedYes_(currentYear_(), true);
+    lines.push(nr ? plural_(nr, 'campus that had sent nothing was', 'campuses that had sent nothing were') + ' set to Not Yet Confirmed (the dashboard shows "Nothing received yet").' : 'No campus needed to be set to Not Yet Confirmed.');
+  }
+
+  // 6. every campus of every Area Office
+  if (ss.getSheetByName(CFG.TAB_CAMPUSES)) {
+    var ar = addAreaCampuses_();
+    lines = lines.concat(areaSummary_(ar));
+  } else lines.push('The Area Office Campuses tab is not here yet. Import it (File > Import > Upload > Insert new sheet, named "' + CFG.TAB_CAMPUSES + '"), then choose PTO/PTA Tracker > Add every campus from the Area Office Campuses tab.');
+
+  // 7. wording
+  var w = updateWordingOctober_();
+  if (w) lines.push('Updated the wording on Start Here (' + w + ' places).');
+
+  SpreadsheetApp.flush();
+  var bad = scanForErrors_();
+  if (bad.length) lines.push('', 'Please check: these cells show an error: ' + bad.slice(0, 6).join(', ') + (bad.length > 6 ? ' and ' + (bad.length - 6) + ' more' : '') + '.', 'If anything looks wrong, the backup copy above has everything as it was.');
+  return { ok: !bad.length, lines: lines };
+}
+
+/** Settings for October 2026. Returns { articles: true when Articles was changed to No, listAdded: true when Not Needed was added }. */
+function settingsOctober_() {
+  var L = settingsLayout_(), sh = L.sh, out = { articles: false, listAdded: false };
+  var names = L.vals[L.rows['requirement'] - 1], legal = L.vals[L.legalRow - 1] || [];
+  for (var j = L.first; j <= L.last; j++) {
+    var it = itemByKey_(cellText_(names[j]));
+    if (it && it.optional && norm_(legal[j]) === 'yes') { sh.getRange(L.legalRow, j + 1).setValue('No'); if (it.key === 'Articles of Incorporation') out.articles = true; }
+  }
+  sh.getRange(L.rows['items required to be registered'], 4).setValue('Registered = ' + defsList_(true) + '.');
+  sh.getRange(L.rows['items required to be legalized'], 4).setValue('Legalized = ' + defsList_(false) + '. Not Needed counts like Accepted.');
+  // "Item Status" list at the bottom: add Not Needed below the last value
+  for (var r = 0; r < L.vals.length; r++) {
+    for (var c = 0; c < L.vals[r].length; c++) {
+      if (norm_(L.vals[r][c]) !== 'item status') continue;
+      var last = r, has = false;
+      for (var k = r + 1; k < L.vals.length && cellText_(L.vals[k][c]); k++) { last = k; if (cellText_(L.vals[k][c]) === 'Not Needed') has = true; }
+      if (!has) { sh.getRange(last + 2, c + 1).setValue('Not Needed'); out.listAdded = true; }
+      return out;
+    }
+  }
+  return out;
+}
+
+/** FACE's wording: the Registered list (reg = true) or the Legalized list, from the items and their flags in Settings. */
+function defsList_(reg) {
+  var f = itemFlags_(), list = [];
+  [2, 0, 1, 3, 4, 5, 6, 7].forEach(function (i) {   // FACE lists the training certificate first
+    var it = CFG.ITEMS[i];
+    if (it && (reg ? f.reg[i] : f.req[i])) list.push(it.label.charAt(0).toLowerCase() + it.label.slice(1));
+  });
+  return list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] : list.join('');
+}
+
+/** The document columns of Campus Register get a dropdown with every status, Not Needed included. */
+function setItemValidation_() {
+  var t = table_(CFG.TAB_REGISTER), n = Math.max(t.sh.getMaxRows() - 1, 1);
+  var rule = SpreadsheetApp.newDataValidation().requireValueInList(CFG.ITEM_STATUSES, true).setAllowInvalid(false)
+    .setHelpText('Not Received, Received, Accepted, Needs Correction, or Not Needed (a reviewer decided this PTO/PTA does not need it).').build();
+  CFG.ITEMS.forEach(function (it) { t.sh.getRange(2, t.col[it.key] + 1, n, 1).setDataValidation(rule); });
+}
+
+/**
+ * Campuses of the school year marked Yes that have sent nothing: every document Not Received, no officer form on the Officers tab and no
+ * line in the Submission Log. apply = true sets them to Not Yet Confirmed. Returns how many.
+ */
+function unstartedYes_(year, apply) {
+  var ss = SpreadsheetApp.getActive(), t = table_(CFG.TAB_REGISTER), active = {};
+  if (ss.getSheetByName(CFG.TAB_LOG)) {
+    var lt = table_(CFG.TAB_LOG);
+    for (var i = 1; i < lt.values.length; i++) if (cellText_(lt.values[i][lt.col['School Year']]) === year) active[norm_(lt.values[i][lt.col['Campus']])] = 1;
+  }
+  if (ss.getSheetByName(CFG.TAB_OFFICERS)) {
+    var ot = table_(CFG.TAB_OFFICERS);
+    for (var o = 1; o < ot.values.length; o++) if (cellText_(ot.values[o][ot.col['School Year']]) === year) active[norm_(ot.values[o][ot.col['Campus']])] = 1;
+  }
+  var n = 0;
+  for (var r = 1; r < t.values.length; r++) {
+    var v = t.values[r], campus = cellText_(v[t.col['Campus']]);
+    if (!campus || cellText_(v[t.col['School Year']]) !== year || cellText_(v[t.col['Has PTO or PTA']]) !== 'Yes' || active[norm_(campus)]) continue;
+    if (CFG.ITEMS.some(function (it) { var x = cellText_(v[t.col[it.key]]); return x && x !== 'Not Received'; })) continue;
+    n++;
+    if (apply) setCell_(t, r + 1, 'Has PTO or PTA', 'Not Yet Confirmed');
+  }
+  return n;
+}
+
+/** The Start Here tab in FACE's wording (October 2026). Returns how many cells changed. */
+function updateWordingOctober_() {
+  var start = SpreadsheetApp.getActive().getSheetByName('Start Here');
+  if (!start) return 0;
+  var byStart = [
+    ['Registered:', 'Registered: these three are accepted for the school year: ' + defsList_(true) + '.'],
+    ['Legalized:', 'Legalized: these are all accepted: ' + defsList_(false) + '. Articles of incorporation and liability and property insurance are tracked when a PTO/PTA sends them, but are not needed. A reviewer can mark any document Not Needed for a PTO/PTA (for example a PTA that Texas PTA covers); it then counts as done.'],
+    ['Item status:', 'Item status: Not Received, Received (waiting for review), Accepted, Needs Correction, or Not Needed. Accepted and Not Needed count. The form sets Received; a reviewer checks each document off on the dashboard (or in the Campus Register tab).'],
+    ['Has PTO or PTA:', 'Has PTO or PTA: Yes, No, or Not Yet Confirmed (the default; the dashboard shows it as "Nothing received yet"). A campus becomes Yes by itself when it sends documents or an officer form, when a reviewer checks a document off, or when the Texas PTA roster lists it. A form answer of Not Yet Confirmed never overwrites a Yes or a No.'],
+    ['Articles of Incorporation (Legalized):', 'Articles of Incorporation (not needed): Filed Articles of Incorporation are on file. Tracked when a PTO/PTA sends them; not needed to be Registered or Legalized. One-time: carried into next year.'],
+    ['Bank and EIN Letter (Legalized):', 'Bank and EIN Letter (Legalized): ' + itemByKey_('Bank and EIN Letter').label + '. A Tax ID (EIN) letter sent with it is filed here too.']
+  ];
+  var v = start.getDataRange().getValues(), changed = 0;
+  for (var i = 0; i < v.length; i++) {
+    var cell = v[i][0];
+    if (typeof cell !== 'string' || !cell) continue;
+    var s = cell;
+    byStart.forEach(function (p) { if (cell.indexOf(p[0]) === 0) s = p[1]; });
+    if (cell.indexOf('1. Only Articles of Incorporation is one-time') === 0 && cell.indexOf('9. Changed on October 9, 2026') < 0) {
+      s = cell + '  9. Changed on October 9, 2026: Registered and Legalized use FACE\'s wording, and Legalized means six documents (Articles of Incorporation is no longer needed). ' +
+        'Reviewers check each document off on the dashboard (there, needs correction, not there, or not needed) with remarks that go into the email to the PTO/PTA. ' +
+        'Every campus of every Area Office is listed; a campus counts as having a PTO/PTA once it sends something or is on the Texas PTA roster.';
+    }
+    if (s !== cell) { start.getRange(i + 1, 1).setValue(s); changed++; }
+  }
+  return changed;
 }
 
 /* ================================================================== year and file helpers */

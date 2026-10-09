@@ -243,6 +243,7 @@ details.defs p { margin-top: 8px; }
 .pill.In-progress { background: var(--prog-bg); color: var(--prog-ink); }
 .pill.Not-started { background: var(--ns-bg); color: var(--ns-ink); }
 .pill.Not-yet-confirmed { background: var(--warn-bg); color: var(--warn-ink); }
+.pill.Nothing-received-yet { background: var(--ns-bg); color: var(--ns-ink); }
 .pill.No-PTO-PTA { background: var(--ns-bg); color: var(--ns-ink); }
 .s-A { background: var(--acc); } .s-R { background: var(--rev); } .s-C { background: var(--fix); } .s-N { background: var(--none); }
 
@@ -346,6 +347,45 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
 .rwhy { margin-top: 2px; font-size: 13px; color: var(--err-ink); background: var(--err-bg); border-radius: 6px; padding: 4px 9px; display: inline-block; }
 .rhelp { margin-bottom: 8px; }
 .plist .meta, .act span, .rwhy, .rerr { overflow-wrap: anywhere; }
+
+/* not needed: a reviewer decided this PTO/PTA does not need the document; it counts as done */
+.ic.X { background: var(--ns-bg); color: var(--ink2); border: 1px dashed var(--axis); }
+.s-X { background: var(--axis); }
+
+/* whole-number tables (Area Offices, documents) */
+.tscroll { overflow-x: auto; }
+.ntab { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+.ntab th, .ntab td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+.ntab th:first-child, .ntab td:first-child { text-align: left; white-space: normal; }
+.ntab thead th { font-size: 12.5px; color: var(--muted); font-weight: 600; vertical-align: bottom; }
+.ntab td b { font-size: 15px; }
+.ntab tbody tr:hover { background: var(--hover); }
+.ntab .linkbtn { font-weight: 600; text-align: left; }
+.ntab tr.grprow td { color: var(--muted); font-size: 12.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding-top: 16px; background: none; }
+.ntab .zero { color: var(--muted); }
+
+/* the checklist */
+.chk > li.edited { background: color-mix(in srgb, var(--rev) 16%, transparent); border-radius: 6px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.seg button { min-height: 30px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.seg button:hover { background: var(--hover); }
+.seg button[aria-pressed="true"] { border-color: transparent; font-weight: 600; }
+.seg button[aria-pressed="true"][data-v="A"] { background: var(--acc); color: var(--on-acc); }
+.seg button[aria-pressed="true"][data-v="C"] { background: var(--fix); color: var(--on-fix); }
+.seg button[aria-pressed="true"][data-v="N"] { background: var(--ns-bg); color: var(--ink); border-color: var(--ink2); }
+.seg button[aria-pressed="true"][data-v="X"] { background: var(--axis); color: var(--ink); }
+.rmk { margin-top: 8px; }
+.rmk label { display: block; font-size: 12.5px; color: var(--ink2); margin-bottom: 3px; }
+.rmk textarea, .crmk textarea { width: 100%; background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px; padding: 6px 9px; font: inherit; font-size: 13.5px; resize: vertical; min-height: 38px; }
+.crmk textarea { min-height: 70px; }
+.rmk-show { margin-top: 6px; font-size: 13px; }
+.rnote { margin-top: 4px; font-size: 13px; color: var(--ink2); background: var(--ns-bg); border-radius: 6px; padding: 4px 9px; display: inline-block; overflow-wrap: anywhere; }
+.savebar { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; padding: 12px 0; background: var(--surface); border-top: 1px solid var(--grid); font-size: 13.5px; color: var(--ink2); }
+.mailnudge.c1 { margin-top: 18px; }
+.c1list { list-style: none; margin: 10px 0 0; padding: 0; }
+.c1list > li { padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.c1list .nm { font-weight: 600; }
+.c1list .meta { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
 .act > li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 0 10px; font-size: 13.5px; }
 .act .d { color: var(--muted); font-variant-numeric: tabular-nums; }
 .act .nt { color: var(--ink2); font-style: italic; }
@@ -480,19 +520,17 @@ a.btn.primary { color: var(--btn-ink); }
       </div>
       <div class="sec">
         <h2>By Area Office</h2>
-        <p class="hint">Select an Area Office to see its campuses.</p>
+        <p class="hint">Whole numbers for each Area Office. Select an Area Office to see its campuses.</p>
         <div id="areas"></div>
       </div>
       <div class="sec">
         <h2>Documents</h2>
-        <p class="hint">How many PTO/PTAs have each item accepted, and how many more are waiting for review.</p>
+        <p class="hint">For the campuses with a PTO/PTA: how many have each document accepted, waiting for review, sent back for correction, or not needed.</p>
         <div id="docs"></div>
       </div>
-      <details class="defs">
+      <details class="defs" id="defs">
         <summary>What Registered and Legalized mean</summary>
-        <p><b>Registered</b> means three items are accepted for the school year: the training certificate, the bylaws, and the officer information form.</p>
-        <p><b>Legalized</b> means those three plus the annual budget report (or meeting minutes showing budget approval), proof of 501(c) status, the bank verification letter listing two authorized signers together with the Tax ID (EIN) letter, and Articles of Incorporation are all accepted. Liability and property insurance is optional: it is shown when a PTO/PTA sends it, but it is not needed to be Legalized.</p>
-        <p>"Waiting for review" means a document has arrived and has not been accepted yet. Only "Accepted" counts toward Registered or Legalized.</p>
+        <div id="defsBody"></div>
       </details>
     </section>
 
@@ -511,7 +549,7 @@ a.btn.primary { color: var(--btn-ink); }
       </div>
       <div class="chips" id="chips" role="group" aria-label="Show campuses"></div>
       <p class="ccount" id="ccount" aria-live="polite"></p>
-      <div class="chead" aria-hidden="true"><span>Campus</span><span>Status</span><span>Documents</span><span style="text-align:right">Accepted</span></div>
+      <div class="chead" aria-hidden="true"><span>Campus</span><span>Status</span><span>Documents</span><span style="text-align:right">Done</span></div>
       <ul class="clist" id="clist"></ul>
     </section>
 
@@ -573,39 +611,47 @@ a.btn.primary { color: var(--btn-ink); }
 'use strict';
 var PRISTINE = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
 
+/* label is FACE's wording, used everywhere on this page and in the emails; the live page takes it from the script (payload.labels)
+   so the two never differ. nm is the short name used in sentences and the activity list. */
 var DOCS = [
-  { nm: 'Bylaws', key: 'Bylaws', label: 'Bylaws', short: 'Bylaws', reg: true, alias: ['bylaws', 'by laws'] },
-  { nm: 'Officer information form', key: 'Officer Information', label: 'Officer information form', short: 'Officers', reg: true, alias: ['officer information', 'officers', 'officer info'] },
+  { nm: 'Bylaws', key: 'Bylaws', label: 'The organization\'s bylaws', short: 'Bylaws', reg: true, alias: ['bylaws', 'by laws'] },
+  { nm: 'Officer information form', key: 'Officer Information', label: 'The officer information form', short: 'Officers', reg: true, alias: ['officer information', 'officers', 'officer info'] },
   { nm: 'Training certificate', key: 'Training Certificate', label: 'Training certificate', short: 'Training', reg: true, alias: ['training certificate', 'training proof'] },
   { nm: 'Budget report or minutes', key: 'Budget or Financial Report', label: 'Annual budget report or meeting minutes showing budget approval', short: 'Budget', alias: ['budget or financial report', 'proof of budget', 'budget treasurer s report or audit', 'budget'] },
   { nm: 'Proof of 501(c) status', key: 'Proof of 501c Status', label: 'Proof of 501(c) status', short: '501(c)', alias: ['proof of 501c status', 'proof of 501 c status', '501c proof', '501 c proof'] },
-  { nm: 'Bank and EIN letter', key: 'Bank and EIN Letter', label: 'Bank verification letter listing two authorized signers, with the Tax ID (EIN) letter', short: 'Bank and EIN', alias: ['bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] },
-  { nm: 'Articles of incorporation', key: 'Articles of Incorporation', label: 'Articles of incorporation', short: 'Articles', alias: ['articles of incorporation', 'articles'] },
+  { nm: 'Bank verification letter', key: 'Bank and EIN Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank letter', alias: ['bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] },
+  { nm: 'Articles of incorporation', key: 'Articles of Incorporation', label: 'Articles of incorporation', short: 'Articles', opt: true, alias: ['articles of incorporation', 'articles'] },
   { nm: 'Insurance', key: 'Insurance', label: 'Liability and property insurance', short: 'Insurance', opt: true, alias: ['insurance', 'insurance liability property'] }
 ];
-var TXT = { A: 'Accepted', R: 'Received, awaiting review', C: 'Needs correction', N: 'Not received' };
+/* FACE lists the training certificate first; DOCS stays in the register's column order, so the page shows them in this order */
+var SHOW = [2, 0, 1, 3, 4, 5, 6, 7];
+function shown() { return SHOW.filter(function (i) { return i < DOCS.length; }); }
+var TXT = { A: 'Accepted', R: 'Received, awaiting review', C: 'Needs correction', N: 'Not received', X: 'Not needed for this PTO/PTA' };
 var ICON = {
   A: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.5l2.6 2.6L11 4.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   R: '<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 4.6V7l1.7 1.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   C: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 3v4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="10.6" r="1.15" fill="currentColor"/></svg>',
-  N: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M4.5 7h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+  N: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M4.5 7h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  X: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M4.4 4.4l5.2 5.2M9.6 4.4l-5.2 5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
 };
 
 function $(s) { return document.querySelector(s); }
 function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function count(str, ch) { var n = 0; for (var i = 0; i < str.length; i++) if (str[i] === ch) n++; return n; }
 function num(n) { return Number(n).toLocaleString('en-US'); }
-function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '0%'; }
 var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Secondary', 'Programs/Charters'];
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-05a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-09a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
 var payload = templateOnly ? { sample: false, rows: [] } : JSON.parse(rawData);
 if (!payload.rows) payload.rows = [];
+useLabels();
+/** FACE's wording for each document comes from the script, so the page, the emails and the sheet say the same thing. */
+function useLabels() { var L = payload.labels; if (L && L.length === DOCS.length) DOCS.forEach(function (d, i) { if (L[i]) d.label = L[i]; }); }
 var booting = !!payload.boot;                      // live page: the numbers have not arrived yet
 var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', mine: false };
 var session = { token: '' };
@@ -635,18 +681,20 @@ function isReq(i) { var f = payload.req; return isReg(i) || (f && f.length === D
 function nOf(test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (test(i)) n++; return n; }
 function nReg() { return nOf(isReg); }
 function nReq() { return nOf(isReq); }
-function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (test(i) && r.d[i] === 'A') n++; return n; }
+/* an item is done when it is Accepted, or Not needed for this PTO/PTA (a reviewer decided it does not need it) */
+function isDone(c) { return c === 'A' || c === 'X'; }
+function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (test(i) && isDone(r.d[i])) n++; return n; }
 function accReg(r) { return accIn(r, isReg); }
 function accReq(r) { return accIn(r, isReq); }
 function accOpt(r) { return accIn(r, function (i) { return !isReq(i); }); }
 function regDone(r) { return accReg(r) === nReg(); }
 function legDone(r) { return accReq(r) === nReq(); }
-function anyIn(r) { return count(r.d, 'N') < r.d.length; }
+function anyIn(r) { return count(r.d, 'N') + count(r.d, 'X') < r.d.length; }
 function grpOf(i) { return isReg(i) ? 0 : isReq(i) ? 1 : 2; }
 
 function statusOf(r) {
   if (r.pto === 'No') return 'No PTO/PTA';
-  if (r.pto !== 'Yes') return 'Not yet confirmed';
+  if (r.pto !== 'Yes') return 'Nothing received yet';
   if (legDone(r)) return 'Legalized';
   if (regDone(r)) return 'Registered';
   return anyIn(r) ? 'In progress' : 'Not started';
@@ -665,7 +713,7 @@ function stats(rows) {
   s.regOnly = s.registered - s.legalized;
   s.inprog = s.started - s.registered;
   s.notStarted = s.yes - s.started;
-  s.docs = DOCS.map(function (_, i) { var o = { A: 0, R: 0, C: 0, N: 0 }; yes.forEach(function (r) { o[r.d[i]]++; }); return o; });
+  s.docs = DOCS.map(function (_, i) { var o = { A: 0, R: 0, C: 0, N: 0, X: 0 }; yes.forEach(function (r) { o[r.d[i]] = (o[r.d[i]] || 0) + 1; }); return o; });
   s.nycWithDocs = rows.filter(function (r) { return r.pto === 'NYC' && anyIn(r); }).length;
   s.waitDocs = 0; s.waitCampuses = 0; s.fixDocs = 0; s.fixCampuses = 0;
   rows.forEach(function (r) { var w = count(r.d, 'R'), f = count(r.d, 'C'); if (w) { s.waitDocs += w; s.waitCampuses++; } if (f) { s.fixDocs += f; s.fixCampuses++; } });
@@ -706,9 +754,20 @@ function renderHero() {
 /** Documents waiting for review that this person could act on, in the chosen school year. */
 function reviewCount() {
   var n = 0;
-  yearRows().forEach(function (r) { if (canSee(r)) n += count(r.d, 'R'); });
+  yearRows().forEach(function (r) { if (canSee(r)) n += count(r.d, 'R') + (newFiles(r) ? 1 : 0); });
   return n;
 }
+/** An "Other documents" file arrived after the last time anyone checked this campus off: a reviewer should look at it. */
+var REVIEW_NOTE = /^(Accepted: |Needs correction, |Not needed, |Not there, |Remark, |Remark cleared, |Put back to Received)/;
+function newFiles(r) {
+  var a = detailFor(r).a;
+  for (var k = 0; k < a.length; k++) {
+    if (nk(a[k][1]) === 'other documents') return true;
+    if (REVIEW_NOTE.test(a[k][4] || '')) return false;
+  }
+  return false;
+}
+function waiting(r) { return count(r.d, 'R') > 0 || newFiles(r); }
 
 function renderBar() {
   var areas = {}; yearRows().forEach(function (r) { areas[r.area] = 1; });
@@ -745,33 +804,30 @@ function kpi(cls, ico, label, val, tag, sub, frac, st, goText) {
     (frac === null ? '' : '<span class="kmeter" aria-hidden="true"><i style="width:' + Math.max(0, Math.min(100, frac * 100)).toFixed(1) + '%"></i></span>') +
     '<span class="kgo">' + esc(goText) + '</span></button>';
 }
+/* whole numbers only: no percentages and no "how complete" bars (FACE, October 2026) */
 function renderKpis(s) {
   if (!s.roster) { $('#kpis').innerHTML = '<p class="empty">No campuses match this view.</p>'; return; }
   var wsub = s.waitDocs ? (s.waitDocs === 1 ? 'document at ' : 'documents at ') + plural(s.waitCampuses, 'campus', 'campuses') + (s.fixDocs ? '. ' + num(s.fixDocs) + ' sent back for correction.' : '.')
     : 'Nothing is waiting' + (s.fixDocs ? '. ' + num(s.fixDocs) + ' sent back for correction.' : '.');
   $('#kpis').innerHTML =
-    kpi('k1', 'pto', 'Have a PTO/PTA', s.yes, s.roster ? pct(s.yes, s.roster) : '', 'of ' + num(s.roster) + ' campuses' + (s.nyc ? '. ' + num(s.nyc) + ' not confirmed yet.' : '.'), s.roster ? s.yes / s.roster : 0, '', 'See the campuses') +
-    kpi('k2', 'reg', 'Registered', s.registered, pct(s.registered, s.yes), 'of ' + num(s.yes) + ' PTO/PTAs. Includes the ' + num(s.legalized) + ' that are also legalized.', s.yes ? s.registered / s.yes : 0, 'regall', 'See the campuses') +
-    kpi('k3', 'leg', 'Legalized', s.legalized, pct(s.legalized, s.yes), 'of ' + num(s.yes) + ' PTO/PTAs have all ' + words(nReq()) + ' required items accepted.', s.yes ? s.legalized / s.yes : 0, 'Legalized', 'See the campuses') +
+    kpi('k1', 'pto', 'PTO/PTAs', s.yes, '', num(s.roster) + ' campuses on the list' + (s.nyc ? '. ' + num(s.nyc) + ' with nothing received yet.' : '.'), null, '', 'See the campuses') +
+    kpi('k2', 'reg', 'Registered', s.registered, '', 'Includes the ' + num(s.legalized) + ' that ' + (s.legalized === 1 ? 'is' : 'are') + ' also legalized.', null, 'regall', 'See the campuses') +
+    kpi('k3', 'leg', 'Legalized', s.legalized, '', 'All ' + words(nReq()) + ' documents done.', null, 'Legalized', 'See the campuses') +
     kpi('k4', 'wait', 'Waiting for review', s.waitDocs, '', wsub, null, 'review', 'See the campuses');
 }
 
 function renderStack(s) {
-  if (!s.yes) { $('#stack').innerHTML = '<p class="empty">No campus here has a confirmed PTO/PTA yet.</p>'; return; }
+  if (!s.yes) { $('#stack').innerHTML = '<p class="empty">No campus here has sent anything yet.</p>'; return; }
   var seg = [
-    { k: 'Legalized', c: 'leg', n: 'Legalized', v: s.legalized, d: 'All ' + words(nReq()) + ' required items accepted' },
-    { k: 'Registered', c: 'reg', n: 'Registered, not yet legalized', v: s.regOnly, d: 'The ' + words(nReg()) + ' registration items accepted' },
+    { k: 'Legalized', c: 'leg', n: 'Legalized', v: s.legalized, d: 'All ' + words(nReq()) + ' documents done' },
+    { k: 'Registered', c: 'reg', n: 'Registered, not yet legalized', v: s.regOnly, d: 'The ' + words(nReg()) + ' registration documents done' },
     { k: 'In progress', c: 'prog', n: 'In progress', v: s.inprog, d: 'Some documents in, not registered yet' },
     { k: 'Not started', c: 'ns', n: 'Not started', v: s.notStarted, d: 'Nothing received yet' }
   ];
-  var bar = seg.filter(function (x) { return x.v > 0; }).map(function (x) {
-    var wide = x.v / s.yes >= 0.05;
-    return '<button type="button" class="c-' + x.c + '" style="flex:' + x.v + ' 1 0" data-st="' + esc(x.k) + '" data-tip="' + esc(x.n + '|' + num(x.v) + ' of ' + num(s.yes) + ' PTO/PTAs (' + pct(x.v, s.yes) + ')') + '" aria-label="' + esc(x.n + ': ' + x.v + ' of ' + s.yes + ' PTO/PTAs') + '">' + (wide ? num(x.v) : '') + '</button>';
-  }).join('');
   var tiles = seg.map(function (x) {
     return '<button type="button" class="stage ' + x.c + '" data-st="' + esc(x.k) + '"><b>' + num(x.v) + '</b><span class="nm">' + esc(x.n) + '</span><span class="ds">' + esc(x.d) + '</span></button>';
   }).join('');
-  $('#stack').innerHTML = '<div class="stack" role="group" aria-label="PTO/PTAs by stage">' + bar + '</div><div class="stages">' + tiles + '</div>';
+  $('#stack').innerHTML = '<div class="stages" role="group" aria-label="PTO/PTAs by stage">' + tiles + '</div>';
 }
 
 function renderAreas() {
@@ -779,38 +835,43 @@ function renderAreas() {
   rows.forEach(function (r) { (map[r.area] = map[r.area] || []).push(r); });
   var names = Object.keys(map).sort(areaCmp);
   if (!names.length) { $('#areas').innerHTML = '<p class="empty">No data.</p>'; return; }
-  var legend = '<div class="legend"><span><i class="sw" style="background:var(--b-leg)"></i>Legalized</span><span><i class="sw" style="background:var(--b-reg)"></i>Registered, not yet legalized</span><span><i class="sw" style="background:var(--grid)"></i>Not yet registered</span></div>';
-  $('#areas').innerHTML = legend + names.map(function (a) {
-    var s = stats(map[a]), rest = Math.max(s.yes - s.registered, 0);
-    var tip = [a, 'Legalized ' + s.legalized, 'Registered, not yet legalized ' + s.regOnly, 'Not yet registered ' + rest].join('|');
-    var bar = s.yes ? '<div class="abar" data-tip="' + esc(tip) + '">' +
-      (s.legalized ? '<i style="flex:' + s.legalized + ' 1 0;background:var(--b-leg)"></i>' : '') +
-      (s.regOnly ? '<i style="flex:' + s.regOnly + ' 1 0;background:var(--b-reg)"></i>' : '') +
-      (rest ? '<i style="flex:' + rest + ' 1 0;background:transparent"></i>' : '') + '</div>' : '<div class="avals">No PTO/PTA confirmed yet</div>';
-    return '<button type="button" class="arow" data-area="' + esc(a) + '"><span class="nm">' + esc(a) + '<small>' + num(s.roster) + ' campuses, ' + num(s.yes) + ' with a PTO/PTA</small></span>' + bar +
-      '<span class="avals"><b>' + num(s.registered) + '</b> registered<br><b>' + num(s.legalized) + '</b> legalized</span></button>';
-  }).join('');
+  function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
+  var all = stats(rows);
+  $('#areas').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Area Office</th><th scope="col">Campuses</th><th scope="col">PTO/PTAs</th><th scope="col">Registered</th><th scope="col">Legalized</th><th scope="col">Waiting for review</th></tr></thead><tbody>' +
+    names.map(function (a) {
+      var x = stats(map[a]);
+      return '<tr><th scope="row"><button type="button" class="linkbtn" data-area="' + esc(a) + '">' + esc(a) + '</button></th>' + cell(x.roster) + cell(x.yes) + cell(x.registered) + cell(x.legalized) + cell(x.waitDocs) + '</tr>';
+    }).join('') +
+    '</tbody><tfoot><tr><th scope="row">All Area Offices</th>' + cell(all.roster) + cell(all.yes) + cell(all.registered) + cell(all.legalized) + cell(all.waitDocs) + '</tr></tfoot></table></div>';
 }
 
 function renderDocs(s) {
   var box = $('#docs');
   if (!s.yes) { box.innerHTML = '<p class="empty">No campuses with a PTO/PTA in this view.</p>'; return; }
-  var legend = '<div class="legend"><span><i class="sw" style="background:var(--acc)"></i>Accepted</span><span><i class="sw" style="background:var(--rev)"></i>Waiting for review</span></div>';
-  box.innerHTML = legend + DOCS.map(function (d, i) {
-    var o = s.docs[i];
-    var tip = [d.label, 'Accepted ' + o.A, 'Waiting for review ' + o.R, 'Needs correction ' + o.C, 'Not received ' + o.N].join('|');
-    var g = i > 0 && grpOf(i) === grpOf(i - 1) ? '' : '<div class="grp">' + ['Needed to register', 'Also needed to become legalized', 'Optional: not needed to become legalized'][grpOf(i)] + '</div>';
-    return g + '<div class="drow" tabindex="0" data-tip="' + esc(tip) + '"><div>' + esc(d.label) + '</div><div class="dtrack">' +
-      (o.A ? '<i class="a" style="flex:' + o.A + ' 1 0"></i>' : '') + (o.R ? '<i class="w" style="flex:' + o.R + ' 1 0"></i>' : '') + (s.yes - o.A - o.R ? '<i style="flex:' + (s.yes - o.A - o.R) + ' 1 0"></i>' : '') +
-      '</div><div class="dval"><b>' + num(o.A) + '</b> of ' + num(s.yes) + (o.R ? ' <span>(+' + num(o.R) + ' waiting)</span>' : '') + '</div></div>';
-  }).join('');
+  function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
+  var last = -1;
+  box.innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Document</th><th scope="col">Accepted</th><th scope="col">Waiting for review</th><th scope="col">Needs correction</th><th scope="col">Not needed</th><th scope="col">Not received</th></tr></thead><tbody>' +
+    shown().map(function (i) {
+      var o = s.docs[i], g = grpOf(i), head = '';
+      if (g !== last) { head = '<tr class="grprow"><td colspan="6">' + ['Registration', 'Legalization', 'Other documents (not required)'][g] + '</td></tr>'; last = g; }
+      return head + '<tr><th scope="row">' + esc(DOCS[i].label) + '</th>' + cell(o.A) + cell(o.R) + cell(o.C) + cell(o.X || 0) + cell(o.N) + '</tr>';
+    }).join('') + '</tbody></table></div>';
+}
+
+/** "What Registered and Legalized mean", in FACE's wording, from the same list the counts use. */
+function renderDefs() {
+  function list(test) { return '<ul>' + shown().filter(test).map(function (i) { return '<li>' + esc(DOCS[i].label) + '</li>'; }).join('') + '</ul>'; }
+  var other = shown().filter(function (i) { return !isReq(i); }).map(function (i) { return DOCS[i].label.toLowerCase(); });
+  $('#defsBody').innerHTML = '<p><b>Registration:</b></p>' + list(isReg) + '<p><b>Legalization:</b></p>' + list(isReq) +
+    (other.length ? '<p>Not required: ' + esc(other.join(' and ')) + '. They are tracked when a PTO/PTA sends them.</p>' : '') +
+    '<p>"Waiting for review" means a document has arrived and has not been checked yet. A document counts when a reviewer accepts it, or marks it not needed for that PTO/PTA.</p>';
 }
 
 function renderOverview(s) {
   var sc = $('#scope');
   sc.hidden = !state.area;
   if (state.area) sc.innerHTML = 'Showing <b>' + esc(state.area) + '</b> only. <button type="button" class="linkbtn" data-clear="area">Show all Area Offices</button>';
-  renderKpis(s); renderStack(s); renderAreas(); renderDocs(s);
+  renderKpis(s); renderStack(s); renderAreas(); renderDocs(s); renderDefs();
 }
 
 /* campuses */
@@ -818,7 +879,7 @@ var FILTERS = [
   { k: '', n: 'All PTO/PTAs' }, { k: 'Not started', n: 'Not started' }, { k: 'In progress', n: 'In progress' },
   { k: 'Registered', n: 'Registered, not yet legalized' }, { k: 'Legalized', n: 'Legalized' },
   { k: 'review', n: 'Waiting for review', opt: true, sep: true }, { k: 'fix', n: 'Sent back for correction', opt: true },
-  { k: 'nyc', n: 'Not yet confirmed', opt: true, sep: true }, { k: 'no', n: 'No PTO/PTA', opt: true }, { k: 'all', n: 'All campuses' }
+  { k: 'nyc', n: 'Nothing received yet', opt: true, sep: true }, { k: 'no', n: 'No PTO/PTA', opt: true }, { k: 'all', n: 'All campuses' }
 ];
 function inFilter(r, k) {
   switch (k) {
@@ -850,9 +911,9 @@ function renderChips(base) {
 
 function stripOf(r) {
   var a = accReq(r), o = accOpt(r), w = count(r.d, 'R'), c = count(r.d, 'C');
-  var label = a + ' of ' + nReq() + ' required items accepted' + (o ? ', ' + o + ' optional accepted' : '') + (w ? ', ' + w + ' waiting for review' : '') + (c ? ', ' + c + ' need correction' : '');
-  return '<span class="strip" role="img" aria-label="' + esc(label) + '">' + DOCS.map(function (d, i) {
-    var ch = r.d[i];
+  var label = a + ' of ' + nReq() + ' required documents done' + (o ? ', ' + o + ' other documents done' : '') + (w ? ', ' + w + ' waiting for review' : '') + (c ? ', ' + c + ' need correction' : '');
+  return '<span class="strip" role="img" aria-label="' + esc(label) + '">' + shown().map(function (i) {
+    var d = DOCS[i], ch = r.d[i];
     return '<span class="ic ' + ch + (isReq(i) ? '' : ' opt') + '" title="' + esc(d.label + (isReq(i) ? '' : ' (optional)') + ': ' + TXT[ch]) + '">' + ICON[ch] + '</span>';
   }).join('') + '</span>';
 }
@@ -887,7 +948,8 @@ function renderCampuses() {
 
 /* review (signed in only) */
 function reviewCard(r, ch, cls) {
-  var chips = DOCS.map(function (d, i) { return r.d[i] === ch ? '<span class="dchip ' + ch + '">' + esc(d.short) + '</span>' : ''; }).join('');
+  var chips = shown().map(function (i) { return r.d[i] === ch ? '<span class="dchip ' + ch + '">' + esc(DOCS[i].short) + '</span>' : ''; }).join('') +
+    (ch === 'R' && newFiles(r) ? '<span class="dchip R">Other files</span>' : '');
   return '<li data-c="' + esc(r.campus) + '"><button type="button" class="rcard campbtn ' + cls + '" aria-haspopup="dialog"><span><b>' + esc(r.campus) + '</b><span class="ao">' + esc(r.area) + '</span></span>' +
     '<span class="dchips">' + chips + '</span><span class="rgo">Open</span></button></li>';
 }
@@ -895,23 +957,64 @@ function renderReview() {
   var me = payload.me, box = $('#reviewBody');
   if (!me) { box.innerHTML = ''; return; }
   var rows = yearRows().filter(canSee);
-  var wait = rows.filter(function (r) { return r.d.indexOf('R') >= 0; }).sort(function (a, b) { return count(b.d, 'R') - count(a.d, 'R') || cmp(a.campus, b.campus); });
+  var wait = rows.filter(waiting).sort(function (a, b) { return count(b.d, 'R') - count(a.d, 'R') || cmp(a.campus, b.campus); });
   var fix = rows.filter(function (r) { return r.d.indexOf('C') >= 0; }).sort(function (a, b) { return cmp(a.campus, b.campus); });
-  var docs = wait.reduce(function (n, r) { return n + count(r.d, 'R'); }, 0);
+  var docs = wait.reduce(function (n, r) { return n + count(r.d, 'R') + (newFiles(r) ? 1 : 0); }, 0);
   var scope = me.role === 'c1' ? 'Your ' + plural(rows.length, 'campus', 'campuses') + (docs ? ', ' + num(wait.length) + ' with something to review.' : '.') : (docs ? 'At ' + plural(wait.length, 'campus', 'campuses') + '.' : 'All campuses.');
   var out = '<div class="rsum"><h2>' + (docs ? plural(docs, 'document is', 'documents are') + ' waiting for review' : 'Nothing is waiting for review') + '</h2><p>' + esc(scope) + '</p></div>';
   var unmailed = fix.filter(function (r) { return !mailStatus(r); }).length;
   if (unmailed) out += '<div class="mailnudge" role="status"><b>' + plural(unmailed, 'campus', 'campuses') + '</b> ' + (unmailed === 1 ? 'was' : 'were') + ' sent back for correction and ' + (unmailed === 1 ? 'has' : 'have') + ' not been emailed yet. <button type="button" class="linkbtn" data-jump="fixlist">Go to the list</button></div>';
   if (!docs && !unmailed) out += '<div class="caught"><b>You are all caught up.</b>New documents show up here after they are filed from the form.</div>';
   else if (!docs) out += '<p class="hint" style="margin-top:6px">New documents show up here after they are filed from the form.</p>';
-  else out += '<p class="hint" style="margin-top:6px">Open a campus, look at each file, then accept it or say what needs to be corrected.</p><ul class="rgrid">' + wait.map(function (r) { return reviewCard(r, 'R', ''); }).join('') + '</ul>';
+  else out += '<p class="hint" style="margin-top:6px">Open a campus, look at each file, then check off each document and save.</p><ul class="rgrid">' + wait.map(function (r) { return reviewCard(r, 'R', ''); }).join('') + '</ul>';
   if (fix.length) {
     fix.sort(function (a, b) { return (mailStatus(a) ? 1 : 0) - (mailStatus(b) ? 1 : 0) || cmp(a.campus, b.campus); });   // not yet emailed first
-    out += '<h3 class="rhead" id="fixlist" tabindex="-1">Sent back for correction: ask them to resend<small>' + plural(fix.length, 'campus', 'campuses') + (unmailed ? ', ' + num(unmailed) + ' not emailed yet' : ', all emailed') + '</small></h3>' +
+    out += '<h3 class="rhead" id="fixlist" tabindex="-1">Sent back for correction: email them<small>' + plural(fix.length, 'campus', 'campuses') + (unmailed ? ', ' + num(unmailed) + ' not emailed yet' : ', all emailed') + '</small></h3>' +
       '<p class="hint">Each email is written for you in Outlook, with the documents and your reasons. Read it, then press Send there. Nothing is sent from this page.</p>' + mailPrefHtml('data-mailact') +
       '<ul class="rgrid">' + fix.map(fixCard).join('') + '</ul>';
   }
+  if (me.role === 'staff') out += remindHtml();
   box.innerHTML = out;
+}
+
+/* ---------- remind C1s (FACE staff): an Outlook email to each C1 with campuses waiting, like the PTO/PTA emails ----------
+   The tracker's Google account cannot send mail, so each reminder is written for the person to send from Outlook. */
+function remindList() {
+  var byCampus = {};
+  yearRows().forEach(function (r) { byCampus[nk(r.campus)] = r; });
+  return (payload.c1s || []).map(function (c) {
+    var rows = (c.c || []).map(function (n) { return byCampus[nk(n)]; }).filter(function (r) { return r && waiting(r); });
+    return { n: c.n, e: c.e || '', rows: rows, docs: rows.reduce(function (k, r) { return k + count(r.d, 'R') + (newFiles(r) ? 1 : 0); }, 0) };
+  });
+}
+function remindMessage(c) {
+  var yr = state.year || '', url = payload.url || '';
+  var lines = c.rows.map(function (r) {
+    var what = shown().filter(function (i) { return r.d[i] === 'R'; }).map(function (i) { return DOCS[i].nm; });
+    if (newFiles(r)) what.push('other files');
+    return '- ' + r.campus + ': ' + what.join(', ');
+  });
+  var body = ['Hello ' + c.n + ',', '', 'These PTO/PTA documents are waiting for your review on the PTO/PTA registration dashboard' + (yr ? ' (' + yr + ')' : '') + ':', ''].concat(lines,
+    ['', 'Please open the dashboard, sign in, and check off each document on the Review tab.', url, '', 'Thank you,', 'Houston ISD Family and Community Engagement']).filter(function (l, k, all) { return !(l === '' && all[k - 1] === ''); });
+  return { to: c.e ? [c.e] : [], cc: [], subject: 'PTO/PTA documents waiting for your review' + (yr ? ' (' + yr + ')' : ''), body: body.join('\r\n') };
+}
+function remindHref(m) {
+  var build = mailPref === 'web' ? function (x) { return 'https://outlook.office.com/mail/deeplink/compose?' + (x.to.length ? 'to=' + encodeURIComponent(x.to.join(';')) + '&' : '') + 'subject=' + encodeURIComponent(x.subject) + '&body=' + encodeURIComponent(x.body); }
+    : function (x) { return 'mailto:' + mailAddrs(x.to, ',') + '?subject=' + encodeURIComponent(x.subject) + '&body=' + encodeURIComponent(x.body); };
+  return build(m);
+}
+function remindHtml() {
+  var list = remindList(), due = list.filter(function (c) { return c.rows.length; });
+  var out = '<h3 class="rhead" id="remind" tabindex="-1">Remind C1s<small>' + (list.length ? plural(due.length, 'C1 has', 'C1s have') + ' campuses waiting' : 'no C1s set up yet') + '</small></h3>';
+  if (!list.length) return out + '<p class="hint">C1s appear here once the C1 Assignments tab and Dashboard sign-ins are set up.</p>';
+  out += '<p class="hint">Writes a reminder in Outlook to each C1 with campuses waiting for review, listing the campuses and documents. Read it, then press Send there. Nothing is sent from this page.</p>' + mailPrefHtml('data-mailact');
+  if (!due.length) return out + '<div class="caught"><b>No C1 has anything waiting.</b>Nothing to remind them about.</div>';
+  return out + '<ul class="c1list">' + due.map(function (c) {
+    var m = remindMessage(c);
+    return '<li><div><span class="nm">' + esc(c.n) + '</span> <span class="meta">' + esc(c.e || 'No email on the Dashboard Sign-ins tab yet') + '</span></div>' +
+      '<div class="meta">' + esc(plural(c.docs, 'document', 'documents') + ' waiting at ' + c.rows.map(function (r) { return r.campus; }).join(', ')) + '</div>' +
+      '<div class="rctl"><a class="btn sm primary" data-mail="1" href="' + esc(remindHref(m)) + '" target="' + (mailPref === 'web' ? '_blank' : '_top') + '" rel="noopener">Write the reminder in Outlook</a></div></li>';
+  }).join('') + '</ul>';
 }
 
 function render() {
@@ -964,23 +1067,24 @@ function ensureDetail(r) { payload.detail = payload.detail || {}; var k = r.camp
 function headline(r, st, hasAny) {
   var reg = accReg(r), rest = accReq(r) - reg;
   if (r.pto === 'No') return 'This campus reported that it has no PTO/PTA.';
-  if (r.pto !== 'Yes') return 'Whether this campus has a PTO/PTA is not confirmed yet.' + (hasAny ? ' It has already sent documents.' : '');
-  if (st === 'Legalized') return 'Fully legalized. All ' + words(nReq()) + ' required items are accepted.' + (accOpt(r) ? ' Optional items on file are accepted too.' : '');
-  if (st === 'Registered') return 'Registered. ' + rest + ' of the ' + (nReq() - nReg()) + ' other required items are accepted; the rest are still needed to become legalized.';
-  return 'Not registered yet. ' + reg + ' of the ' + nReg() + ' registration items ' + (reg === 1 ? 'is' : 'are') + ' accepted' + (hasAny ? '.' : ', and nothing has been received.');
+  if (r.pto !== 'Yes') return 'Nothing has been received from this campus yet. It counts as a PTO/PTA once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
+  if (st === 'Legalized') return 'Legalized. All ' + words(nReq()) + ' documents are done.';
+  if (st === 'Registered') return 'Registered. ' + rest + ' of the ' + (nReq() - nReg()) + ' other legalization documents ' + (rest === 1 ? 'is' : 'are') + ' done; the rest are still needed to become legalized.';
+  return 'Not registered yet. ' + reg + ' of the ' + nReg() + ' registration documents ' + (reg === 1 ? 'is' : 'are') + ' done' + (hasAny ? '.' : ', and nothing has been received.');
 }
 
 function panelStatus(r, st) {
   var hasAny = anyIn(r), cls = st.replace(/[^A-Za-z]+/g, '-');
-  var meter = '<div class="meter" role="img" aria-label="' + esc(accReq(r) + ' of ' + nReq() + ' required items accepted' + (accOpt(r) ? ', ' + accOpt(r) + ' optional accepted' : '')) + '">' + r.d.split('').map(function (c, i) {
-    return '<i class="s-' + c + (isReq(i) ? '' : ' opt') + '" title="' + esc(DOCS[i].label + (isReq(i) ? '' : ' (optional)') + ': ' + TXT[c]) + '"></i>'; }).join('') + '</div>';
   var counts = [];
   if (r.pto === 'Yes') {
-    counts.push('<span>Registered: <b>' + accReg(r) + ' of ' + nReg() + '</b></span>');
-    counts.push('<span>Legalized: <b>' + accReq(r) + ' of ' + nReq() + '</b></span>');
+    counts.push('<span>Registration: <b>' + accReg(r) + ' of ' + nReg() + '</b> done</span>');
+    counts.push('<span>Legalization: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
   }
-  var pend = [['R', 'waiting for review', 'waiting for review'], ['C', 'needs correction', 'need correction'], ['N', 'not received', 'not received']].filter(function (x) { return count(r.d, x[0]) && r.pto === 'Yes'; })
+  var miss = nOf(function (i) { return isReq(i) && r.d[i] === 'N'; });
+  var pend = [['R', 'waiting for review', 'waiting for review'], ['C', 'needs correction', 'need correction']].filter(function (x) { return count(r.d, x[0]) && r.pto === 'Yes'; })
     .map(function (x) { var n = count(r.d, x[0]); return '<span><b>' + n + '</b> ' + (n === 1 ? x[1] : x[2]) + '</span>'; });
+  if (miss && r.pto === 'Yes') pend.push('<span><b>' + miss + '</b> still needed</span>');
+  var meter = '';
   var org = [r.ot, r.on].filter(Boolean).join(' · ');
   return '<section class="psec"><div class="pline"><span class="pill ' + cls + '">' + esc(st) + '</span><span>' + esc(headline(r, st, hasAny)) + '</span></div>' +
     (r.pto === 'Yes' ? meter + '<div class="pcount">' + counts.join('') + '</div>' : '') +
@@ -988,48 +1092,79 @@ function panelStatus(r, st) {
     (org ? '<div class="pcount" style="margin-top:6px"><span>Organization: ' + esc(org) + '</span></div>' : '') + '</section>';
 }
 
+/* ---------- the checklist ----------
+   Everyone sees where each document stands. A signed-in C1 (their own campuses) or FACE staff member also gets a checklist: for each
+   document "It's there", "Needs correction", "Not there" or "Not needed", with a remark, and overall remarks for the PTO/PTA. Nothing is
+   saved until Save; then saveChecklist writes every change at once and logs it. The remarks go into the email to the PTO/PTA. */
+var CHOICES = [['A', 'It\'s there'], ['C', 'Needs correction'], ['N', 'Not there'], ['X', 'Not needed']];
+var STATUS_OF = { A: 'Accepted', C: 'Needs Correction', N: 'Not Received', X: 'Not Needed' };
+function canReview(r) { return !!(payload.live && payload.me && canSee(r)); }
+/** Saved remarks for this campus: { items: { key: text }, campus: text }. Older pages wrote only "Needs correction" reasons, read as remarks. */
+function remarksOf(r) {
+  var d = detailFor(r), rm = d.rm || { items: {}, campus: '' }, out = { items: {}, campus: rm.campus || '' };
+  DOCS.forEach(function (doc, i) { var v = (rm.items || {})[doc.key]; out.items[i] = v !== undefined ? v : (correctionReasons(r)[i] || ''); });
+  return out;
+}
+/** What the checklist shows for item i: the edit being made, else what is saved. */
+function draftOf(r, i) {
+  var e = panel.edit[i], saved = remarksOf(r).items[i] || '';
+  return { s: e && e.s !== undefined ? e.s : r.d[i], m: e && e.m !== undefined ? e.m : saved, saved: saved };
+}
+function isEdited(r, i) { var x = draftOf(r, i); return x.s !== r.d[i] || x.m !== x.saved; }
+function campusDraft(r) { return panel.cr !== null ? panel.cr : remarksOf(r).campus; }
+function anyEdits(r) { return DOCS.some(function (_, i) { return isEdited(r, i); }) || campusDraft(r) !== remarksOf(r).campus; }
+
 function panelDocs(r, d) {
-  var last = {}, files = {}, why = {}, vis = canSee(r);
+  var last = {}, files = {}, other = [], vis = canSee(r), rev = canReview(r);
   d.a.forEach(function (a) {
     var i = docIndex(a[1]);
     if (i >= 0) {
       if (!last[i]) last[i] = a[0];
       if (vis && a[3] && safeUrl(a[3])) (files[i] = files[i] || []).push(a);
-    } else if (vis && a[4]) {
-      // the newest "Needs correction, <item>: <reason>" for each item says why it came back
-      var m = /^Needs correction, (.+?): (.*)$/.exec(a[4]);
-      if (m) { var k = (payload.itemKeys || []).indexOf(m[1]); if (k >= 0 && why[k] === undefined) why[k] = m[2]; }
-    }
+    } else if (vis && nk(a[1]) === 'other documents' && a[3] && safeUrl(a[3])) other.push(a);
   });
-  function controls(i, c) {
-    if (!(vis && payload.me) || c === 'N') return '';
-    var dis = panel.busy === i ? ' disabled' : '', nm = DOCS[i].nm, b = [];
-    function btn(act, cls, text, label) { return '<button type="button" class="btn sm ' + cls + '" data-act="' + act + '" data-i="' + i + '"' + dis + ' aria-label="' + esc(label + ': ' + nm) + '">' + text + '</button>'; }
-    if (c !== 'A') b.push(btn('accept', 'ok', 'Accept', 'Accept'));
-    if (c !== 'C') b.push(btn('fix', 'bad', 'Needs correction', 'Say what needs correction'));
-    if (c !== 'R') b.push(btn('undo', '', 'Put back to review', 'Put back to waiting for review'));
-    var out = '<div class="rctl">' + b.join('') + '</div>';
-    if (panel.fixing === i) out += '<div class="rfix"><label for="rfixText">What needs to be corrected? It is saved in the log and goes into the email you can send to the PTO/PTA.</label><textarea id="rfixText" maxlength="300" rows="3"' + dis + '>' + esc(panel.draft || '') + '</textarea>' +
-      '<div class="rctl"><button type="button" class="btn sm bad" data-act="fixsave" data-i="' + i + '"' + dis + '>Save correction</button><button type="button" class="btn sm" data-act="fixcancel" data-i="' + i + '">Cancel</button></div></div>';
-    if (c === 'C' && panel.ask === i && panel.fixing !== i) out += askPrompt(r);
-    if (panel.err && panel.err.i === i) out += '<div class="rerr" role="alert">' + esc(panel.err.msg) + '</div>';
-    return out;
-  }
+  var rm = remarksOf(r);
   function item(i) {
-    var c = r.d[i], t = DOCS[i].label + ': ' + TXT[c];
-    var meta = [TXT[c]];
+    var x = rev ? draftOf(r, i) : { s: r.d[i], m: vis ? rm.items[i] || '' : '' };
+    var c = x.s, saved = r.d[i], t = DOCS[i].label + ': ' + TXT[c];
+    var meta = [TXT[saved] + (rev && c !== saved ? ' (changing to: ' + TXT[c] + ')' : '')];
     if (last[i]) meta.push('last received ' + fmtDay(last[i]));
-    var f = (files[i] || []).slice(0, 2).map(function (a) { return link(a[3], a[2] || 'file'); });
-    return '<li data-item="' + i + '"><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div><div class="meta">' + esc(meta.join(' · ')) + '</div>' +
-      (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '') +
-      (c === 'C' && why[i] ? '<div class="rwhy">Correction asked: ' + esc(why[i]) + '</div>' : '') + controls(i, c) + '</div></li>';
+    var f = (files[i] || []).slice(0, 3).map(function (a) { return link(a[3], a[2] || 'file'); });
+    var out = '<li data-item="' + i + '"' + (rev && isEdited(r, i) ? ' class="edited"' : '') + '><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div>' +
+      '<div class="meta">' + esc(meta.join(' · ')) + '</div>' + (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '');
+    if (!rev) return out + (x.m ? '<div class="rnote">Remark: ' + esc(x.m) + '</div>' : '') + '</div></li>';
+    var dis = panel.busy ? ' disabled' : '';
+    out += '<div class="seg" role="group" aria-label="' + esc('Check off: ' + DOCS[i].label) + '">' + CHOICES.map(function (ch) {
+      return '<button type="button" data-act="pick" data-i="' + i + '" data-v="' + ch[0] + '" aria-pressed="' + (c === ch[0]) + '"' + dis + '>' + esc(ch[1]) + '</button>';
+    }).join('') + '</div>';
+    var need = c === 'C' || c === 'X', open = need || x.m || panel.showRm[i];
+    if (open) {
+      out += '<div class="rmk"><label for="rmk' + i + '">' + (c === 'C' ? 'What needs to be corrected? (goes into the email)' : c === 'X' ? 'Why is it not needed? (for example: a PTA covered by Texas PTA)' : 'Remark (goes into the email)') + '</label>' +
+        '<textarea id="rmk' + i + '" data-rmk="' + i + '" maxlength="300" rows="2"' + dis + '>' + esc(x.m) + '</textarea></div>';
+    } else out += '<div class="rmk-show"><button type="button" class="linkbtn" data-act="addrmk" data-i="' + i + '">Add a remark</button></div>';
+    return out + '</div></li>';
   }
-  var a = [], b = [], o = [];
-  DOCS.forEach(function (_, i) { (grpOf(i) === 0 ? a : grpOf(i) === 1 ? b : o).push(item(i)); });
-  var help = vis && payload.me ? '<p class="pnote rhelp">Open each file, then accept it or say what needs to be corrected. Only Accepted items count toward Registered and Legalized, and optional items count toward neither. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you.</p>' : '';
-  return '<section class="psec"><h3>Documents needed to register</h3>' + help + '<ul class="plist chk">' + a.join('') + '</ul></section>' +
-    '<section class="psec"><h3>Documents also needed to legalize</h3><ul class="plist chk">' + b.join('') + '</ul></section>' +
-    (o.length ? '<section class="psec"><h3>Optional documents</h3><p class="pnote">Not needed to be legalized. Shown when the PTO/PTA sends them.</p><ul class="plist chk">' + o.join('') + '</ul></section>' : '');
+  var groups = [[], [], []];
+  shown().forEach(function (i) { groups[grpOf(i)].push(item(i)); });
+  var help = rev ? '<p class="pnote rhelp">Open each file, then check off each document: it\'s there, it needs correction, it\'s not there, or it\'s not needed for this PTO/PTA. ' +
+    'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registration and Legalization. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you.</p>' : '';
+  var out = '<section class="psec" id="pChecklist"><h3>Registration</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
+    '<section class="psec"><h3>Legalization<small>also needed to become legalized</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' +
+    (groups[2].length ? '<section class="psec"><h3>Other documents<small>not required</small></h3><ul class="plist chk">' + groups[2].join('') + '</ul></section>' : '');
+  if (other.length) out += '<section class="psec"><h3>Other files<small>several documents in one file, or anything else</small></h3><p class="pnote">Open each file and check off above what it contains.</p><ul class="plist act">' +
+    other.slice(0, 10).map(function (a) { return '<li><span class="d">' + esc(fmtDay(a[0])) + '</span><span>' + link(a[3], a[2] || 'file') + '</span></li>'; }).join('') + '</ul></section>';
+  if (rev) {
+    var cd = campusDraft(r), dis2 = panel.busy ? ' disabled' : '';
+    out += '<section class="psec crmk"><h3>Remarks for the PTO/PTA<small>overall, added to the email</small></h3><label class="sr" for="crmk">Remarks for the PTO/PTA</label>' +
+      '<textarea id="crmk" maxlength="1000" rows="3" placeholder="For example: Please send all documents to ParentOrgDocs by October 30."' + dis2 + '>' + esc(cd) + '</textarea></section>';
+    var dirty = anyEdits(r);
+    out += '<div class="savebar">' + (panel.err ? '<div class="rerr" role="alert" style="flex-basis:100%;margin:0 0 4px">' + esc(panel.err) + '</div>' : '') +
+      '<button type="button" class="btn primary sm" data-act="save"' + (dirty && !panel.busy ? '' : ' disabled') + '>' + (panel.busy ? 'Saving…' : 'Save') + '</button>' +
+      '<button type="button" class="btn sm" data-act="discard"' + (dirty && !panel.busy ? '' : ' disabled') + '>Undo changes</button>' +
+      '<span>' + (dirty ? 'Changes not saved yet.' : panel.saved ? 'Saved.' : 'No changes.') + '</span></div>';
+    if (panel.ask) out += askPrompt(r);
+  }
+  return out;
 }
 
 function phoneText(t) {
@@ -1106,9 +1241,12 @@ function renderPanel(all) {
   return true;
 }
 
-var panel = { campus: '', open: false, all: false, fixing: -1, busy: -1, err: null, draft: '', ask: -1, mailBusy: false, mailErr: '' };
+/* edit: the checklist changes not saved yet, by item ({ s: status letter, m: remark }); cr: the overall remarks being typed (null = untouched) */
+var panel = { campus: '', open: false, all: false, edit: {}, cr: null, showRm: {}, busy: false, err: '', saved: false, ask: false, mailBusy: false, mailErr: '' };
+function resetChecklist() { panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; }
 function openCampus(campus, opener) {
-  panel.campus = campus; panel.fixing = -1; panel.busy = -1; panel.err = null; panel.draft = ''; panel.ask = -1; panel.mailBusy = false; panel.mailErr = '';
+  if (panel.open && panel.campus !== campus && !leaveOk()) return;
+  panel.campus = campus; resetChecklist(); panel.mailBusy = false; panel.mailErr = '';
   if (!renderPanel(false)) return;
   panelOpener = opener || document.activeElement;
   panel.open = true;
@@ -1119,8 +1257,15 @@ function openCampus(campus, opener) {
   $('#panel').scrollTop = 0;
   $('#pClose').focus();
 }
+/** Unsaved checklist changes: ask before throwing them away. */
+function leaveOk() {
+  var r = panel.open ? currentRow() : null;
+  if (!r || !canReview(r) || !anyEdits(r)) return true;
+  return window.confirm('The checklist for ' + r.campus + ' has changes that are not saved. Leave without saving them?');
+}
 function closePanel(quiet) {
   if (!panel.open) return;
+  if (!quiet && !leaveOk()) return;
   panel.open = false;
   $('#scrim').hidden = true; $('#panel').hidden = true;
   $('#app').inert = false;
@@ -1131,40 +1276,53 @@ function closePanel(quiet) {
 }
 
 /* ---------- review: C1 and FACE staff ---------- */
-function sendReview(i, status, reason) {
+/** Sends every checklist change of the open campus to the script at once. */
+function saveCheck() {
   var r = currentRow();
-  if (!r || !payload.me || !canSee(r)) return;
-  if (!hasGas() || !session.token) { panel.err = { i: i, msg: 'Your sign-in has ended. Sign in again to review documents.' }; renderPanel(panel.all); return; }
-  panel.busy = i; panel.err = null; panel.draft = reason || '';
+  if (!r || !canReview(r) || panel.busy) return;
+  if (!hasGas() || !session.token) { panel.err = 'Your sign-in has ended. Sign in again to save the checklist.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  var changes = [], problem = '';
+  DOCS.forEach(function (doc, i) {
+    if (!isEdited(r, i)) return;
+    var x = draftOf(r, i), m = String(x.m || '').replace(/\s+/g, ' ').trim();
+    if (x.s === 'C' && !m) problem = problem || 'Say what needs to be corrected in "' + doc.label + '".';
+    if (x.s === 'X' && !m) problem = problem || 'Say why "' + doc.label + '" is not needed.';
+    changes.push({ key: (payload.itemKeys || [])[i] || doc.key, status: x.s !== r.d[i] && STATUS_OF[x.s] ? STATUS_OF[x.s] : '', remark: m });
+  });
+  if (problem) { panel.err = problem; keepScroll(function () { renderPanel(panel.all); }); return; }
+  var cr = panel.cr !== null && panel.cr !== remarksOf(r).campus ? panel.cr : null;
+  panel.busy = true; panel.err = '';
   keepScroll(function () { renderPanel(panel.all); });
   var campus = r.campus, year = r.year || '';
   google.script.run
-    .withSuccessHandler(function (res) { reviewDone(campus, year, i, res); })
+    .withSuccessHandler(function (res) { checkSaved(campus, year, res); })
     .withFailureHandler(function (err) {
       var msg = (err && err.message ? String(err.message) : 'That did not save. Try again.').replace(/^Error:\s*/, '');
-      panel.busy = -1; panel.err = { i: i, msg: msg };
+      panel.busy = false; panel.err = msg;
       if (/sign-in has ended/i.test(msg)) { endSession(true); return; }
       if (panel.open) keepScroll(function () { renderPanel(panel.all); });
     })
-    .reviewItem(session.token, campus, year, (payload.itemKeys || [])[i], status, reason || '');
+    .saveChecklist(session.token, campus, year, changes, cr);
 }
 function keepScroll(fn) { var y = $('#panel').scrollTop; fn(); $('#panel').scrollTop = y; }
-function reviewDone(campus, year, i, res) {
+function checkSaved(campus, year, res) {
   var r = payload.rows.filter(function (x) { return x.campus === campus && (x.year || '') === year; })[0];
-  panel.busy = -1; panel.err = null; panel.fixing = -1; panel.draft = ''; panel.mailErr = '';
-  panel.ask = res && res.ok && res.status === 'Needs Correction' && res.changed ? i : -1;
-  if (!r || !res || !res.ok) return;
-  r.d = r.d.slice(0, i) + res.code + r.d.slice(i + 1);
-  if (res.changed) ensureDetail(r).a.unshift([res.date, '', '', '', res.note, res.by]);
-  var said = DOCS[i].nm + (res.status === 'Accepted' ? ' accepted' : res.status === 'Needs Correction' ? ' marked as needing correction' : ' put back to waiting for review') + ' for ' + campus + '.' + (panel.ask === i ? ' You can ask them to resend it now.' : '');
+  panel.busy = false;
+  if (!r || !res || !res.ok) { panel.err = 'That did not save. Try again.'; if (panel.open) keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (res.d) r.d = res.d;
+  if (res.pto) r.pto = res.pto;
+  var d = ensureDetail(r);
+  if (res.remarks) d.rm = { items: res.remarks.items || {}, campus: res.remarks.campus || '' };
+  (res.notes || []).forEach(function (n) { d.a.unshift([res.date, '', '', '', n, res.by]); });
+  var keepOpen = panel.open && panel.campus === campus;
+  resetChecklist();
+  panel.saved = true;
+  panel.ask = !!(res.changed && mailWorth(r));
   render();
-  if (panel.open && panel.campus === campus) {
-    keepScroll(function () { renderPanel(panel.all); });
-    var keep = document.querySelector('#panel [data-item="' + i + '"] .rctl button');
-    if (keep) keep.focus();
-    var ask = document.querySelector('#panel [data-item="' + i + '"] .rask a'); if (ask) ask.focus();
-  }
+  if (keepOpen) keepScroll(function () { renderPanel(panel.all); });
+  var said = res.changed ? 'Checklist saved for ' + campus + '.' + (panel.ask ? ' You can email the PTO/PTA now.' : '') : 'Nothing had changed.';
   $('#pLive').textContent = said;
+  var ask = document.querySelector('#panel .rask a'); if (ask) ask.focus();
 }
 
 /* ---------- ask a PTO/PTA to resend: an Outlook email, written for the person to read and send ----------
@@ -1208,23 +1366,31 @@ function mailSource(r) {
 }
 function mailRecipients(r) { return mailSource(r).to; }
 
-/** The email itself. reasonMax shortens each reason (used only when the whole thing is too long to open in Outlook). */
-function mailMessage(r, reasonMax) {
-  var why = correctionReasons(r), lines = [], inbox = payload.inbox || MAIL_FALLBACK_INBOX;
-  DOCS.forEach(function (d, i) {
-    if (r.d[i] !== 'C') return;
-    var w = why[i] || '';
-    if (reasonMax !== undefined && w.length > reasonMax) w = reasonMax > 3 ? w.slice(0, reasonMax - 3).replace(/\s+\S*$/, '') + '...' : '';
-    lines.push((lines.length + 1) + '. ' + d.nm + (w ? ': ' + w : ''));
+/** What an email to this PTO/PTA would cover: required documents still not there, documents to correct (with their remarks), the overall remarks. */
+function mailParts(r) {
+  var rm = remarksOf(r), need = [], fix = [];
+  shown().forEach(function (i) {
+    if (r.d[i] === 'C') fix.push({ i: i, m: rm.items[i] || '' });
+    else if (r.d[i] === 'N' && isReq(i)) need.push({ i: i, m: rm.items[i] || '' });
   });
-  var one = lines.length === 1, yr = state.year || r.year || '';
-  var body = ['Hello,', '',
-    'Thank you for sending the PTO/PTA documents for ' + r.campus + ' to Houston ISD Family and Community Engagement (FACE). We reviewed them, and ' + (one ? 'this document needs' : 'these documents need') + ' to be corrected before we can accept ' + (one ? 'it' : 'them') + ':', ''
-  ].concat(lines, ['',
-    'Please send the corrected ' + (one ? 'document' : 'documents') + ' to ' + inbox + '. You can reply to this email, since that address is copied.', '',
-    'If anything is unclear, just reply and we will help.', '',
-    'Thank you,', 'Houston ISD Family and Community Engagement']).join('\r\n');
-  return { to: mailRecipients(r), cc: [inbox], subject: 'Action needed: please resend PTO/PTA documents for ' + r.campus + (yr ? ' (' + yr + ')' : ''), body: body, n: lines.length };
+  return { need: need, fix: fix, remarks: rm.campus || '' };
+}
+function mailWorth(r) { var p = mailParts(r); return !!(p.need.length || p.fix.length || p.remarks); }
+
+/** The email itself. reasonMax shortens each remark (used only when the whole thing is too long to open in Outlook). */
+function mailMessage(r, reasonMax) {
+  var p = mailParts(r), inbox = payload.inbox || MAIL_FALLBACK_INBOX, yr = state.year || r.year || '';
+  function cut(w) { w = String(w || ''); if (reasonMax !== undefined && w.length > reasonMax) w = reasonMax > 3 ? w.slice(0, reasonMax - 3).replace(/\s+\S*$/, '') + '...' : ''; return w; }
+  function lines(list, sep) { return list.map(function (x, k) { var w = cut(x.m); return (k + 1) + '. ' + DOCS[x.i].label + (w ? sep + w : ''); }); }
+  var body = ['Hello,', '', 'Thank you for working with Houston ISD Family and Community Engagement (FACE) on the PTO/PTA registration for ' + r.campus + (yr ? ' for the ' + yr + ' school year' : '') + '.'];
+  if (p.fix.length) body = body.concat(['', 'We reviewed the documents you sent. ' + (p.fix.length === 1 ? 'This one needs' : 'These need') + ' to be corrected before we can accept ' + (p.fix.length === 1 ? 'it' : 'them') + ':', ''], lines(p.fix, ': '));
+  if (p.need.length) body = body.concat(['', (p.fix.length ? 'We also still need ' : 'We still need ') + (p.need.length === 1 ? 'this document' : 'these documents') + ':', ''], p.need.map(function (x, k) { var w = cut(x.m); return (k + 1) + '. ' + DOCS[x.i].label + (w ? ' (' + w + ')' : ''); }));
+  var rem = cut(p.remarks);
+  if (rem) body = body.concat(['', 'Remarks:', rem]);
+  body = body.concat(['', 'Please send ' + (p.fix.length || p.need.length ? 'the documents' : 'anything you have') + ' to ' + inbox + '. You can reply to this email, since that address is copied.', '',
+    'If anything is unclear, just reply and we will help.', '', 'Thank you,', 'Houston ISD Family and Community Engagement']);
+  return { to: mailRecipients(r), cc: [inbox], subject: 'PTO/PTA documents for ' + r.campus + (yr ? ' (' + yr + ')' : '') + ': ' + (p.fix.length || p.need.length ? 'action needed' : 'a note from FACE'),
+    body: body.join('\r\n'), n: p.fix.length + p.need.length };
 }
 function mailAddrs(list, sep) { return list.map(function (a) { return encodeURIComponent(a).replace(/%40/g, '@'); }).join(sep); }
 function mailApp(m) { return 'mailto:' + mailAddrs(m.to, ',') + '?cc=' + mailAddrs(m.cc, ',') + '&subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body); }
@@ -1248,7 +1414,7 @@ function mailStatus(r) {
   for (var k = 0; k < a.length; k++) {
     var n = a[k][4] || '';
     if (/^Needs correction, /.test(n)) return null;
-    if (/^Asked to resend by email: /.test(n)) return { date: a[k][0], by: a[k][5] || '' };
+    if (/^(Asked to resend by email: |Emailed the PTO\/PTA about )/.test(n)) return { date: a[k][0], by: a[k][5] || '' };
   }
   return null;
 }
@@ -1265,34 +1431,36 @@ function mailPrefHtml(act) {
     }).join('') + '</div>';
 }
 
-/** The box at the top of a campus panel, shown only while something is marked Needs Correction. */
+/** The email box at the top of a campus panel: shown to its reviewers while something is still needed, needs correction, or there are remarks. */
 function panelResend(r, d) {
-  if (!payload.live || !payload.me || !canSee(r)) return '';
-  var n = count(r.d, 'C');
-  if (!n) return '';
-  var f = mailFit(r), m = f.m, st = mailStatus(r), busy = panel.mailBusy, bad = mailSource(r).bad;
-  return '<section class="psec resend" id="pResend"><h3>Ask them to resend<small>' + plural(n, 'document needs', 'documents need') + ' to be corrected</small></h3>' +
-    '<p class="pnote">Writes the email in Outlook with the documents and your reasons. Nothing is sent until you press Send in Outlook.</p>' +
+  if (!canReview(r) || !mailWorth(r)) return '';
+  var p = mailParts(r), f = mailFit(r), m = f.m, st = mailStatus(r), busy = panel.mailBusy, bad = mailSource(r).bad;
+  var what = [];
+  if (p.need.length) what.push(plural(p.need.length, 'document', 'documents') + ' still needed');
+  if (p.fix.length) what.push(plural(p.fix.length, 'needs', 'need') + ' correction');
+  if (p.remarks) what.push('remarks');
+  return '<section class="psec resend" id="pResend"><h3>Email the PTO/PTA<small>' + esc(what.join(', ')) + '</small></h3>' +
+    '<p class="pnote">Writes the email in Outlook with what is still needed, what needs correction, and your remarks. Nothing is sent until you press Send in Outlook.' + (anyEdits(r) ? ' Save the checklist first so the email has your latest changes.' : '') + '</p>' +
     '<dl class="mailto"><dt>To</dt><dd>' + (m.to.length ? esc(m.to.join('; ')) : '<em>No email address is on file for this campus. Add one in Outlook.</em>') + '</dd><dt>Cc</dt><dd>' + esc(m.cc.join('; ')) + '</dd></dl>' +
     (bad.length ? '<p class="rerr">Not used, because ' + (bad.length === 1 ? 'it does' : 'they do') + ' not look like an email address: ' + esc(bad.join(', ')) + '. Check the Officers tab.</p>' : '') +
     mailPrefHtml('data-act') +
     '<div class="rctl">' + mailLink(r, 'primary sm', 'Write the email in Outlook') + '<button type="button" class="btn sm" data-act="mailcopy">Copy email text</button></div>' +
-    (f.trimmed ? '<p class="rerr">Some reasons were shortened so that Outlook can open the email. Use Copy email text for the full message.</p>' : '') +
+    (f.trimmed ? '<p class="rerr">Some remarks were shortened so that Outlook can open the email. Use Copy email text for the full message.</p>' : '') +
     '<div class="mailsent' + (st ? ' done' : '') + '">' + (st ? '<span>' + esc(mailWhen(st)) + '.</span>' : '<span>Not emailed yet. After you send it in Outlook:</span>') +
     '<button type="button" class="btn sm" data-act="mailsent"' + (busy ? ' disabled' : '') + '>' + (st ? 'Record another' : 'I sent it') + '</button></div>' +
     (panel.mailErr ? '<div class="rerr" role="alert">' + esc(panel.mailErr) + '</div>' : '') +
     '<details class="early"><summary>Preview the email</summary><pre class="mailpre">' + esc(mailText(m)) + '</pre></details></section>';
 }
 
-/** Right after a correction is saved: asks whether to write the email now. */
+/** Right after the checklist is saved: asks whether to write the email now. */
 function askPrompt(r) {
-  return '<div class="rask" role="status"><b>Saved.</b> Ask them to resend now?<div class="rctl">' + mailLink(r, 'primary sm', 'Write the email in Outlook') +
+  return '<div class="rask" role="status"><b>Saved.</b> Email the PTO/PTA about what is still needed now?<div class="rctl">' + mailLink(r, 'primary sm', 'Write the email in Outlook') +
     '<button type="button" class="btn sm" data-act="asklater">Not now</button></div></div>';
 }
 
 /** One campus in the Review tab's list of corrections to chase. */
 function fixCard(r) {
-  var chips = DOCS.map(function (d, i) { return r.d[i] === 'C' ? '<span class="dchip C">' + esc(d.short) + '</span>' : ''; }).join('');
+  var chips = shown().map(function (i) { return r.d[i] === 'C' ? '<span class="dchip C">' + esc(DOCS[i].short) + '</span>' : ''; }).join('');
   var st = mailStatus(r), none = !mailRecipients(r).length;
   return '<li class="fixli" data-c="' + esc(r.campus) + '"><div class="rcard fix fixcard"><span><button type="button" class="campbtn" aria-haspopup="dialog">' + esc(r.campus) + '</button><span class="ao">' + esc(r.area) + '</span></span>' +
     '<span class="dchips">' + chips + '</span>' +
@@ -1322,7 +1490,7 @@ function mailSent(campus, btn) {
       ensureDetail(r).a.unshift([res.date, '', '', '', res.note, res.by]);
       render();
       if (panel.open && panel.campus === campus) keepScroll(function () { renderPanel(panel.all); });
-      $('#pLive').textContent = 'Recorded that ' + campus + ' was asked to resend.'; say('Recorded that ' + campus + ' was asked to resend.');
+      $('#pLive').textContent = 'Recorded that ' + campus + ' was emailed.'; say('Recorded that ' + campus + ' was emailed.');
     })
     .withFailureHandler(function (err) {
       if (btn) btn.disabled = false;
@@ -1373,7 +1541,7 @@ function loadLive(token, done) {
       clearTimeout(loadTimer);
       if (!res || !res.rows) { failLoad('The tracker answered, but not with the campus list.', first); if (done) done(false); return; }
       var keepTab = state.tab;
-      payload = res; payload.live = true; booting = false; bootCard('', '', false);
+      payload = res; payload.live = true; booting = false; bootCard('', '', false); useLabels();
       var ys = years(); if (ys.indexOf(state.year) < 0) state.year = ys.slice(-1)[0] || '';
       if (!payload.me) { session.token = ''; tokSet(''); state.mine = false; }
       if (res.sessionEnded) { session.token = ''; tokSet(''); setNotice('warn', 'Your sign-in has ended, so you are seeing the leadership view. Sign in again to review documents.', true); }
@@ -1524,16 +1692,36 @@ $('#pBody').addEventListener('click', function (e) {
   else if (act === 'mailpref') mailPrefChanged(b.getAttribute('data-v'));
   else if (act === 'mailcopy') mailCopy(panel.campus, b);
   else if (act === 'mailsent') mailSent(panel.campus, b);
-  else if (act === 'asklater') { panel.ask = -1; keepScroll(function () { renderPanel(panel.all); }); }
-  else if (act === 'accept') sendReview(i, 'Accepted', '');
-  else if (act === 'undo') sendReview(i, 'Received', '');
-  else if (act === 'fix') { panel.fixing = i; panel.err = null; panel.draft = ''; keepScroll(function () { renderPanel(panel.all); }); var t = $('#rfixText'); if (t) t.focus(); }
-  else if (act === 'fixcancel') { panel.fixing = -1; panel.err = null; panel.draft = ''; keepScroll(function () { renderPanel(panel.all); }); var f = document.querySelector('#panel [data-item="' + i + '"] [data-act="fix"]'); if (f) f.focus(); }
-  else if (act === 'fixsave') {
-    var txt = $('#rfixText'), why = txt ? txt.value.replace(/\s+/g, ' ').trim() : '';
-    if (!why) { panel.err = { i: i, msg: 'Say what needs to be corrected.' }; panel.draft = txt ? txt.value : ''; keepScroll(function () { renderPanel(panel.all); }); var t2 = $('#rfixText'); if (t2) t2.focus(); return; }
-    sendReview(i, 'Needs Correction', why);
+  else if (act === 'asklater') { panel.ask = false; keepScroll(function () { renderPanel(panel.all); }); }
+  else if (act === 'pick') {
+    var r = currentRow(), v = b.getAttribute('data-v');
+    if (!r) return;
+    var e = panel.edit[i] || (panel.edit[i] = {});
+    e.s = draftOf(r, i).s === v ? r.d[i] : v;           // pressing the chosen one again goes back to what is saved
+    panel.saved = false; panel.ask = false; panel.err = '';
+    keepScroll(function () { renderPanel(panel.all); });
+    var again = document.querySelector('#panel [data-item="' + i + '"] [data-v="' + v + '"]'); if (again) again.focus();
+    var box = document.getElementById('rmk' + i); if (box && (e.s === 'C' || e.s === 'X') && !box.value) box.focus();
   }
+  else if (act === 'addrmk') { panel.showRm[i] = true; keepScroll(function () { renderPanel(panel.all); }); var t = document.getElementById('rmk' + i); if (t) t.focus(); }
+  else if (act === 'save') saveCheck();
+  else if (act === 'discard') { resetChecklist(); keepScroll(function () { renderPanel(panel.all); }); $('#pLive').textContent = 'Changes undone.'; }
+});
+/* typing a remark: kept as it is typed; only the Save bar is redrawn, so the cursor stays put */
+$('#pBody').addEventListener('input', function (e) {
+  var t = e.target, r = currentRow();
+  if (!r || !canReview(r)) return;
+  if (t.hasAttribute('data-rmk')) { var i = Number(t.getAttribute('data-rmk')); (panel.edit[i] = panel.edit[i] || {}).m = t.value; var li = t.closest('li'); if (li) li.classList.toggle('edited', isEdited(r, i)); }
+  else if (t.id === 'crmk') panel.cr = t.value;
+  else return;
+  panel.saved = false; panel.ask = false; panel.err = '';
+  var dirty = anyEdits(r), bar = document.querySelector('#panel .savebar');
+  if (!bar) return;
+  var er = bar.querySelector('.rerr'); if (er) er.remove();
+  bar.querySelector('[data-act="save"]').disabled = !dirty || panel.busy;
+  bar.querySelector('[data-act="discard"]').disabled = !dirty || panel.busy;
+  bar.querySelector('span:last-child').textContent = dirty ? 'Changes not saved yet.' : 'No changes.';
+  var ask = document.querySelector('#panel .rask'); if (ask) ask.remove();
 });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.open) { e.preventDefault(); closePanel(); } });
 $('#themeBtn').addEventListener('click', function () {
@@ -1588,7 +1776,7 @@ function loadText(text, name, modified) {
   if (idx.pto === undefined) missing.push('Has PTO or PTA');
   DOCS.forEach(function (d, i) { if (di[i] < 0) missing.push(d.key); });
   if (missing.length) return showError('That file is missing these columns: ' + missing.join(', ') + '. Export the Campus Register list, or use File > Save As > CSV on the Campus Register sheet.');
-  var CODE = { 'accepted': 'A', 'received': 'R', 'needs correction': 'C', 'not received': 'N', '': 'N' }, bad = 0, out = [];
+  var CODE = { 'accepted': 'A', 'received': 'R', 'needs correction': 'C', 'not received': 'N', 'not needed': 'X', '': 'N' }, bad = 0, out = [];
   for (var r = 1; r < t.length; r++) {
     var row = t[r], camp = (row[idx.campus] || '').trim();
     if (!camp) continue;
