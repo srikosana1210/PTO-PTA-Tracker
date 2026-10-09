@@ -12,6 +12,7 @@ It runs on Google: one Google Sheet, one Google Form, and one Apps Script web-ap
 | [`apps-script/Dashboard.html`](apps-script/Dashboard.html) | The dashboard page: Overview, Campuses, Review, the campus detail panel, and the "ask to resend" email helper. It must be named `Dashboard` in the Apps Script project | Same Apps Script project, deployed as a web app |
 | [`sheet/PTO-PTA-Tracker-2026-27.xlsx`](sheet/PTO-PTA-Tracker-2026-27.xlsx) | The sheet template with the 154-campus starting roster for 2026-27. No documents or officers yet. The **Start Here** tab is the full setup and user guide | Upload to Drive, then File > Save as Google Sheets |
 | [`tools/PTO-PTA-OneDrive-Copy.bat`](tools/PTO-PTA-OneDrive-Copy.bat) | Copies the `Parent Org Documents` Drive folder to a FACE OneDrive folder. It only adds and updates files, and can run every 3 hours | A FACE staff Windows PC with Google Drive for desktop |
+| [`docs/onedrive-copy-setup-guide.md`](docs/onedrive-copy-setup-guide.md) | How to set up and troubleshoot the OneDrive copy | — |
 | [`docs/PLANNING.md`](docs/PLANNING.md) | How the system fits together, the rules it enforces, decisions made so far, and the backlog. **Start here before you change anything** | — |
 
 Current script version: `2026-10-05a` (the `VERSION` constant in `Code.gs`).

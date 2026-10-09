@@ -111,8 +111,8 @@ The code came from an earlier Claude conversation. Its excerpts are in [`convers
 
 - **Original goal:** one system that serves the inbox person, a backing spreadsheet, a shareable dashboard for senior EDs, and campus folders in OneDrive.
 - **Tests exist but aren't here.** That session ran about 400 script checks, 165 dashboard checks and 96 browser checks against simulated data. Those test files stayed in that session's sandbox and are not in this repo.
-- **There's also a standalone `PTO-PTA-Registration-Dashboard-2026-27.html`** (a static dashboard). It's not in this repo.
-- **The OneDrive setup guide** is a Claude Docs page: "OneDrive copy: setup guide".
+- **The standalone `PTO-PTA-Registration-Dashboard-2026-27.html` is retired.** It was `Dashboard.html` with a frozen data snapshot from 2026-09-29, taken before any documents arrived. It also predates the resend feature. The live web-app dashboard replaces it, so it's deliberately left out of this repo.
+- **The OneDrive setup guide** is in [`onedrive-copy-setup-guide.md`](onedrive-copy-setup-guide.md).
 - **Open offer:** add a "sender's email" question to the inbox form. Then the resend email goes to the person who actually sent the documents, not just the officers on the newest officer form. A campus with no officer form currently gets a draft with an empty To line.
 - **Live sheet vs. template:** the `.xlsx` is for a brand-new setup only. Importing it over the live sheet would lose the officer imports and sign-ins.
 - **The live sheet was migrated** with "Update to the new document list". The old Tax ID column is hidden, not deleted.
