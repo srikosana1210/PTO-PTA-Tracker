@@ -99,7 +99,15 @@ Nothing below is committed to. Add items and order them with FACE.
 - [ ] Run the end-to-end test from Start Here (steps 10–11) on the real account and write down what happened
 - [ ] Optional: set up `clasp` (an `appsscript.json` plus `.clasp.json`) so `clasp push` deploys from this repo instead of copy-paste
 - [ ] Optional: Node unit tests for the pure helpers listed in section 6
-- [ ] _Add new features here_
+### Requested by FACE, 2026-10-09 (the waiting-on notes say what's needed before building)
+
+- [ ] **R5. Whole numbers only.** Remove every percentage. The tiles are: PTO/PTAs, Registered, Legalized, Waiting for review.
+- [ ] **R6. One set of words for Registered and Legalized,** used in the dashboard, the emails and the Start Here tab. _Waiting on: FACE's exact text._
+- [ ] **R4. List every campus in each Area Office,** not just the 154 marked Yes or Unsure. A campus with nothing received stays neutral and becomes Yes when something arrives. Add the missing campuses to the live sheet without touching existing rows. _Waiting on: the full campus list with Area Offices._
+- [ ] **R2. Checklist review grouped into categories,** with "either/or" rules (for example, 501(c) proof can replace Articles of Incorporation). Each item can be checked off, or have a remark saying what is wrong. _Waiting on: the categories and the rules._
+- [ ] **R1. The email covers missing documents too,** not only corrections, and includes an overall remarks box. It's built from R2's remarks.
+- [ ] **R3. Email C1s when they have campuses waiting for review.** A scheduled email from the tracker's Google account, sent only to C1s with items waiting. _Waiting on: C1 email addresses, and how often to send._
+- [ ] **R7. Pull PTA data from FACE's separate PTA tracking spreadsheet.** _Waiting on: a snapshot of that sheet; where it lives (Google or Excel/SharePoint); which side wins when the two disagree._
 
 ## 8. Open questions
 
