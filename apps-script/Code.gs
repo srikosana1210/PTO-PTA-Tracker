@@ -55,8 +55,10 @@ var CFG = {
       label: 'Annual budget report or meeting minutes showing budget approval' },
     { key: 'Proof of 501c Status',      title: 'Proof of 501c Status',                                                            upload: true,
       label: 'Proof of 501(c) status' },
-    { key: 'Bank and EIN Letter',       title: 'Bank and EIN Letter (bank verification letter listing two authorized signers, together with the Tax ID EIN letter)', upload: true,
-      formAliases: ['Bank Account Info', 'Tax ID EIN Letter'], headerAliases: ['Bank Account Info'],
+    // Called Bank and EIN Letter from 2026-10-02 to 2026-10-09; FACE no longer asks for the Tax ID (EIN) letter. The old names still work
+    // (a column, a form question or a log line that uses one is read as this item), and updateOctober2026 renames the column.
+    { key: 'Bank Verification Letter',  title: 'Bank Verification Letter (letter from the financial institution listing two authorized account signers)', upload: true,
+      formAliases: ['Bank and EIN Letter', 'Bank Account Info', 'Tax ID EIN Letter'], headerAliases: ['Bank and EIN Letter', 'Bank Account Info'],
       label: 'Bank account verification letter from financial institution listing two authorized account signers' },
     // Not needed to be Legalized since 2026-10-09 (FACE's wording lists six documents). Still tracked when a PTO/PTA sends it.
     { key: 'Articles of Incorporation', title: 'Articles of Incorporation',                                                       upload: true,  optional: true,
@@ -70,6 +72,7 @@ var CFG = {
   // Names the tracker used before 2026-10-02 (see updateDocumentList).
   OLD_BANK_HEADER: 'Bank Account Info',
   OLD_TAX_HEADER: 'Tax ID EIN Letter',
+  PREV_BANK_HEADER: 'Bank and EIN Letter',
   RETIRED_TAX_HEADER: 'Tax ID EIN Letter (retired)',
   OLD_BANK_FOLDER_PROP: 'ROOT_BANK_ID',
   Q_CAMPUS: 'Campus',
@@ -86,7 +89,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-09a (checklist review with remarks, every campus listed, Legalized = six documents)';
+var VERSION = 'Script version 2026-10-09b (checklist review with remarks, every campus listed, Legalized = six documents, no EIN letter)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -204,12 +207,12 @@ function checkSetup_() {
     if (isOtherTitle_(ti)) return;
     if (!CFG.ITEMS.some(function (it) { return it.upload && titleIsItem_(ti, it); })) problems.push('The file question "' + ti + '" does not start with one of the item names, so its files will not be filed.');
   });
-  // The old separate questions still file correctly (both go to Bank and EIN Letter). Say so, and say what to tidy.
+  // Older bank questions still file correctly (they all go to Bank Verification Letter). Say so, and say what to tidy.
   var oldOnes = uploadTitles.filter(function (ti) {
     var it = itemForTitle_(ti);
-    return it && it.key === 'Bank and EIN Letter' && !startsWith_(ti, it.key);
+    return it && it.key === 'Bank Verification Letter' && !startsWith_(ti, it.key);
   });
-  if (oldOnes.length) fixed.push('Tip: the form still has the old question' + (oldOnes.length === 1 ? '' : 's') + ' "' + oldOnes.join('", "') + '". ' + (oldOnes.length === 1 ? 'It still files correctly. ' : 'They still file correctly. ') + 'Rename one to start with "' + itemByKey_('Bank and EIN Letter').key + '" and delete the other, so the form shows one question for both.');
+  if (oldOnes.length) fixed.push('Tip: the form still has the old question' + (oldOnes.length === 1 ? '' : 's') + ' "' + oldOnes.join('", "') + '". ' + (oldOnes.length === 1 ? 'It still files correctly. ' : 'They still file correctly. ') + 'Rename ' + (oldOnes.length === 1 ? 'it' : 'one') + ' to "' + itemByKey_('Bank Verification Letter').title + '"' + (oldOnes.length === 1 ? '' : ' and delete the other') + ', so the form uses the new name and no longer mentions the EIN letter.');
   return { problems: problems, fixed: fixed };
 }
 
@@ -1057,9 +1060,12 @@ function itemNote_(note) {
     if (n.indexOf(pre) !== 0) continue;
     var rest = n.slice(pre.length);
     for (var i = 0; i < CFG.ITEMS.length; i++) {
-      var k = CFG.ITEMS[i].key;
-      if (rest === k) return { key: k, remark: '' };
-      if (sep && rest.indexOf(k + sep) === 0) return { key: k, remark: rest.slice(k.length + sep.length) };
+      var names = [CFG.ITEMS[i].key].concat(CFG.ITEMS[i].headerAliases || []);      // a note written under an older name still counts
+      for (var j = 0; j < names.length; j++) {
+        var k = names[j];
+        if (rest === k) return { key: CFG.ITEMS[i].key, remark: '' };
+        if (sep && rest.indexOf(k + sep) === 0) return { key: CFG.ITEMS[i].key, remark: rest.slice(k.length + sep.length) };
+      }
     }
   }
   return null;
@@ -1773,13 +1779,13 @@ function applyDocumentUpdate_() {
   if (!regSheet) throw new Error('The tab "' + CFG.TAB_REGISTER + '" was not found. Nothing was changed.');
   if (!ss.getSheetByName(CFG.TAB_SETTINGS)) throw new Error('The tab "' + CFG.TAB_SETTINGS + '" was not found. Nothing was changed.');
   var t = table_(CFG.TAB_REGISTER);
-  var newBank = itemByKey_('Bank and EIN Letter').key;
-  var hasNew = t.headers.indexOf(newBank) >= 0;
-  var bankIdx = t.headers.indexOf(hasNew ? newBank : CFG.OLD_BANK_HEADER);
+  var newBank = itemByKey_('Bank Verification Letter').key;
+  var hasNew = t.headers.indexOf(newBank) >= 0 || t.headers.indexOf(CFG.PREV_BANK_HEADER) >= 0;
+  var bankIdx = t.headers.indexOf(newBank) >= 0 ? t.headers.indexOf(newBank) : t.headers.indexOf(hasNew ? CFG.PREV_BANK_HEADER : CFG.OLD_BANK_HEADER);
   var taxIdx = t.headers.indexOf(CFG.OLD_TAX_HEADER);
   if (bankIdx < 0) throw new Error('Campus Register has no column headed "' + CFG.OLD_BANK_HEADER + '" or "' + newBank + '". Nothing was changed.');
   CFG.ITEMS.forEach(function (it) {
-    if (it.key !== newBank && t.headers.indexOf(it.key) < 0) throw new Error('Campus Register has no column headed "' + it.key + '". Nothing was changed.');
+    if (it.key !== newBank && t.col[it.key] === undefined) throw new Error('Campus Register has no column headed "' + it.key + '". Nothing was changed.');
   });
   var settingsCheck = settingsLayout_();      // throws, before anything is changed, when the Settings tab is not laid out as expected
 
@@ -1807,14 +1813,14 @@ function applyDocumentUpdate_() {
       regSheet.getRange(2, bankIdx + 1, n, 1).setValues(bankVals);
       if (taxIdx >= 0) regSheet.getRange(2, taxIdx + 1, n, 1).setValues(taxVals);
     }
-    regSheet.getRange(1, bankIdx + 1).setValue(newBank);
+    if (t.headers[bankIdx] !== CFG.PREV_BANK_HEADER) regSheet.getRange(1, bankIdx + 1).setValue(newBank);
     if (taxIdx >= 0) {
       regSheet.getRange(1, taxIdx + 1).setValue(CFG.RETIRED_TAX_HEADER);
       regSheet.hideColumns(taxIdx + 1);
     }
-    lines.push('Campus Register: the bank letter and the Tax ID (EIN) letter are now one column, Bank and EIN Letter.' +
+    lines.push('Campus Register: the bank letter and the Tax ID (EIN) letter are now one column, ' + (t.headers[bankIdx] === CFG.PREV_BANK_HEADER ? CFG.PREV_BANK_HEADER : newBank) + '.' +
       (hadTax ? ' ' + hadTax + (hadTax === 1 ? ' campus had' : ' campuses had') + ' a Tax ID letter on file; ' + (merged === 1 ? '1 campus is' : merged + ' campuses are') + ' set to Received so a reviewer can look at the merged item again. Nothing was accepted that was not fully accepted.' : ''));
-  } else lines.push('Campus Register: already has the Bank and EIN Letter column.');
+  } else lines.push('Campus Register: already has one bank letter column.');
 
   // 3. Settings: names, cycles, flags, counts
   updateSettings_();
@@ -1863,7 +1869,7 @@ function settingsLayout_() {
 
 function updateSettings_() {
   var L = settingsLayout_(), sh = L.sh, names = L.vals[L.rows['requirement'] - 1];
-  var newBank = itemByKey_('Bank and EIN Letter').key, retiredCol = -1;
+  var newBank = itemByKey_('Bank Verification Letter').key, retiredCol = -1;
   for (var j = L.first; j <= L.last; j++) {
     var nm = String(names[j]).trim();
     if (nm === CFG.OLD_BANK_HEADER) { sh.getRange(L.rows['requirement'], j + 1).setValue(newBank); names[j] = newBank; }
@@ -1969,7 +1975,7 @@ function updateWordingAfterDocs_() {
       ['Legalized: all nine items are Accepted. That is the three above plus the annual budget report (or meeting minutes showing budget approval), proof of 501(c) status, a bank verification letter listing two authorized signers, Articles of Incorporation, Tax ID (EIN) letter, and liability and property insurance.',
        'Legalized: all seven required items are Accepted. That is the three above plus the annual budget report (or meeting minutes showing budget approval), proof of 501(c) status, the bank verification letter listing two authorized signers together with the Tax ID (EIN) letter, and Articles of Incorporation. Liability and property insurance is optional: it is tracked when a PTO/PTA sends it, but it is not needed to be Legalized. The Settings tab row "Needed to be Legalized?" controls this.'],
       ['Add a File upload question for each of the eight lines below', 'Add a File upload question for each of the seven lines below'],
-      ['      Bank Account Info (bank verification letter listing two authorized signers)', '      ' + itemByKey_('Bank and EIN Letter').title],
+      ['      Bank Account Info (bank verification letter listing two authorized signers)', '      ' + itemByKey_('Bank Verification Letter').title],
       ['      Insurance (liability and property)', '      ' + itemByKey_('Insurance').title],
       ['9. In Drive, find the two folders the script created: Parent Org Documents and Parent Org Bank Info. Share Parent Org Documents with the people who review documents. Leave Parent Org Bank Info private, or share it only with reviewers. Campus folders are created inside them the first time a campus sends something.',
        '9. In Drive, find the folder the script created: Parent Org Documents. Share it with the people who review documents. Campus folders are created inside it the first time a campus sends something. Every document, bank letters included, goes in the campus folder, so share the folder only with people who may see bank letters.'],
@@ -2008,7 +2014,7 @@ function updateWordingAfterDocs_() {
     var sv = sum.getDataRange().getValues();
     for (var r = 0; r < sv.length; r++) {
       var a = String(sv[r][0] == null ? '' : sv[r][0]).trim();
-      if (a === CFG.OLD_BANK_HEADER) { sum.getRange(r + 1, 1).setValue('Bank and EIN Letter'); changed++; }
+      if (a === CFG.OLD_BANK_HEADER) { sum.getRange(r + 1, 1).setValue(itemByKey_('Bank Verification Letter').key); changed++; }
       else if (a === CFG.OLD_TAX_HEADER) { sum.hideRows(r + 1); changed++; }
       else if (a === 'Insurance') { sum.getRange(r + 1, 1).setValue('Insurance (optional)'); changed++; }
     }
@@ -2169,6 +2175,7 @@ function updateOctober2026() {
   var go = ui.alert('Update the tracker: October 2026 changes',
     'This brings this spreadsheet up to the October 2026 changes:\n\n' +
     '- Legalized means the six documents in FACE\'s wording. Articles of Incorporation is still tracked but no longer needed.\n' +
+    '- Bank and EIN Letter becomes Bank Verification Letter: the Tax ID (EIN) letter is no longer needed.\n' +
     '- Reviewers can mark a document Not Needed for a PTO/PTA. It counts as done.\n' +
     '- Dashboard Sign-ins gets an Email column, used to remind C1s.\n' +
     '- Every campus on the Area Office Campuses tab is added, if you have added that tab.\n' +
@@ -2196,6 +2203,7 @@ function applyOctober2026_(opts) {
   if (!ss.getSheetByName(CFG.TAB_SETTINGS)) throw new Error('The tab "' + CFG.TAB_SETTINGS + '" was not found. Nothing was changed.');
   var t = table_(CFG.TAB_REGISTER);
   CFG.ITEMS.forEach(function (it) { if (t.col[it.key] === undefined) throw new Error('Campus Register has no column headed "' + it.key + '". If it still has Bank Account Info and Tax ID EIN Letter, run "Update to the new document list" first. Nothing was changed.'); });
+  if (t.headers.indexOf(CFG.OLD_TAX_HEADER) >= 0) throw new Error('Campus Register still has the "' + CFG.OLD_TAX_HEADER + '" column. Run "Update to the new document list" first. Nothing was changed.');
   var L = settingsLayout_();
   if (!L.rows['needed to be legalized?']) throw new Error('The Settings tab has no "Needed to be Legalized?" row. Run "Update to the new document list" first. Nothing was changed.');
 
@@ -2203,6 +2211,9 @@ function applyOctober2026_(opts) {
   var tz = ss.getSpreadsheetTimeZone();
   var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before the October 2026 update ' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss'));
   lines.push('Backup saved in your Drive: ' + copy.getName());
+
+  // 1b. the bank letter item is called Bank Verification Letter (no EIN letter)
+  if (renameBankItem_()) lines.push('Bank and EIN Letter is now called ' + itemByKey_('Bank Verification Letter').key + ' (Campus Register, Settings and Summary). The Tax ID (EIN) letter is no longer needed. Rename the form question too (see "2. Check setup").');
 
   // 2. Settings: Legalized = six documents; Not Needed in the status list; the wording next to the counts
   var s = settingsOctober_();
@@ -2239,6 +2250,26 @@ function applyOctober2026_(opts) {
   var bad = scanForErrors_();
   if (bad.length) lines.push('', 'Please check: these cells show an error: ' + bad.slice(0, 6).join(', ') + (bad.length > 6 ? ' and ' + (bad.length - 6) + ' more' : '') + '.', 'If anything looks wrong, the backup copy above has everything as it was.');
   return { ok: !bad.length, lines: lines };
+}
+
+/** Renames the Bank and EIN Letter column of Campus Register, its Settings column and its Summary row to Bank Verification Letter.
+ *  Returns true when something was renamed. Files and log lines keep the old name; they are still read as this item. */
+function renameBankItem_() {
+  var ss = SpreadsheetApp.getActive(), key = itemByKey_('Bank Verification Letter').key, done = false;
+  function inRow(sh, row) {
+    if (!sh) return;
+    var v = sh.getRange(row, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+    v.forEach(function (x, j) { if (cellText_(x) === CFG.PREV_BANK_HEADER) { sh.getRange(row, j + 1).setValue(key); done = true; } });
+  }
+  inRow(ss.getSheetByName(CFG.TAB_REGISTER), 1);
+  var L = settingsLayout_();
+  inRow(L.sh, L.rows['requirement']);
+  var sum = ss.getSheetByName('Summary');
+  if (sum) {
+    var sv = sum.getDataRange().getValues();
+    for (var r = 0; r < sv.length; r++) if (cellText_(sv[r][0]) === CFG.PREV_BANK_HEADER) { sum.getRange(r + 1, 1).setValue(key); done = true; }
+  }
+  return done;
 }
 
 /** Settings for October 2026. Returns { articles: true when Articles was changed to No, listAdded: true when Not Needed was added }. */
@@ -2317,14 +2348,17 @@ function updateWordingOctober_() {
     ['Item status:', 'Item status: Not Received, Received (waiting for review), Accepted, Needs Correction, or Not Needed. Accepted and Not Needed count. The form sets Received; a reviewer checks each document off on the dashboard (or in the Campus Register tab).'],
     ['Has PTO or PTA:', 'Has PTO or PTA: Yes, No, or Not Yet Confirmed (the default; the dashboard shows it as "Nothing received yet"). A campus becomes Yes by itself when it sends documents or an officer form, when a reviewer checks a document off, or when the Texas PTA roster lists it. A form answer of Not Yet Confirmed never overwrites a Yes or a No.'],
     ['Articles of Incorporation (Legalized):', 'Articles of Incorporation (not needed): Filed Articles of Incorporation are on file. Tracked when a PTO/PTA sends them; not needed to be Registered or Legalized. One-time: carried into next year.'],
-    ['Bank and EIN Letter (Legalized):', 'Bank and EIN Letter (Legalized): ' + itemByKey_('Bank and EIN Letter').label + '. A Tax ID (EIN) letter sent with it is filed here too.']
+    ['Bank and EIN Letter (Legalized):', 'Bank Verification Letter (Legalized): ' + itemByKey_('Bank Verification Letter').label + '. The Tax ID (EIN) letter is no longer needed.'],
+    ['Bank Verification Letter (Legalized):', 'Bank Verification Letter (Legalized): ' + itemByKey_('Bank Verification Letter').label + '. The Tax ID (EIN) letter is no longer needed.']
   ];
+  var oldTitle = '      Bank and EIN Letter (bank verification letter listing two authorized signers, together with the Tax ID EIN letter)';
   var v = start.getDataRange().getValues(), changed = 0;
   for (var i = 0; i < v.length; i++) {
     var cell = v[i][0];
     if (typeof cell !== 'string' || !cell) continue;
     var s = cell;
     byStart.forEach(function (p) { if (cell.indexOf(p[0]) === 0) s = p[1]; });
+    if (s.indexOf(oldTitle) >= 0) s = s.split(oldTitle).join('      ' + itemByKey_('Bank Verification Letter').title);
     if (cell.indexOf('1. Only Articles of Incorporation is one-time') === 0 && cell.indexOf('9. Changed on October 9, 2026') < 0) {
       s = cell + '  9. Changed on October 9, 2026: Registered and Legalized use FACE\'s wording, and Legalized means six documents (Articles of Incorporation is no longer needed). ' +
         'Reviewers check each document off on the dashboard (there, needs correction, not there, or not needed) with remarks that go into the email to the PTO/PTA. ' +
@@ -2349,7 +2383,10 @@ function nextYearLabel_(label) {
   return (y + 1) + '-' + String(y + 2).slice(-2);
 }
 
-function itemByKey_(key) { return CFG.ITEMS.filter(function (i) { return i.key === key; })[0]; }
+/** The item with this key, or with this as an older name (headerAliases), so a page or a log line from before a rename still works. */
+function itemByKey_(key) {
+  return CFG.ITEMS.filter(function (i) { return i.key === key; })[0] || CFG.ITEMS.filter(function (i) { return (i.headerAliases || []).indexOf(key) >= 0; })[0];
+}
 function uploadItems_() { return CFG.ITEMS.filter(function (i) { return i.upload; }); }
 /** Words a form question may start with to mean this item: its key, and the names the form used before the items were combined. */
 function itemNames_(it) { return [it.key].concat(it.formAliases || []); }

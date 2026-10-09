@@ -619,7 +619,7 @@ var DOCS = [
   { nm: 'Training certificate', key: 'Training Certificate', label: 'Training certificate', short: 'Training', reg: true, alias: ['training certificate', 'training proof'] },
   { nm: 'Budget report or minutes', key: 'Budget or Financial Report', label: 'Annual budget report or meeting minutes showing budget approval', short: 'Budget', alias: ['budget or financial report', 'proof of budget', 'budget treasurer s report or audit', 'budget'] },
   { nm: 'Proof of 501(c) status', key: 'Proof of 501c Status', label: 'Proof of 501(c) status', short: '501(c)', alias: ['proof of 501c status', 'proof of 501 c status', '501c proof', '501 c proof'] },
-  { nm: 'Bank verification letter', key: 'Bank and EIN Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank letter', alias: ['bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] },
+  { nm: 'Bank verification letter', key: 'Bank Verification Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank letter', alias: ['bank verification letter', 'bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] },
   { nm: 'Articles of incorporation', key: 'Articles of Incorporation', label: 'Articles of incorporation', short: 'Articles', opt: true, alias: ['articles of incorporation', 'articles'] },
   { nm: 'Insurance', key: 'Insurance', label: 'Liability and property insurance', short: 'Insurance', opt: true, alias: ['insurance', 'insurance liability property'] }
 ];
@@ -643,7 +643,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-09a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-09b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app

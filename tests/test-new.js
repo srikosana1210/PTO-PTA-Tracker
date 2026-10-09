@@ -46,7 +46,7 @@ test('Texas PTA campuses are marked as having a PTO/PTA, with Org Type PTA; with
   eq(regRow(g, 'Codwell ES')['Org Type'], '');
   var bon = regRow(g, 'Bonham ES');
   ok(bon && bon['Org Type'] !== 'PTA', 'Bonham (charter withdrawn) is not marked PTA');
-  eq(r.ptaType, 10);
+  eq(r.ptaType, 11);
 });
 
 /* ---------- the October update on an existing sheet ---------- */
@@ -83,7 +83,7 @@ test('the October update can set campuses that sent nothing back to Not Yet Conf
   eq(regRow(g, 'Ashford ES')['Has PTO or PTA'], 'Not Yet Confirmed');
   eq(regRow(g, 'Travis ES')['Has PTO or PTA'], 'Yes', 'Texas PTA roster: Yes');
   var yes = campuses(g).filter(function (v) { return v[col(g, 'Has PTO or PTA')] === 'Yes'; }).length;
-  eq(yes, 11, 'Anderson + the 10 Texas PTAs');
+  eq(yes, 12, 'Anderson + the 11 Texas PTAs');
 });
 
 /* ---------- documents arriving make a campus a PTO/PTA ---------- */
@@ -198,18 +198,18 @@ test('"I sent it" records an email about missing documents, corrections and rema
   var g = h.load();
   var p = withPeople(g);
   var r = g.logResendRequest(p.c1, 'Anderson ES', '2026-27', 'ann@example.org');
-  ok(/^Emailed the PTO\/PTA about still needed: Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank and EIN Letter, Articles of Incorporation/.test(r.note), r.note);
+  ok(/^Emailed the PTO\/PTA about still needed: Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter, Articles of Incorporation/.test(r.note), r.note);
   g.applyOctober2026_({ reset: false });
   g.saveChecklist(p.c1, 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Needs Correction', remark: 'Unsigned' }], 'Thanks!');
   var r2 = g.logResendRequest(p.c1, 'Anderson ES', '2026-27', '');
-  ok(/still needed: Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank and EIN Letter; needs correction: Bylaws; remarks$/.test(r2.note), r2.note);
+  ok(/still needed: Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter; needs correction: Bylaws; remarks$/.test(r2.note), r2.note);
 });
 
 test('there is nothing to email about once every required document is done and there are no remarks', function () {
   var g = h.load();
   var p = withPeople(g);
   g.applyOctober2026_({ reset: false });
-  var ch = ['Bylaws', 'Officer Information', 'Training Certificate', 'Budget or Financial Report', 'Proof of 501c Status', 'Bank and EIN Letter'].map(function (k) { return { key: k, status: 'Accepted', remark: '' }; });
+  var ch = ['Bylaws', 'Officer Information', 'Training Certificate', 'Budget or Financial Report', 'Proof of 501c Status', 'Bank Verification Letter'].map(function (k) { return { key: k, status: 'Accepted', remark: '' }; });
   g.saveChecklist(p.staff, 'Anderson ES', '2026-27', ch, null);
   var m = ''; try { g.logResendRequest(p.staff, 'Anderson ES', '2026-27', ''); } catch (e) { m = e.message; }
   ok(/nothing to email about/.test(m), m);
@@ -244,11 +244,12 @@ test('the Registered and Legalized lists read in FACE\'s order and wording', fun
 });
 
 /* ---------- the template for a new setup already has the October changes ---------- */
-test('the template: 266 campuses, 10 PTAs, Legalized = six documents, Not Needed and Email ready', function () {
+test('the template: 266 campuses, 11 PTAs, Legalized = six documents, Not Needed and Email ready', function () {
   var g = h.load({ fixture: 'template' });
   var rows = campuses(g);
   eq(rows.length, 266);
-  eq(rows.filter(function (v) { return v[col(g, 'Has PTO or PTA')] === 'Yes'; }).length, 10);
+  eq(rows.filter(function (v) { return v[col(g, 'Has PTO or PTA')] === 'Yes'; }).length, 11);
+  ok(g.table_('Campus Register').headers.indexOf('Bank Verification Letter') >= 0, 'renamed column');
   eq(g.itemFlags_().req, [true, true, true, true, true, true, false, false]);
   ok(g.__ss.getSheetByName('Dashboard Sign-ins').values()[0].indexOf('Email') >= 0);
   ok(g.__ss.getSheetByName('Area Office Campuses'), 'Area Office Campuses tab');
@@ -258,4 +259,45 @@ test('the template: 266 campuses, 10 PTAs, Legalized = six documents, Not Needed
   ok(again.ok && again.lines.some(function (l) { return /already means the six/.test(l); }), again.lines.join(' / '));
   eq(campuses(g).length, 266, 'running the update on the template changes nothing');
   g.diagnose().forEach(function (st) { ok(st[1], st[0]); });
+});
+
+/* ---------- no EIN letter: Bank and EIN Letter becomes Bank Verification Letter ---------- */
+test('the October update renames the bank column, its Settings column and Summary row', function () {
+  var g = h.load();
+  eq(g.table_('Campus Register').headers.indexOf('Bank and EIN Letter') >= 0, true, 'live sheet starts with the old name');
+  var res = g.applyOctober2026_({ reset: false });
+  ok(res.lines.some(function (l) { return /now called Bank Verification Letter/.test(l); }), res.lines.join(' / '));
+  var t = g.table_('Campus Register');
+  ok(t.headers.indexOf('Bank Verification Letter') >= 0 && t.headers.indexOf('Bank and EIN Letter') < 0);
+  ok(g.__ss.getSheetByName('Settings').values().some(function (r) { return r.indexOf('Bank Verification Letter') >= 0; }), 'Settings renamed');
+  ok(g.__ss.getSheetByName('Summary').values().some(function (r) { return r[0] === 'Bank Verification Letter'; }), 'Summary renamed');
+  eq(g.itemFlags_().req[5], true, 'still needed to be Legalized');
+  var f = t.sh.getRange(2, t.col['Not Yet Accepted'] + 1).getFormulas()[0][0];
+  ok(/Not Needed/.test(f), f);
+  var start = g.__ss.getSheetByName('Start Here').values().map(function (r) { return String(r[0]); }).join('\n');
+  ok(!/Bank and EIN Letter \(Legalized\)/.test(start) && /Bank Verification Letter \(Legalized\)/.test(start), 'Start Here wording');
+  ok(g.applyOctober2026_({ reset: false }).ok, 'safe to run again');
+});
+
+test('the old name still works: a sheet not yet updated, an old form question, an old page, old log lines', function () {
+  var g = h.load();
+  var p = withPeople(g);
+  // the form question still called Bank and EIN Letter (...) files into the item; the column still has the old name
+  eq(g.itemForTitle_('Bank and EIN Letter (bank verification letter listing two authorized signers, together with the Tax ID EIN letter)').key, 'Bank Verification Letter');
+  g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bank Verification Letter', 'bank.pdf')] }));
+  eq(regRow(g, 'Anderson ES')['Bank and EIN Letter'], 'Received');
+  eq(logRows(g)[0][4], '2026-27 - Bank Verification Letter - Anderson ES.pdf');
+  // a page from before the rename sends the old key
+  eq(g.reviewItem(p.c1, 'Anderson ES', '2026-27', 'Bank and EIN Letter', 'Needs Correction', 'Only one signer listed').ok, true);
+  g.applyOctober2026_({ reset: false });
+  eq(regRow(g, 'Anderson ES')['Bank Verification Letter'], 'Needs Correction', 'status kept through the rename');
+  eq(g.getDashboard(p.c1).detail['Anderson ES||2026-27'].rm.items['Bank Verification Letter'], 'Only one signer listed', 'an old log line is still the remark');
+});
+
+test('South EC HS is marked as a PTA from the Texas PTA roster', function () {
+  var g = h.load();
+  withAreaTab(g); g.addAreaCampuses_();
+  eq(regRow(g, 'South EC HS')['Has PTO or PTA'], 'Yes');
+  eq(regRow(g, 'South EC HS')['Org Type'], 'PTA');
+  ok(!regRow(g, 'South Early HS'), 'no second row under the other spelling');
 });

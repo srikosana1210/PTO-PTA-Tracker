@@ -77,7 +77,7 @@ async function signIn(page, name, pass) {
     check('no percentages on the overview', !/%/.test(await page.textContent('#v-overview')), kpiText);
     check('tiles: PTO/PTAs, Registered, Legalized, Waiting for review', /PTO\/PTAs/.test(kpiText) && /Registered/.test(kpiText) && /Legalized/.test(kpiText) && /Waiting for review/.test(kpiText));
     var pto = await page.textContent('.kpi.k1 .kval');
-    check('PTO/PTAs counts campuses that sent something plus Texas PTAs', pto.trim() === '12', pto);
+    check('PTO/PTAs counts campuses that sent something plus Texas PTAs', pto.trim() === '13', pto);
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
     check('one row per Area Office (five, plus the two campuses with no Area Office yet)', areas.length === 6, areas.join(' / '));

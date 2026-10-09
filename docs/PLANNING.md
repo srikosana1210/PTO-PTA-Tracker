@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-09a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-09b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -56,7 +56,7 @@ The script finds everything by tab name and column header. **Renaming either bre
 | Settings | Current school year, start month (7), the Registered and Legalized flags for each item, dropdown lists, Area Offices | Staff |
 | Summary, Start Here, Roster Match Notes | Formulas and guidance | — |
 
-**Documents** (`CFG.ITEMS`, in register column order; `label` is FACE's wording, shown everywhere): Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank and EIN Letter, Articles of Incorporation (not required), Insurance (not required). The dashboard shows them in FACE's order: training certificate first.
+**Documents** (`CFG.ITEMS`, in register column order; `label` is FACE's wording, shown everywhere): Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter (called *Bank and EIN Letter* until 2026-10-09; the old name is still read everywhere), Articles of Incorporation (not required), Insurance (not required). The dashboard shows them in FACE's order: training certificate first.
 
 **FACE's wording (2026-10-09):**
 - **Registration:** training certificate; the organization's bylaws; the officer information form.
@@ -99,8 +99,10 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 10. No "either/or" rules are built in. Reviewers decide: they can mark any document *Not Needed* for a PTO/PTA, with a reason (2026-10-09).
 11. The dashboard shows whole numbers only: no percentages, no progress bars (2026-10-09). The sheet's Summary tab still has percentage columns.
 12. A campus counts as a PTO/PTA once it has sent something, or the Texas PTA roster lists it (charter not withdrawn). The October update can set campuses marked Yes that sent nothing back to Not Yet Confirmed; it asks first.
-13. Texas PTA roster: only the officer form is tracked for now; the roster just marks which campuses are PTAs. 10 matched (Hamilton MS, Browning, Durham, Harvard, Helms, Ketelsen, Oak Forest, Tijerina, Travis ES, Hogg MS). Bonham ES, Northside HS and Wainwright ES are *Charter Withdrawn* and are not marked. "South Early Community" was not matched (South Early HS or Southmayd ES?).
+13. Texas PTA roster: only the officer form is tracked for now; the roster just marks which campuses are PTAs. 11 are marked: Hamilton MS, Hogg MS, South EC HS ("South Early Community" on the roster, confirmed by FACE), and Browning, Durham, Harvard, Helms, Ketelsen, Oak Forest, Tijerina and Travis ES. Bonham ES, Northside HS and Wainwright ES are *Charter Withdrawn* and are not marked.
 14. An email with all documents in one file goes under the form's **Other documents** question. It is filed and logged but changes no item; the reviewer checks off what it contains.
+15. No Tax ID (EIN) letter (FACE, 2026-10-09). *Bank and EIN Letter* is renamed *Bank Verification Letter*; `updateOctober2026` renames the column, the Settings column and the Summary row. Old form questions, log lines and pages that use the old name still work (`headerAliases`, `formAliases`, `itemByKey_`, `itemNote_`).
+16. Programs/Charters stays on the campus list, all 19 entries, including programs that are not schools (FACE, 2026-10-09).
 
 ## 6. Known gaps and risks
 
@@ -132,9 +134,6 @@ Nothing below is committed to. Add items and order them with FACE.
 
 ## 8. Open questions
 
-- Should the Tax ID (EIN) letter still be asked for? FACE's wording for Legalization names only the bank verification letter; the column is still called *Bank and EIN Letter*.
-- "South Early Community" on the Texas PTA roster: which campus is it?
-- Programs/Charters lists programs that are not schools (Community Services, JJAEP, SPED programs, Office of Academics). Keep them on the list, or remove them?
 - Texas PTA roster: which other columns matter, and should it be imported regularly (paste-and-import like the officer form)?
 
 ## 9. Notes from the "PTO Registration system" conversation
