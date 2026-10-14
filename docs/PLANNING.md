@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-09b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-14a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -51,6 +51,7 @@ The script finds everything by tab name and column header. **Renaming either bre
 | Officer Form Paste | Raw Excel export, pasted at A1 | Staff |
 | C1 Assignments | Campus, C1 Coordinator (one row per campus; a campus can have several C1s) | Staff |
 | Dashboard Sign-ins | Name, Role (C1 / Staff), Passcode status, Email (a C1's email, for reminders) | Staff + script |
+| C1 Reminders | Send, C1, Email, Campuses, Waiting, Subject, Message, Message HTML, Note, Updated. **Rewritten every morning by the script; read by Power Automate**, so keep the headers | Script only |
 | Area Office Campuses | Campus, Area Office, Unit, Name in the register, Texas PTA, Texas PTA status (from `sheet/Area Office Campuses.csv`) | Staff (imported once a year) |
 | New Passcodes | Shown once after passcodes are made; delete after sending | Script |
 | Settings | Current school year, start month (7), the Registered and Legalized flags for each item, dropdown lists, Area Offices | Staff |
@@ -95,7 +96,7 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 6. Registered = training + bylaws + officer info. Legalized = those + budget proof, 501(c) proof, bank verification letter (FACE's wording, 2026-10-09). Articles of Incorporation and insurance are tracked but not required.
 7. Booster clubs are not tracked. The import skips them, but a combined name such as "PTA and Booster Club" still counts.
 8. Changed 2026-10-02: the bank letter and the EIN letter are one item (*Bank and EIN Letter*), insurance became optional, and the separate bank folder is gone. `updateDocumentList()` migrates older sheets.
-9. Emails to PTO/PTAs and reminders to C1s go from the person's own Outlook. The tracker's Google account has no Gmail, so the script can't send mail; it only logs "I sent it".
+9. Emails to PTO/PTAs go from the person's own Outlook. The tracker's Google account has no Gmail, so the script can't send mail; it only logs "I sent it". C1 reminders are sent by Power Automate from the ParentOrgDocs mailbox (FACE, 2026-10-14), from the C1 Reminders tab the script prepares.
 10. No "either/or" rules are built in. Reviewers decide: they can mark any document *Not Needed* for a PTO/PTA, with a reason (2026-10-09).
 11. The dashboard shows whole numbers only: no percentages, no progress bars (2026-10-09). The sheet's Summary tab still has percentage columns.
 12. A campus counts as a PTO/PTA once it has sent something, or the Texas PTA roster lists it (charter not withdrawn). The October update can set campuses marked Yes that sent nothing back to Not Yet Confirmed; it asks first.
@@ -129,7 +130,7 @@ Nothing below is committed to. Add items and order them with FACE.
 - [x] **R4. Every campus of every Area Office** (`Area Office Campuses` tab + menu). Nothing received yet → Yes when something arrives.
 - [x] **R2. Checklist review** in three groups (Registration, Legalization, Other documents), with It's there / Needs correction / Not there / Not needed and a remark per document. No hard-coded either/or rules (decision 10).
 - [x] **R1. The email** covers still-needed documents, corrections with remarks, and the overall remarks.
-- [~] **R3. Remind C1s:** built as Outlook drafts from the Review tab (FACE staff), because the Google account cannot send mail. _Automatic reminders need an account that can send mail (Gmail on the tracker's Google account, or a Power Automate flow)._
+- [x] **R3. Remind C1s automatically (2026-10-14).** Every morning (6–7 AM) the script rewrites the **C1 Reminders** tab. A Power Automate flow at 8 AM reads it (Google Sheets > Get rows) and sends each Send = Yes row from the ParentOrgDocs shared mailbox (or the owner's Outlook until IT grants Send As). Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback.
 - [~] **R7. Texas PTA roster:** PTAs marked from a snapshot (decision 13). _Waiting on FACE: what else to take from the roster (officers? standing?) and how often._
 
 ## 8. Open questions

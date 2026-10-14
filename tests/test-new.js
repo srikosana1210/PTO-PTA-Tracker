@@ -301,3 +301,69 @@ test('South EC HS is marked as a PTA from the Texas PTA roster', function () {
   eq(regRow(g, 'South EC HS')['Org Type'], 'PTA');
   ok(!regRow(g, 'South Early HS'), 'no second row under the other spelling');
 });
+
+/* ---------- R3: the C1 Reminders tab for Power Automate ---------- */
+function setEmail(g, name, email) {
+  var si = g.__ss.getSheetByName('Dashboard Sign-ins'), vals = si.values(), ec = vals[0].indexOf('Email');
+  vals.forEach(function (r, i) { if (r[0] === name) si.getRange(i + 1, ec + 1).setValue(email); });
+}
+function reminderRows(g) {
+  var v = g.__ss.getSheetByName('C1 Reminders').values(), head = v[0];
+  return v.slice(1).filter(function (r) { return r.join('') !== ''; }).map(function (r) { var o = {}; head.forEach(function (hd, j) { o[hd] = r[j]; }); return o; });
+}
+
+test('the C1 Reminders tab: Send = Yes only for a C1 with something waiting and an email', function () {
+  var g = h.load();
+  withPeople(g);
+  // a second C1 with nothing waiting
+  var c1 = g.__ss.getSheetByName('C1 Assignments'); c1.getRange(4, 1, 1, 2).setValues([['Askew ES', 'Mr. Diaz']]);
+  g.setUpSignIns_();
+  setEmail(g, 'Ms. Lee', 'lee@houstonisd.org'); setEmail(g, 'Mr. Diaz', 'diaz@houstonisd.org');
+  g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws'), upload(g, 'Training Certificate')] }));
+  g.processSubmission_(sub('Ashford ES', { other: [{ ids: [g.__drive.upload('packet.pdf').getId()] }] }));
+  var r = g.refreshC1Reminders_();
+  eq(r.send, 1);
+  var rows = reminderRows(g);
+  eq(Object.keys(rows[0]), ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Message', 'Message HTML', 'Note', 'Updated']);
+  var lee = rows.filter(function (x) { return x.C1 === 'Ms. Lee'; })[0], diaz = rows.filter(function (x) { return x.C1 === 'Mr. Diaz'; })[0];
+  eq(lee.Send, 'Yes'); eq(lee.Email, 'lee@houstonisd.org'); eq(lee.Campuses, 'Anderson ES, Ashford ES'); eq(lee.Waiting, 3);
+  ok(/Anderson ES: The organization's bylaws; Training certificate/.test(lee.Message), lee.Message);
+  ok(/Ashford ES: other files to check/.test(lee.Message), lee.Message);
+  ok(/<li><b>Anderson ES<\/b>: The organization&#39;s bylaws|<li><b>Anderson ES<\/b>: The organization's bylaws/.test(lee['Message HTML']), lee['Message HTML']);
+  ok(/https:\/\/script\.google\.com/.test(lee['Message HTML']), 'dashboard link');
+  eq(diaz.Send, 'No'); eq(diaz.Note, 'Nothing waiting.');
+});
+
+test('a C1 with something waiting but no email is reported, not sent', function () {
+  var g = h.load();
+  withPeople(g);
+  g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws')] }));
+  var r = g.refreshC1Reminders_();
+  eq(r.send, 0); eq(r.noEmail, ['Ms. Lee']);
+  eq(reminderRows(g)[0].Note, 'No email on the Dashboard Sign-ins tab.');
+});
+
+test('once a campus is checked off, its "other files" stop counting and it drops off the reminder', function () {
+  var g = h.load();
+  var p = withPeople(g);
+  setEmail(g, 'Ms. Lee', 'lee@houstonisd.org');
+  g.processSubmission_(sub('Ashford ES', { other: [{ ids: [g.__drive.upload('packet.pdf').getId()] }] }));
+  g.refreshC1Reminders_();
+  eq(reminderRows(g)[0].Send, 'Yes');
+  g.saveChecklist(p.c1, 'Ashford ES', '2026-27', [{ key: 'Bylaws', status: 'Accepted', remark: '' }], null);
+  g.refreshC1Reminders_();
+  eq(reminderRows(g)[0].Send, 'No');
+});
+
+test('turning the morning update on and off', function () {
+  var g = h.load();
+  withPeople(g);
+  g.turnOnC1Reminders();
+  eq(g.__triggers.filter(function (t) { return t.fn === 'refreshC1Reminders' && t.hour === 6; }).length, 1);
+  g.turnOnC1Reminders();
+  eq(g.__triggers.length, 1, 'turning it on twice makes one trigger');
+  ok(g.getDashboard('').remindAuto === null, 'leadership is not told');
+  g.turnOffC1Reminders();
+  eq(g.__triggers.length, 0);
+  eq(reminderRows(g).length, 0, 'the list is emptied, so the flow sends nothing');
+});

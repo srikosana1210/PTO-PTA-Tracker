@@ -19,6 +19,8 @@
  *      sends nothing. logResendRequest only writes a line in the Submission Log after the person says they sent it.
  *   7. Lists every campus of every Area Office from the Area Office Campuses tab (addAreaCampuses), marking the campuses the Texas PTA
  *      roster lists as PTAs.
+ *   8. Every morning, writes the C1 Reminders tab: one row per C1 with what is waiting for their review and the email to send. A Power
+ *      Automate flow reads it and sends the emails from Outlook (this script cannot send mail). See docs/power-automate-c1-reminders.md.
  *
  * Do not rename the tabs or the column headers in the sheet: the script finds things by those names.
  */
@@ -33,6 +35,10 @@ var CFG = {
   TAB_SIGNINS: 'Dashboard Sign-ins',
   TAB_PASS: 'New Passcodes',
   TAB_CAMPUSES: 'Area Office Campuses',
+  // Read by the Power Automate flow that emails the C1s (docs/power-automate-c1-reminders.md). The flow needs these exact headers.
+  TAB_REMINDERS: 'C1 Reminders',
+  REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Message', 'Message HTML', 'Note', 'Updated'],
+  REMINDER_HOUR: 6,
   FORM_TITLE: 'PTO/PTA Documents Received',
   ROOT_DOCS: 'Parent Org Documents',
   DASHBOARD_TITLE: 'PTO/PTA Registration',
@@ -89,7 +95,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-09b (checklist review with remarks, every campus listed, Legalized = six documents, no EIN letter)';
+var VERSION = 'Script version 2026-10-14a (C1 reminder list for Power Automate)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -107,6 +113,9 @@ function onOpen() {
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
     .addItem('Dashboard: check that it works', 'checkDashboard')
+    .addItem('C1 reminders: update the list now', 'updateC1Reminders')
+    .addItem('C1 reminders: update the list every morning (turn on)', 'turnOnC1Reminders')
+    .addItem('C1 reminders: stop updating the list (turn off)', 'turnOffC1Reminders')
     .addItem('Show form and dashboard links', 'showLinks')
     .addSeparator()
     .addItem('Refresh the campus list in the form', 'refreshCampusList')
@@ -1459,9 +1468,11 @@ function getPayload_(access) {
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
     itemKeys: CFG.ITEMS.map(function (it) { return it.key; }), labels: CFG.ITEMS.map(function (it) { return it.label || it.key; }),
     reg: flags.reg, req: flags.req, inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
-    c1s: staff ? c1Contacts_() : null,
+    c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null,
     asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), rows: rows, detail: detail };
 }
+
+function safeTrigger_() { try { return reminderTrigger_(); } catch (err) { return false; } }
 
 /** For FACE staff: every C1 with their email (Dashboard Sign-ins tab) and campuses (C1 Assignments tab), for the review reminders. */
 function c1Contacts_() {
@@ -1474,6 +1485,124 @@ function c1Contacts_() {
     });
   } catch (err) { /* the dashboard still opens without the reminder list */ }
   return out;
+}
+
+/* ================================================================== C1 reminders (sent by Power Automate) */
+
+/*
+ * This script cannot send email (the Google account has no Gmail). Instead it writes the C1 Reminders tab every morning: one row per C1,
+ * with Send = Yes when something is waiting for their review and their email is known, and the email ready to send. A Power Automate flow
+ * in HISD's Microsoft 365 reads the tab (Google Sheets connector, Get rows) and sends each Send = Yes row from Outlook.
+ */
+var REVIEW_NOTE_RE = /^(Accepted: |Needs correction, |Not needed, |Not there, |Remark, |Remark cleared, |Put back to Received)/;
+
+/** Menu: rewrites the C1 Reminders tab now. */
+function updateC1Reminders() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = refreshC1Reminders_();
+    var L = ['The ' + CFG.TAB_REMINDERS + ' tab is up to date (' + r.year + ').', '', plural_(r.send, 'C1 will', 'C1s will') + ' get a reminder the next time the Power Automate flow runs.'];
+    if (r.noEmail.length) L.push('', 'These C1s have something waiting but no email on the ' + CFG.TAB_SIGNINS + ' tab, so they get no reminder: ' + r.noEmail.join(', ') + '. Type their email in the Email column.');
+    if (!r.c1s) L.push('', 'No C1s are set up yet. Fill in the ' + CFG.TAB_C1 + ' tab first.');
+    if (!reminderTrigger_()) L.push('', 'The list is not updated by itself yet. Choose "C1 reminders: update the list every morning (turn on)".');
+    ui.alert('C1 reminders', L.join('\n'), ui.ButtonSet.OK);
+  } catch (err) { ui.alert('C1 reminders were not updated', err.message, ui.ButtonSet.OK); }
+}
+
+/** Menu: updates the list every morning (before the flow runs). */
+function turnOnC1Reminders() {
+  var ui = SpreadsheetApp.getUi();
+  if (!reminderTrigger_()) ScriptApp.newTrigger('refreshC1Reminders').timeBased().everyDays(1).atHour(CFG.REMINDER_HOUR).create();
+  try { refreshC1Reminders_(); } catch (err) { /* the trigger is on; the alert below says how to check */ }
+  ui.alert('C1 reminders', 'The ' + CFG.TAB_REMINDERS + ' tab is now updated every morning between ' + CFG.REMINDER_HOUR + ' and ' + (CFG.REMINDER_HOUR + 1) + ' AM, before the Power Automate flow sends the emails. ' +
+    'Set the flow to run at 8 AM or later.', ui.ButtonSet.OK);
+}
+
+/** Menu: stops the morning update. The flow then finds the last list; turn the flow off too to stop the emails. */
+function turnOffC1Reminders() {
+  var ui = SpreadsheetApp.getUi(), n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === 'refreshC1Reminders') { ScriptApp.deleteTrigger(tr); n++; } });
+  var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_REMINDERS);
+  if (sh) writeReminderRows_(sh, []);
+  ui.alert('C1 reminders', (n ? 'The morning update is off' : 'The morning update was already off') + ', and the ' + CFG.TAB_REMINDERS + ' tab is empty, so the Power Automate flow sends nothing. To stop the flow itself, turn it off in Power Automate.', ui.ButtonSet.OK);
+}
+
+function reminderTrigger_() { return ScriptApp.getProjectTriggers().some(function (tr) { return tr.getHandlerFunction() === 'refreshC1Reminders'; }); }
+
+/** Time trigger. */
+function refreshC1Reminders() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try { refreshC1Reminders_(); } finally { lock.releaseLock(); }
+}
+
+/** What is waiting for review at each campus of the school year: { normalised campus: { campus, items: [labels], other: true/false } }. */
+function waitingByCampus_(year) {
+  var out = {}, t = table_(CFG.TAB_REGISTER);
+  for (var i = 1; i < t.values.length; i++) {
+    var v = t.values[i], campus = cellText_(v[t.col['Campus']]);
+    if (!campus || cellText_(v[t.col['School Year']]) !== year) continue;
+    var items = CFG.ITEMS.filter(function (it) { return cellText_(v[t.col[it.key]]) === 'Received'; }).map(function (it) { return it.key; });
+    out[norm_(campus)] = { campus: campus, items: items, other: false };
+  }
+  // "Other documents" files that arrived after the last time anyone checked the campus off
+  if (SpreadsheetApp.getActive().getSheetByName(CFG.TAB_LOG)) {
+    var lt = table_(CFG.TAB_LOG), c = lt.col, done = {};
+    for (var r = lt.values.length - 1; r >= 1; r--) {
+      var lv = lt.values[r], k = norm_(lv[c['Campus']]);
+      if (done[k] || cellText_(lv[c['School Year']]) !== year || !out[k]) continue;
+      if (norm_(lv[c['Document Type']]) === norm_(CFG.Q_OTHER)) { out[k].other = true; done[k] = 1; }
+      else if (REVIEW_NOTE_RE.test(cellText_(lv[c['Notes']]))) done[k] = 1;
+    }
+  }
+  return out;
+}
+
+/** Rewrites the C1 Reminders tab. Returns { year, c1s, send, noEmail: [names] }. */
+function refreshC1Reminders_() {
+  var year = currentYear_(), wait = waitingByCampus_(year), a = c1Assignments_(), people = signInRows_();
+  var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+  var url = dashboardUrl_(), rows = [], res = { year: year, c1s: a.order.length, send: 0, noEmail: [] };
+  a.order.forEach(function (k) {
+    var rec = a.names[k], p = people.byKey[k], email = p && p.email ? p.email : '';
+    var list = Object.keys(rec.campuses).map(function (x) { return wait[x]; }).filter(function (w) { return w && (w.items.length || w.other); })
+      .sort(function (x, y) { return x.campus.localeCompare(y.campus); });
+    var docs = list.reduce(function (n, w) { return n + w.items.length + (w.other ? 1 : 0); }, 0);
+    var send = list.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    var note = !list.length ? 'Nothing waiting.' : !email ? 'No email on the ' + CFG.TAB_SIGNINS + ' tab.' : !send ? 'The email does not look right.' : '';
+    if (list.length && !send) res.noEmail.push(rec.name);
+    if (send) res.send++;
+    var m = reminderMessage_(rec.name, list, year, url);
+    rows.push([send ? 'Yes' : 'No', rec.name, email, list.map(function (w) { return w.campus; }).join(', '), docs, m.subject, m.text, m.html, note, now]);
+  });
+  var sh = ensureTab_(CFG.TAB_REMINDERS, CFG.REMINDER_HEADERS);
+  writeReminderRows_(sh, rows);
+  return res;
+}
+
+function writeReminderRows_(sh, rows) {
+  sh.clearContents();
+  var all = [CFG.REMINDER_HEADERS].concat(rows);
+  sh.getRange(1, 1, all.length, CFG.REMINDER_HEADERS.length).setValues(all);
+  sh.getRange(1, 1, 1, CFG.REMINDER_HEADERS.length).setFontWeight('bold');
+}
+
+/** The reminder for one C1, as plain text and as HTML (the Outlook action in Power Automate takes HTML). */
+function reminderMessage_(name, list, year, url) {
+  var subject = 'PTO/PTA documents waiting for your review' + (year ? ' (' + year + ')' : '');
+  var lines = list.map(function (w) {
+    var what = w.items.map(function (key) { var it = itemByKey_(key); return it.label || it.key; });
+    if (w.other) what.push('other files to check');
+    return { campus: w.campus, what: what.join('; ') };
+  });
+  var text = ['Hello ' + name + ',', '', 'These PTO/PTA documents are waiting for your review on the PTO/PTA registration dashboard:', '']
+    .concat(lines.map(function (l) { return '- ' + l.campus + ': ' + l.what; }))
+    .concat(['', 'Please open the dashboard, sign in, and check off each document on the Review tab.' + (url ? '\n' + url : ''), '', 'Thank you,', 'Houston ISD Family and Community Engagement']).join('\n');
+  var html = '<p>Hello ' + htmlEsc_(name) + ',</p><p>These PTO/PTA documents are waiting for your review on the PTO/PTA registration dashboard:</p><ul>' +
+    lines.map(function (l) { return '<li><b>' + htmlEsc_(l.campus) + '</b>: ' + htmlEsc_(l.what) + '</li>'; }).join('') + '</ul>' +
+    '<p>Please open the dashboard, sign in, and check off each document on the Review tab.' + (url ? '<br><a href="' + htmlEsc_(url) + '">Open the PTO/PTA dashboard</a>' : '') + '</p>' +
+    '<p>Thank you,<br>Houston ISD Family and Community Engagement</p>';
+  return { subject: subject, text: text, html: html };
 }
 
 /**

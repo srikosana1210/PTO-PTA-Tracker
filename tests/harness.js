@@ -165,6 +165,7 @@ function load(opts) {
   Rule.prototype.setHelpText = function (t) { this.help = t; return this; };
   Rule.prototype.build = function () { return this; };
 
+  var triggers = [];
   var sandbox = {
     console: console,
     SpreadsheetApp: { getActive: function () { return ss; }, getUi: function () { return ui; }, flush: function () {}, newDataValidation: function () { return new Rule(); } },
@@ -173,14 +174,21 @@ function load(opts) {
     LockService: { getScriptLock: function () { return { waitLock: function () {}, releaseLock: function () {} }; } },
     Utilities: Utilities,
     DriveApp: DriveApp,
-    ScriptApp: { getService: function () { return { getUrl: function () { return opts.url === undefined ? 'https://script.google.com/a/macros/houstonisd.org/s/TEST/exec' : opts.url; } }; }, getProjectTriggers: function () { return []; } },
+    ScriptApp: { getService: function () { return { getUrl: function () { return opts.url === undefined ? 'https://script.google.com/a/macros/houstonisd.org/s/TEST/exec' : opts.url; } }; }, getProjectTriggers: function () { return triggers.slice(); },
+      deleteTrigger: function (t) { triggers.splice(triggers.indexOf(t), 1); },
+      newTrigger: function (fn) {
+        var tr = { fn: fn, getHandlerFunction: function () { return fn; } }, b = {
+          timeBased: function () { tr.kind = 'time'; return b; }, everyDays: function (n) { tr.days = n; return b; }, atHour: function (h) { tr.hour = h; return b; },
+          forForm: function () { tr.kind = 'form'; return b; }, onFormSubmit: function () { return b; }, create: function () { triggers.push(tr); return tr; } };
+        return b;
+      } },
     HtmlService: { createHtmlOutputFromFile: function () { var h = fs.readFileSync(path.join(ROOT, 'apps-script', 'Dashboard.html'), 'utf8'); return { getContent: function () { return h; } }; } },
     FormApp: { openById: function () { throw new Error('No form in tests'); } },
     Logger: { log: function (m) { log.push(m); } }
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script', 'Code.gs'), 'utf8'), sandbox, { filename: 'Code.gs' });
-  sandbox.__ss = ss; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
+  sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
   return sandbox;
 }
 

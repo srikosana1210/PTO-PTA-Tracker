@@ -13,11 +13,12 @@ It runs on Google: one Google Sheet, one Google Form, and one Apps Script web-ap
 | [`sheet/PTO-PTA-Tracker-2026-27.xlsx`](sheet/PTO-PTA-Tracker-2026-27.xlsx) | The sheet template for a brand-new setup: every campus of the five Area Offices (266) for 2026-27, the 11 Texas PTA campuses marked as PTAs, the October 2026 changes already applied. No documents or officers yet. The **Start Here** tab is the full setup and user guide | Upload to Drive, then File > Save as Google Sheets |
 | [`sheet/Area Office Campuses.csv`](sheet/Area%20Office%20Campuses.csv) | Every campus of the five Area Offices (26-27 SY Area Office Unit Assignments), with the register's spelling where it differs and the Texas PTA roster status. Import it into the live sheet as a tab named **Area Office Campuses** | Google Sheets: File > Import |
 | [`tools/PTO-PTA-OneDrive-Copy.bat`](tools/PTO-PTA-OneDrive-Copy.bat) | Copies the `Parent Org Documents` Drive folder to a FACE OneDrive folder. It only adds and updates files, and can run every 3 hours | A FACE staff Windows PC with Google Drive for desktop |
+| [`docs/power-automate-c1-reminders.md`](docs/power-automate-c1-reminders.md) | How to set up the automatic C1 reminder emails (the tracker's C1 Reminders tab + a Power Automate flow that sends from ParentOrgDocs) | Sheet menu + make.powerautomate.com |
 | [`docs/onedrive-copy-setup-guide.md`](docs/onedrive-copy-setup-guide.md) | How to set up and troubleshoot the OneDrive copy | — |
 | [`tests/`](tests) | Tests: `Code.gs` runs in Node against the template with stand-ins for the Google services (`harness.js`), and the real dashboard runs in Chromium (`test-dashboard.js`) | `node tests/test-script.js` and `node tests/test-dashboard.js` |
 | [`docs/PLANNING.md`](docs/PLANNING.md) | How the system fits together, the rules it enforces, decisions made so far, and the backlog. **Start here before you change anything** | — |
 
-Current script version: `2026-10-09b` (the `VERSION` constant in `Code.gs`).
+Current script version: `2026-10-14a` (the `VERSION` constant in `Code.gs`).
 
 ## Setup in short
 
@@ -26,7 +27,7 @@ The **Start Here** tab in the sheet has the full steps:
 1. Save the `.xlsx` as a Google Sheet. Paste `Code.gs`, and add an HTML file named `Dashboard` with `Dashboard.html` in it.
 2. Use **PTO/PTA Tracker > 1. Create the form**. Then add the file-upload questions by hand (Google does not let a script add them): the seven documents (the bank one is **Bank Verification Letter**), plus **Other documents** for an email whose documents are all in one file. Then run **2. Check setup**.
 3. Deploy as a web app: Execute as *Me*, access *Anyone within Houston ISD*.
-4. Fill in **C1 Assignments**, then use **Dashboard sign-ins: set up and make passcodes**. Type each C1's email in the **Email** column of Dashboard Sign-ins (used for the review reminders).
+4. Fill in **C1 Assignments**, then use **Dashboard sign-ins: set up and make passcodes**. Type each C1's email in the **Email** column of Dashboard Sign-ins, then set up the reminder emails: [docs/power-automate-c1-reminders.md](docs/power-automate-c1-reminders.md).
 
 ## Updating the live tracker from this repo
 

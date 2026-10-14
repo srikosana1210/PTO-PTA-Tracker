@@ -643,7 +643,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-09b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-14a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1007,7 +1007,9 @@ function remindHtml() {
   var list = remindList(), due = list.filter(function (c) { return c.rows.length; });
   var out = '<h3 class="rhead" id="remind" tabindex="-1">Remind C1s<small>' + (list.length ? plural(due.length, 'C1 has', 'C1s have') + ' campuses waiting' : 'no C1s set up yet') + '</small></h3>';
   if (!list.length) return out + '<p class="hint">C1s appear here once the C1 Assignments tab and Dashboard sign-ins are set up.</p>';
-  out += '<p class="hint">Writes a reminder in Outlook to each C1 with campuses waiting for review, listing the campuses and documents. Read it, then press Send there. Nothing is sent from this page.</p>' + mailPrefHtml('data-mailact');
+  out += '<p class="hint">' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> each morning the tracker updates the C1 Reminders tab, and the Power Automate flow emails every C1 below from Outlook. You only need these buttons to send one sooner.'
+    : '<b>Automatic reminders are off.</b> To send them every morning, turn on "C1 reminders: update the list every morning" in the sheet menu and set up the Power Automate flow. Until then, use these buttons.') +
+    ' Each button writes the reminder in Outlook; read it, then press Send there.</p>' + mailPrefHtml('data-mailact');
   if (!due.length) return out + '<div class="caught"><b>No C1 has anything waiting.</b>Nothing to remind them about.</div>';
   return out + '<ul class="c1list">' + due.map(function (c) {
     var m = remindMessage(c);
