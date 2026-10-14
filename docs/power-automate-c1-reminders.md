@@ -1,6 +1,6 @@
 # C1 reminders by Power Automate: setup guide
 
-_October 2026. For the PTO/PTA tracker, script version 2026-10-14b or later._
+_October 2026. For the PTO/PTA tracker, script version 2026-10-14c or later._
 
 The tracker can't send email itself, because its Google account has no Gmail. So the job is split:
 
@@ -17,7 +17,7 @@ Setup takes about 15 minutes. Do part A in the tracker sheet, then part B in Pow
 
 ## A. In the tracker sheet (5 minutes)
 
-1. **Install the new script.** Paste the new `Code.gs` and `Dashboard.html` into Apps Script and save. Then choose **Deploy > Manage deployments > Edit > New version > Deploy**. The dashboard footer should then read **2026-10-14b**.
+1. **Install the new script.** Paste the new `Code.gs` and `Dashboard.html` into Apps Script and save. Then choose **Deploy > Manage deployments > Edit > New version > Deploy**. The dashboard footer should then read **2026-10-14c**.
 2. **Add each C1's email.** Open the **Dashboard Sign-ins** tab. Type each C1's email in the **Email** column. If the column isn't there, run **PTO/PTA Tracker > Dashboard sign-ins: set up and make passcodes** once and it gets added.
 3. **Make the small reminders sheet.** Reload the tracker, then choose **PTO/PTA Tracker > C1 reminders: make the small sheet for Power Automate**. Google asks you to approve access again, because the script now creates a second spreadsheet; choose your account, then **Allow**. The message shows the new sheet's link, and the sheet is in your Google Drive as *PTO-PTA C1 Reminders (read by Power Automate)*. Don't type in it: the tracker rewrites it.
 4. **Turn on the morning update.** Choose **PTO/PTA Tracker > C1 reminders: update the list every morning (turn on)**.
@@ -28,11 +28,11 @@ Setup takes about 15 minutes. Do part A in the tracker sheet, then part B in Pow
    | **Send** | **Yes** = this C1 gets an email at the next run. **No** = nothing waiting, or no email on file (the **Note** column says which) |
    | **C1**, **Email** | Who it goes to |
    | **Campuses**, **Waiting** | Their campuses with documents waiting, and how many documents |
-   | **Subject**, **Message HTML** | The email the flow sends |
-   | **Message** | The same email as plain text (not used by the flow) |
+   | **Subject**, **Body** | The email the flow sends (Body is the email in HTML, so the list and the link look right) |
+   | **Text** | The same email as plain text, for reading in the sheet (not used by the flow) |
    | **Updated** | When the tracker last refreshed the row |
 
-   Don't rename this tab or its column headings. The flow finds them by name.
+   Don't rename this tab or its column headings. The flow finds them by name. (Every heading is one word on purpose: Power Automate gets a blank value from a Google Sheets column whose heading has a space.)
 
 To refresh the list right away, for example while testing, choose **PTO/PTA Tracker > C1 reminders: update the list now**.
 
@@ -71,7 +71,7 @@ Go to **make.powerautomate.com** and sign in with your Houston ISD Microsoft acc
    - **Original Mailbox Address:** `ParentOrgDocs@houstonisd.org`
    - **To:** choose **Email** from the dynamic content.
    - **Subject:** choose **Subject**.
-   - **Body:** first select the **</>** (code view) button on the body box. Then choose **Message HTML**. Code view makes the list and the dashboard link show properly. Without it, the email can show raw `<p>` and `<li>` tags.
+   - **Body:** first select the **</>** (code view) button on the body box. Then choose **Body** (from Get rows). Code view makes the list and the dashboard link show properly. Without it, the email can show raw `<p>` and `<li>` tags.
 4. Leave **If no** empty.
 5. Choose **Save**.
 

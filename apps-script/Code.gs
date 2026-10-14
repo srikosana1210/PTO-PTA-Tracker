@@ -35,9 +35,11 @@ var CFG = {
   TAB_SIGNINS: 'Dashboard Sign-ins',
   TAB_PASS: 'New Passcodes',
   TAB_CAMPUSES: 'Area Office Campuses',
-  // Read by the Power Automate flow that emails the C1s (docs/power-automate-c1-reminders.md). The flow needs these exact headers.
+  // Read by the Power Automate flow that emails the C1s (docs/power-automate-c1-reminders.md). The flow needs these exact headers, and
+  // each is one word: Power Automate's Google Sheets connector returns a blank value for a column whose heading has a space.
+  // Body is the email as HTML (what the flow sends); Text is the same email as plain text, for people reading the tab.
   TAB_REMINDERS: 'C1 Reminders',
-  REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Message', 'Message HTML', 'Note', 'Updated'],
+  REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Body', 'Text', 'Note', 'Updated'],
   REMINDER_HOUR: 6,
   // A small separate spreadsheet holding only the reminder list. Power Automate reads this one, not the tracker: far fewer Google
   // requests (the Google Sheets connector hits "429 Too many requests" on a big workbook), and the flow never sees officer contacts.
@@ -98,7 +100,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-14b (C1 reminder list in its own small sheet for Power Automate)';
+var VERSION = 'Script version 2026-10-14c (C1 reminder list: one-word column names for Power Automate)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -1576,7 +1578,7 @@ function refreshC1Reminders_() {
     if (list.length && !send) res.noEmail.push(rec.name);
     if (send) res.send++;
     var m = reminderMessage_(rec.name, list, year, url);
-    rows.push([send ? 'Yes' : 'No', rec.name, email, list.map(function (w) { return w.campus; }).join(', '), docs, m.subject, m.text, m.html, note, now]);
+    rows.push([send ? 'Yes' : 'No', rec.name, email, list.map(function (w) { return w.campus; }).join(', '), docs, m.subject, m.html, m.text, note, now]);
   });
   ensureTab_(CFG.TAB_REMINDERS, CFG.REMINDER_HEADERS);
   reminderTabs_().forEach(function (sh) { writeReminderRows_(sh, rows); });
