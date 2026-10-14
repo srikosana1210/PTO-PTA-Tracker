@@ -1,11 +1,13 @@
 # C1 reminders by Power Automate: setup guide
 
-_October 2026. For the PTO/PTA tracker, script version 2026-10-14a or later._
+_October 2026. For the PTO/PTA tracker, script version 2026-10-14b or later._
 
 The tracker can't send email itself, because its Google account has no Gmail. So the job is split:
 
 1. **The tracker** updates the **C1 Reminders** tab every morning, between 6 and 7 AM. Each C1 gets one row. **Send** says **Yes** when that C1 has documents waiting for review and their email is known. The row also holds the finished email.
-2. **A Power Automate flow** runs at 8 AM. It reads that tab and sends each **Yes** row from Outlook, from the ParentOrgDocs mailbox.
+2. **A Power Automate flow** runs at 8 AM. It reads the list and sends each **Yes** row from Outlook, from the ParentOrgDocs mailbox.
+
+Power Automate doesn't read the tracker itself. It reads a **small separate Google Sheet**, *PTO-PTA C1 Reminders (read by Power Automate)*, which holds only the reminder list; the tracker copies the list into it each time. That keeps Power Automate under Google's request limit (a big workbook triggers "429 Too many requests"), and it means the flow never sees officer contact details.
 
 C1s with nothing waiting get no email. Once you set it up, nobody has to click anything.
 
@@ -15,10 +17,11 @@ Setup takes about 15 minutes. Do part A in the tracker sheet, then part B in Pow
 
 ## A. In the tracker sheet (5 minutes)
 
-1. **Install the new script.** Paste the new `Code.gs` and `Dashboard.html` into Apps Script and save. Then choose **Deploy > Manage deployments > Edit > New version > Deploy**. The dashboard footer should then read **2026-10-14a**.
+1. **Install the new script.** Paste the new `Code.gs` and `Dashboard.html` into Apps Script and save. Then choose **Deploy > Manage deployments > Edit > New version > Deploy**. The dashboard footer should then read **2026-10-14b**.
 2. **Add each C1's email.** Open the **Dashboard Sign-ins** tab. Type each C1's email in the **Email** column. If the column isn't there, run **PTO/PTA Tracker > Dashboard sign-ins: set up and make passcodes** once and it gets added.
-3. **Turn on the morning update.** Reload the sheet, then choose **PTO/PTA Tracker > C1 reminders: update the list every morning (turn on)**. Google may ask you to approve access again; choose your account, then **Allow**.
-4. **Check the list.** Open the **C1 Reminders** tab. You'll see one row per C1:
+3. **Make the small reminders sheet.** Reload the tracker, then choose **PTO/PTA Tracker > C1 reminders: make the small sheet for Power Automate**. Google asks you to approve access again, because the script now creates a second spreadsheet; choose your account, then **Allow**. The message shows the new sheet's link, and the sheet is in your Google Drive as *PTO-PTA C1 Reminders (read by Power Automate)*. Don't type in it: the tracker rewrites it.
+4. **Turn on the morning update.** Choose **PTO/PTA Tracker > C1 reminders: update the list every morning (turn on)**.
+5. **Check the list.** Open the **C1 Reminders** tab (in the tracker or in the small sheet; they're the same). You'll see one row per C1:
 
    | Column | What it holds |
    |---|---|
@@ -50,7 +53,9 @@ Go to **make.powerautomate.com** and sign in with your Houston ISD Microsoft acc
 ### 2. Read the C1 Reminders tab
 1. Choose **+ New step** (or **+**, then **Add an action**). Search **Google Sheets**, then choose **Get rows**.
 2. When asked, choose **Sign in**. Use the **Houston ISD Google account that owns the tracker sheet**.
-3. **File:** browse to the tracker sheet. **Worksheet:** **C1 Reminders**.
+3. **File:** browse to **PTO-PTA C1 Reminders (read by Power Automate)**. Use the small sheet, **not** the tracker. **Worksheet:** **C1 Reminders**.
+
+> If saving the flow fails with **"429" / "Too many requests sent to the Google Sheets API"**, Google is briefly limiting requests. Check that **Get rows** points at the small sheet, not the tracker. Then leave the flow alone for 5–10 minutes and click **Save** once. Every time you open a step, Power Automate asks Google again, so clicking around makes it worse.
 
 > If Power Automate says the Google Sheets connection is **blocked by a data policy**, HISD IT has turned it off. Ask IT to allow the Google Sheets connector for your account. Until then, FACE staff can use the **Remind C1s** buttons on the dashboard's Review tab.
 

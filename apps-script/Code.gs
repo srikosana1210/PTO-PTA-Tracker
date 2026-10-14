@@ -39,6 +39,9 @@ var CFG = {
   TAB_REMINDERS: 'C1 Reminders',
   REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Message', 'Message HTML', 'Note', 'Updated'],
   REMINDER_HOUR: 6,
+  // A small separate spreadsheet holding only the reminder list. Power Automate reads this one, not the tracker: far fewer Google
+  // requests (the Google Sheets connector hits "429 Too many requests" on a big workbook), and the flow never sees officer contacts.
+  REMINDER_FILE_TITLE: 'PTO-PTA C1 Reminders (read by Power Automate)',
   FORM_TITLE: 'PTO/PTA Documents Received',
   ROOT_DOCS: 'Parent Org Documents',
   DASHBOARD_TITLE: 'PTO/PTA Registration',
@@ -95,7 +98,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-14a (C1 reminder list for Power Automate)';
+var VERSION = 'Script version 2026-10-14b (C1 reminder list in its own small sheet for Power Automate)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -113,6 +116,7 @@ function onOpen() {
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
     .addItem('Dashboard: check that it works', 'checkDashboard')
+    .addItem('C1 reminders: make the small sheet for Power Automate', 'makeReminderSheet')
     .addItem('C1 reminders: update the list now', 'updateC1Reminders')
     .addItem('C1 reminders: update the list every morning (turn on)', 'turnOnC1Reminders')
     .addItem('C1 reminders: stop updating the list (turn off)', 'turnOffC1Reminders')
@@ -1522,8 +1526,7 @@ function turnOnC1Reminders() {
 function turnOffC1Reminders() {
   var ui = SpreadsheetApp.getUi(), n = 0;
   ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === 'refreshC1Reminders') { ScriptApp.deleteTrigger(tr); n++; } });
-  var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_REMINDERS);
-  if (sh) writeReminderRows_(sh, []);
+  reminderTabs_().forEach(function (sh) { writeReminderRows_(sh, []); });
   ui.alert('C1 reminders', (n ? 'The morning update is off' : 'The morning update was already off') + ', and the ' + CFG.TAB_REMINDERS + ' tab is empty, so the Power Automate flow sends nothing. To stop the flow itself, turn it off in Power Automate.', ui.ButtonSet.OK);
 }
 
@@ -1575,9 +1578,49 @@ function refreshC1Reminders_() {
     var m = reminderMessage_(rec.name, list, year, url);
     rows.push([send ? 'Yes' : 'No', rec.name, email, list.map(function (w) { return w.campus; }).join(', '), docs, m.subject, m.text, m.html, note, now]);
   });
-  var sh = ensureTab_(CFG.TAB_REMINDERS, CFG.REMINDER_HEADERS);
-  writeReminderRows_(sh, rows);
+  ensureTab_(CFG.TAB_REMINDERS, CFG.REMINDER_HEADERS);
+  reminderTabs_().forEach(function (sh) { writeReminderRows_(sh, rows); });
   return res;
+}
+
+/** The C1 Reminders tab of the tracker, and of the small reminders sheet when there is one. */
+function reminderTabs_() {
+  var out = [], own = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_REMINDERS);
+  if (own) out.push(own);
+  var book = reminderBook_();
+  if (book) out.push(book.getSheetByName(CFG.TAB_REMINDERS) || book.getSheets()[0].setName(CFG.TAB_REMINDERS));
+  return out;
+}
+
+/** The small reminders spreadsheet, or null when it has not been made (or was deleted). */
+function reminderBook_() {
+  var id = PropertiesService.getScriptProperties().getProperty('REMINDER_SHEET_ID');
+  if (!id) return null;
+  try { return SpreadsheetApp.openById(id); } catch (err) { return null; }
+}
+
+/** Menu: makes the small spreadsheet Power Automate reads (once), fills it, and shows its link. */
+function makeReminderSheet() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = makeReminderSheet_();
+    ui.alert('C1 reminders', (r.made ? 'The small reminders sheet is ready. It is in your Google Drive, named "' + CFG.REMINDER_FILE_TITLE + '".'
+      : 'The small reminders sheet already exists, in your Google Drive, named "' + CFG.REMINDER_FILE_TITLE + '".') +
+      '\n\nIn Power Automate, choose this file (not the tracker) in the Get rows step, Worksheet "' + CFG.TAB_REMINDERS + '".' +
+      '\n\nThe tracker copies the list into it every time the list is updated. Do not type in it.\n\nLink: ' + r.url, ui.ButtonSet.OK);
+  } catch (err) { ui.alert('The reminders sheet was not made', err.message, ui.ButtonSet.OK); }
+}
+
+function makeReminderSheet_() {
+  var book = reminderBook_(), made = false;
+  if (!book) {
+    book = SpreadsheetApp.create(CFG.REMINDER_FILE_TITLE);
+    book.getSheets()[0].setName(CFG.TAB_REMINDERS);
+    PropertiesService.getScriptProperties().setProperty('REMINDER_SHEET_ID', book.getId());
+    made = true;
+  }
+  refreshC1Reminders_();
+  return { made: made, url: book.getUrl() };
 }
 
 function writeReminderRows_(sh, rows) {

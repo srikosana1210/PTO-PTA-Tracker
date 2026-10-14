@@ -367,3 +367,22 @@ test('turning the morning update on and off', function () {
   eq(g.__triggers.length, 0);
   eq(reminderRows(g).length, 0, 'the list is emptied, so the flow sends nothing');
 });
+
+test('the small reminders sheet: made once, gets the same rows, emptied when reminders are turned off', function () {
+  var g = h.load();
+  withPeople(g);
+  setEmail(g, 'Ms. Lee', 'lee@houstonisd.org');
+  g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws')] }));
+  var r = g.makeReminderSheet_();
+  ok(r.made && /^https:\/\/docs\.google\.com\/spreadsheets\//.test(r.url), r.url);
+  var book = g.__books[g.__props.REMINDER_SHEET_ID], tab = book.getSheetByName('C1 Reminders');
+  ok(tab, 'the tab is named C1 Reminders');
+  eq(tab.values(), g.__ss.getSheetByName('C1 Reminders').values(), 'same rows as the tracker tab');
+  eq(tab.values()[1][0], 'Yes');
+  eq(g.makeReminderSheet_().made, false, 'made only once');
+  eq(Object.keys(g.__books).length, 1);
+  // only the reminder list is in it: no officer contacts, nothing else
+  eq(book.getSheets().length, 1);
+  g.turnOffC1Reminders();
+  eq(tab.values().length, 1, 'only the header row is left');
+});

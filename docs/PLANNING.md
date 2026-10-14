@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-14a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-14b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -130,7 +130,7 @@ Nothing below is committed to. Add items and order them with FACE.
 - [x] **R4. Every campus of every Area Office** (`Area Office Campuses` tab + menu). Nothing received yet → Yes when something arrives.
 - [x] **R2. Checklist review** in three groups (Registration, Legalization, Other documents), with It's there / Needs correction / Not there / Not needed and a remark per document. No hard-coded either/or rules (decision 10).
 - [x] **R1. The email** covers still-needed documents, corrections with remarks, and the overall remarks.
-- [x] **R3. Remind C1s automatically (2026-10-14).** Every morning (6–7 AM) the script rewrites the **C1 Reminders** tab. A Power Automate flow at 8 AM reads it (Google Sheets > Get rows) and sends each Send = Yes row from the ParentOrgDocs shared mailbox (or the owner's Outlook until IT grants Send As). Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback.
+- [x] **R3. Remind C1s automatically (2026-10-14).** Every morning (6–7 AM) the script rewrites the **C1 Reminders** tab, and copies it into a small separate spreadsheet (*PTO-PTA C1 Reminders (read by Power Automate)*, id in Script Property `REMINDER_SHEET_ID`). A Power Automate flow at 8 AM reads the small sheet (Google Sheets > Get rows; reading the big tracker hit Google's 429 limit, and the small sheet keeps officer contacts away from the flow) and sends each Send = Yes row from the ParentOrgDocs shared mailbox (or the owner's Outlook until IT grants Send As). Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback.
 - [~] **R7. Texas PTA roster:** PTAs marked from a snapshot (decision 13). _Waiting on FACE: what else to take from the roster (officers? standing?) and how often._
 
 ## 8. Open questions

@@ -47,6 +47,7 @@ function Sheet(ss, name, rows) {
 Sheet.prototype.cell = function (r, c) { var row = this.cells[r] || (this.cells[r] = []); return row[c] || (row[c] = { v: '' }); };
 Sheet.prototype.peek = function (r, c) { var row = this.cells[r]; return row && row[c] ? row[c] : null; };
 Sheet.prototype.getName = function () { return this.name; };
+Sheet.prototype.setName = function (n) { this.name = n; return this; };
 Sheet.prototype.getLastRow = function () {
   for (var r = this.cells.length - 1; r >= 0; r--) { var row = this.cells[r] || []; for (var c = 0; c < row.length; c++) if (row[c] && (row[c].f || (row[c].v !== '' && row[c].v != null))) return r + 1; }
   return 0;
@@ -165,10 +166,22 @@ function load(opts) {
   Rule.prototype.setHelpText = function (t) { this.help = t; return this; };
   Rule.prototype.build = function () { return this; };
 
-  var triggers = [];
+  var triggers = [], books = {}, bookN = 0;
+  /** another spreadsheet (SpreadsheetApp.create): one empty tab, like a new Google Sheet */
+  function book(title) {
+    var b = { id: 'BOOK' + (++bookN), title: title, sheets: [] };
+    b.sheets.push(new Sheet(b, 'Sheet1', []));
+    b.getId = function () { return b.id; };
+    b.getUrl = function () { return 'https://docs.google.com/spreadsheets/d/' + b.id + '/edit'; };
+    b.getSheets = function () { return b.sheets.slice(); };
+    b.getSheetByName = function (n) { return b.sheets.filter(function (x) { return x.name === n; })[0] || null; };
+    return b;
+  }
   var sandbox = {
     console: console,
-    SpreadsheetApp: { getActive: function () { return ss; }, getUi: function () { return ui; }, flush: function () {}, newDataValidation: function () { return new Rule(); } },
+    SpreadsheetApp: { getActive: function () { return ss; }, getUi: function () { return ui; }, flush: function () {}, newDataValidation: function () { return new Rule(); },
+      create: function (title) { var b = book(title); books[b.id] = b; return b; },
+      openById: function (id) { if (!books[id]) throw new Error('No spreadsheet ' + id); return books[id]; } },
     PropertiesService: { getScriptProperties: function () { return { getProperty: function (k) { return props[k] === undefined ? null : props[k]; }, setProperty: function (k, v) { props[k] = String(v); }, deleteProperty: function (k) { delete props[k]; } }; } },
     CacheService: { getScriptCache: function () { return { get: function (k) { return cache[k] === undefined ? null : cache[k]; }, put: function (k, v) { cache[k] = String(v); }, remove: function (k) { delete cache[k]; } }; } },
     LockService: { getScriptLock: function () { return { waitLock: function () {}, releaseLock: function () {} }; } },
@@ -188,7 +201,7 @@ function load(opts) {
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script', 'Code.gs'), 'utf8'), sandbox, { filename: 'Code.gs' });
-  sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
+  sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__books = books; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
   return sandbox;
 }
 
