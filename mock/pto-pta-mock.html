@@ -1,0 +1,427 @@
+<title>PTO/PTA Dashboard Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: a slim review bar (pick an option, pick who is looking) sits above a full mock of the dashboard. */
+:root {
+  --teal:#00a3af; --teal-ink:#00747e; --green:#006f5b; --lgreen:#6db83d; --gold:#f9d04e; --red:#d96364; --lgrey:#d4d4d5;
+  --page:#ffffff; --page2:#f3fafa; --surface:#ffffff; --ink:#24383c; --ink2:#43585c; --muted:#5c7075; --line:#dde8e9; --line2:#bfcfd1;
+  --lt1:#e3f5f6; --lt2:#c7ebee;
+  --btn:#006f5b; --btn-ink:#ffffff; --link:#006f5b;
+  --ok-bg:#e4f3da; --ok-ink:#2c5a12; --rev-bg:#fdf0c4; --rev-ink:#4d3d00; --fix-bg:#f8dcdc; --fix-ink:#6b1f20; --ns-bg:#eef0f0; --ns-ink:#43585c;
+  --leg-bg:#006f5b; --leg-ink:#ffffff; --reg-bg:#c7ebee; --reg-ink:#0b3d42; --prog-bg:#f9d04e; --prog-ink:#24383c;
+  --heroA:#006f5b; --heroB:#00747e; --heroC:#e3f5f6; --heroC-ink:#006f5b; --heroC-mut:#43585c; --heroC-line:#c7ebee;
+  --bar:#24383c; --bar-ink:#ffffff; --bar-mut:#b9cbce;
+  --shadow:rgba(36,56,60,.10);
+  --f-body:"Source Sans 3", "Segoe UI", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page:#13211f; --page2:#152326; --surface:#1d2f33; --ink:#eef5f5; --ink2:#c5d3d5; --muted:#9db0b3; --line:#2b4146; --line2:#3d565b;
+  --lt1:#20393d; --lt2:#28484e; --btn:#2fae8f; --btn-ink:#0e1c1f; --link:#7fd8c4;
+  --ok-bg:#29421c; --ok-ink:#d4f1c2; --rev-bg:#4a3d10; --rev-ink:#fbe6a2; --fix-bg:#4d2324; --fix-ink:#f7cfcf; --ns-bg:#2b4146; --ns-ink:#c5d3d5;
+  --leg-bg:#8ae8cf; --leg-ink:#0e1c1f; --reg-bg:#28484e; --reg-ink:#d7f0f2; --prog-bg:#f9d04e; --prog-ink:#24383c;
+  --heroA:#0d4337; --heroB:#0b434a; --heroC:#173338; --heroC-ink:#9fe6d6; --heroC-mut:#c5d3d5; --heroC-line:#28484e;
+  --bar:#0b1517; --bar-ink:#eef5f5; --bar-mut:#9db0b3; --shadow:rgba(0,0,0,.35);
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page:#13211f; --page2:#152326; --surface:#1d2f33; --ink:#eef5f5; --ink2:#c5d3d5; --muted:#9db0b3; --line:#2b4146; --line2:#3d565b;
+  --lt1:#20393d; --lt2:#28484e; --btn:#2fae8f; --btn-ink:#0e1c1f; --link:#7fd8c4;
+  --ok-bg:#29421c; --ok-ink:#d4f1c2; --rev-bg:#4a3d10; --rev-ink:#fbe6a2; --fix-bg:#4d2324; --fix-ink:#f7cfcf; --ns-bg:#2b4146; --ns-ink:#c5d3d5;
+  --leg-bg:#8ae8cf; --leg-ink:#0e1c1f; --reg-bg:#28484e; --reg-ink:#d7f0f2; --prog-bg:#f9d04e; --prog-ink:#24383c;
+  --heroA:#0d4337; --heroB:#0b434a; --heroC:#173338; --heroC-ink:#9fe6d6; --heroC-mut:#c5d3d5; --heroC-line:#28484e;
+  --bar:#0b1517; --bar-ink:#eef5f5; --bar-mut:#9db0b3; --shadow:rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+button { font: inherit; }
+:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* review bar */
+.rbar { background: var(--bar); color: var(--bar-ink); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 21; background: var(--bar); }
+.rbar .wrap { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; padding-block: 10px; }
+.rbar .tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+.rbar .grp { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rbar .lbl { color: var(--bar-mut); font-size: 13.5px; }
+.seg { display: inline-flex; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 2px; flex-wrap: wrap; }
+.seg button { background: none; border: 0; color: var(--bar-ink); padding: 5px 13px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--gold); color: #24383c; }
+.rnote { width: 100%; color: var(--bar-mut); font-size: 13px; margin: 0; }
+
+/* hero, three options */
+.hero { border-top: 6px solid var(--teal); }
+.hero .wrap { padding-block: 26px 0; }
+.hrow { display: flex; flex-wrap: wrap; gap: 14px 24px; justify-content: space-between; align-items: flex-start; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.hero h1 { margin-top: 6px; font-size: clamp(26px, 4.4vw, 36px); line-height: 1.1; font-weight: 800; letter-spacing: -.01em; }
+.hero h1::after { content: ""; display: block; width: 64px; height: 4px; margin-top: 14px; border-radius: 2px; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.hbtn { border-radius: 8px; padding: 8px 18px; font-weight: 700; border: 1px solid transparent; cursor: pointer; min-height: 40px; }
+.hbtn.ghost { background: transparent; font-weight: 600; }
+.tabs { display: flex; gap: 2px; margin-top: 24px; overflow-x: auto; scrollbar-width: none; }
+.tab { background: none; border: 0; border-bottom: 4px solid transparent; padding: 12px 18px 10px; font-weight: 700; font-size: 16px; cursor: pointer; white-space: nowrap; }
+.site[data-opt="a"] .hero, .site[data-opt="b"] .hero { color: #ffffff; }
+.site[data-opt="a"] .hero { background: var(--heroA); }
+.site[data-opt="b"] .hero { background: var(--heroB); }
+.site[data-opt="a"] .eyebrow, .site[data-opt="b"] .eyebrow, .site[data-opt="a"] .tab, .site[data-opt="b"] .tab { color: rgba(255,255,255,.78); }
+.site[data-opt="a"] .tab[aria-selected="true"], .site[data-opt="b"] .tab[aria-selected="true"] { color: #ffffff; border-bottom-color: var(--gold); }
+.site[data-opt="a"] .yr, .site[data-opt="b"] .yr { color: var(--gold); }
+.site[data-opt="a"] .hero h1::after, .site[data-opt="b"] .hero h1::after { background: var(--gold); }
+.site[data-opt="a"] .hbtn.main, .site[data-opt="b"] .hbtn.main { background: var(--gold); color: #24383c; }
+.site[data-opt="a"] .hbtn.ghost, .site[data-opt="b"] .hbtn.ghost { color: #ffffff; border-color: rgba(255,255,255,.4); }
+.site[data-opt="c"] .hero { background: var(--heroC); color: var(--heroC-ink); border-bottom: 1px solid var(--heroC-line); }
+.site[data-opt="c"] .eyebrow, .site[data-opt="c"] .tab { color: var(--heroC-mut); }
+.site[data-opt="c"] .tab[aria-selected="true"] { color: var(--heroC-ink); border-bottom-color: var(--heroC-ink); }
+.site[data-opt="c"] .hero h1::after { background: var(--teal); }
+.site[data-opt="c"] .hbtn.main { background: var(--btn); color: var(--btn-ink); }
+.site[data-opt="c"] .hbtn.ghost { color: var(--ink); border-color: var(--line2); }
+.site[data-opt="a"] main, .site[data-opt="b"] main { background: var(--page2); }
+
+main { padding-block: 6px 40px; min-height: 60vh; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding-block: 18px 4px; }
+.bar label { color: var(--ink2); display: inline-flex; gap: 8px; align-items: center; }
+select, input[type=search] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 10px; min-height: 38px; max-width: 100%; }
+.asof { margin-left: auto; color: var(--muted); font-size: 13px; }
+.sample { display: inline-block; font-size: 12px; font-weight: 700; color: var(--rev-ink); background: var(--rev-bg); border-radius: 999px; padding: 1px 9px; margin-left: 6px; }
+.notice { background: var(--lt1); border-radius: 10px; padding: 12px 16px; margin-top: 14px; color: var(--ink); font-size: 14.5px; }
+.notice b { color: var(--link); }
+
+h2 { font-size: 21px; margin-top: 30px; }
+h2::after { content: ""; display: block; width: 32px; height: 3px; background: var(--teal); border-radius: 2px; margin-top: 8px; }
+.sub { color: var(--muted); margin: 8px 0 0; max-width: 64ch; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-top: 5px solid var(--k, var(--teal)); border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 3px var(--shadow); min-width: 0; }
+.kpi .t { font-size: 12.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink2); }
+.kpi .v { font-size: 46px; font-weight: 800; line-height: 1.05; margin-top: 8px; }
+.kpi .d { color: var(--ink2); font-size: 14px; margin-top: 4px; }
+
+.stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.stage { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--k); border-radius: 8px; padding: 12px 16px; }
+.stage .v { font-size: 26px; font-weight: 800; }
+.stage .n { font-weight: 700; }
+.stage .d { color: var(--muted); font-size: 13px; }
+
+.tbl { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.tblwrap { overflow-x: auto; }
+.tbl th { text-align: left; font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 2px solid var(--line2); white-space: nowrap; }
+.tbl td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl td.r, .tbl th.r { text-align: right; }
+.tbl tr.total td { font-weight: 800; border-bottom: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.chip { background: var(--surface); color: var(--ink); border: 1px solid var(--line2); border-radius: 999px; padding: 5px 13px; cursor: pointer; font-size: 14px; }
+.chip b { margin-left: 6px; }
+.chip[aria-pressed="true"] { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); }
+.chip.sep { margin-left: 10px; }
+
+.pill { display: inline-block; border-radius: 999px; padding: 2px 11px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.p-Legalized { background: var(--leg-bg); color: var(--leg-ink); }
+.p-Registered { background: var(--reg-bg); color: var(--reg-ink); }
+.p-In { background: var(--prog-bg); color: var(--prog-ink); }
+.p-Not { background: var(--ns-bg); color: var(--ns-ink); }
+.ot { font-weight: 700; }
+.ot.pta { color: var(--link); }
+
+.docs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.dk { width: 22px; height: 22px; border-radius: 5px; display: inline-grid; place-items: center; font-size: 12px; font-weight: 800; border: 1px solid transparent; }
+.dk.A { background: var(--lgreen); color: #1b3409; }
+.dk.O { background: var(--lgreen); color: #1b3409; }
+.dk.W { background: var(--gold); color: #3d3000; }
+.dk.F { background: var(--red); color: #2b0a0a; }
+.dk.M { border-color: var(--line2); color: var(--muted); }
+.dk.gap { width: 8px; border: 0; }
+.waiton { font-size: 13.5px; color: var(--ink2); }
+.waiton b { color: var(--ink); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 13px; margin-top: 12px; align-items: center; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+
+/* campus card for principals */
+.ccard { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-top: 18px; box-shadow: 0 1px 3px var(--shadow); }
+.ccard .top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+.ccard h3 { font-size: 24px; }
+.ccard .meta { color: var(--muted); }
+.next { margin-top: 14px; border-radius: 10px; padding: 12px 16px; font-weight: 600; }
+.next.pto { background: var(--fix-bg); color: var(--fix-ink); }
+.next.face { background: var(--rev-bg); color: var(--rev-ink); }
+.next.done { background: var(--ok-bg); color: var(--ok-ink); }
+.dlist { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+.dlist li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.dlist li.grp { display: block; border: 0; font-size: 12.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding-top: 10px; }
+.dlist .st { font-size: 13.5px; color: var(--ink2); text-align: right; }
+.contact { margin-top: 16px; color: var(--ink2); font-size: 14px; }
+
+.changes { margin-top: 34px; border-top: 1px solid var(--line); padding-top: 4px; }
+.changes ul { margin: 12px 0 0; padding-left: 20px; max-width: 72ch; color: var(--ink2); }
+.changes li { margin-bottom: 6px; }
+
+@media (max-width: 860px) {
+  .kpis, .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .kpi .v { font-size: 36px; }
+  .asof { margin-left: 0; }
+  .tbl.campus .hide-s { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) { .hero, .chip, .seg button { transition: background-color .2s, color .2s; } }
+</style>
+
+<div class="rbar">
+  <div class="wrap">
+    <span class="tag">Mockup · sample data</span>
+    <div class="grp"><span class="lbl" id="optLbl">Color option</span>
+      <div class="seg" role="group" aria-labelledby="optLbl" id="optSeg">
+        <button type="button" data-opt="a" aria-pressed="false">A · Dark green</button>
+        <button type="button" data-opt="b" aria-pressed="false">B · Teal</button>
+        <button type="button" data-opt="c" aria-pressed="true">C · Light teal</button>
+      </div>
+    </div>
+    <div class="grp"><span class="lbl" id="viewLbl">View as</span>
+      <div class="seg" role="group" aria-labelledby="viewLbl" id="viewSeg">
+        <button type="button" data-view="face" aria-pressed="true">FACE staff and C1s</button>
+        <button type="button" data-view="ao" aria-pressed="false">SEDs and EDs</button>
+        <button type="button" data-view="campus" aria-pressed="false">Principals and APs</button>
+      </div>
+    </div>
+    <p class="rnote" id="rnote"></p>
+  </div>
+</div>
+
+<div class="site" id="site" data-opt="c">
+  <header class="hero">
+    <div class="wrap">
+      <div class="hrow">
+        <div>
+          <div class="eyebrow">Houston ISD · Family and Community Engagement</div>
+          <h1>PTO/PTA registration <span class="yr">2026–27</span></h1>
+        </div>
+        <div class="tools">
+          <button type="button" class="hbtn main" id="signBtn">Sign in</button>
+          <button type="button" class="hbtn ghost">Dark mode</button>
+        </div>
+      </div>
+      <nav class="tabs" id="tabs"></nav>
+    </div>
+  </header>
+  <main><div class="wrap" id="body"></div></main>
+</div>
+
+<script>
+(function () {
+  var REG = ['Training certificate', 'Bylaws', 'Officer information form'];
+  var LEG = ['Budget report or minutes', 'Proof of 501(c) status', 'Bank verification letter'];
+  var SHORT = { 'Training certificate': 'T', 'Bylaws': 'B', 'Officer information form': 'O', 'Budget report or minutes': '$', 'Proof of 501(c) status': 'C', 'Bank verification letter': 'K' };
+  // A accepted, O officer form in (no review), W waiting for review, F sent back, M nothing yet. PTA rows carry only two documents.
+  var C = [
+    { n: 'Anderson ES', ao: 'NES Elementary', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'W', 'Officer information form': 'O', 'Budget report or minutes': 'M', 'Proof of 501(c) status': 'M', 'Bank verification letter': 'M' }, c1: 'Ms. Lee' },
+    { n: 'Ashford ES', ao: 'NES Elementary', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'A', 'Officer information form': 'O', 'Budget report or minutes': 'A', 'Proof of 501(c) status': 'A', 'Bank verification letter': 'A' }, c1: 'Ms. Lee' },
+    { n: 'Codwell ES', ao: 'NES Elementary', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'A', 'Officer information form': 'O', 'Budget report or minutes': 'F', 'Proof of 501(c) status': 'W', 'Bank verification letter': 'M' }, c1: 'Ms. Lee' },
+    { n: 'Browning ES', ao: 'NES Elementary', ot: 'PTA', d: { 'Training certificate': 'A', 'Officer information form': 'O' }, c1: 'Mr. Ortiz' },
+    { n: 'Ketelsen ES', ao: 'NES Elementary', ot: 'PTA', d: { 'Training certificate': 'M', 'Officer information form': 'O' }, c1: 'Mr. Ortiz' },
+    { n: 'Almeda ES', ao: 'NES Elementary', ot: 'PTO', d: {}, c1: 'Mr. Ortiz' },
+    { n: 'Oak Forest ES', ao: 'EAS Elementary', ot: 'PTA', d: { 'Training certificate': 'W', 'Officer information form': 'O' }, c1: 'Ms. Nguyen' },
+    { n: 'Travis ES', ao: 'EAS Elementary', ot: 'PTA', d: { 'Training certificate': 'A', 'Officer information form': 'O' }, c1: 'Ms. Nguyen' },
+    { n: 'Fondern ES', ao: 'EAS Elementary', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'A', 'Officer information form': 'O', 'Budget report or minutes': 'W', 'Proof of 501(c) status': 'A', 'Bank verification letter': 'A' }, c1: 'Ms. Nguyen' },
+    { n: 'Baker Montessori', ao: 'EAS Elementary', ot: 'PTO', d: { 'Training certificate': 'F' }, c1: 'Ms. Nguyen' },
+    { n: 'Bellaire HS', ao: 'EAS Secondary', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'A', 'Officer information form': 'O' }, c1: 'Mr. Davis' },
+    { n: 'Hamilton MS', ao: 'EAS Secondary', ot: 'PTA', d: {}, c1: 'Mr. Davis' },
+    { n: 'Clifton MS', ao: 'NES Secondary', ot: 'PTO', d: { 'Officer information form': 'O' }, c1: 'Ms. Carter' },
+    { n: 'Kashmere HS', ao: 'NES Secondary', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'A', 'Officer information form': 'O', 'Budget report or minutes': 'A', 'Proof of 501(c) status': 'A', 'Bank verification letter': 'W' }, c1: 'Ms. Carter' },
+    { n: 'Kinder HSPVA', ao: 'Programs/Charters', ot: 'PTO', d: { 'Training certificate': 'A', 'Bylaws': 'F', 'Officer information form': 'O' }, c1: 'Ms. Carter' }
+  ];
+  // Sample whole numbers for each Area Office (the real page counts these from the sheet).
+  var AO = [
+    { n: 'NES Elementary', all: 95, org: 41, reg: 9, leg: 3, rev: 6, ns: 17 },
+    { n: 'EAS Elementary', all: 76, org: 38, reg: 11, leg: 4, rev: 5, ns: 12 },
+    { n: 'NES Secondary', all: 39, org: 14, reg: 3, leg: 1, rev: 2, ns: 7 },
+    { n: 'EAS Secondary', all: 35, org: 18, reg: 6, leg: 2, rev: 3, ns: 6 },
+    { n: 'Programs/Charters', all: 19, org: 6, reg: 1, leg: 0, rev: 1, ns: 4 }
+  ];
+
+  function docsFor(c) { return c.ot === 'PTA' ? ['Training certificate', 'Officer information form'] : REG.concat(LEG); }
+  function st(c, k) { return c.d[k] || 'M'; }
+  function done(s) { return s === 'A' || s === 'O'; }
+  function status(c) {
+    var list = docsFor(c), any = list.some(function (k) { return st(c, k) !== 'M'; });
+    if (c.ot === 'PTA') return list.every(function (k) { return done(st(c, k)); }) ? 'Registered' : any ? 'In progress' : 'Not started';
+    if (list.every(function (k) { return done(st(c, k)); })) return 'Legalized';
+    if (REG.every(function (k) { return done(st(c, k)); })) return 'Registered';
+    return any ? 'In progress' : 'Not started';
+  }
+  function count(c) { return docsFor(c).filter(function (k) { return done(st(c, k)); }).length; }
+  function waitOn(c) {
+    var s = status(c), list = docsFor(c);
+    var need = list.filter(function (k) { return st(c, k) === 'M' || st(c, k) === 'F'; });
+    var rev = list.filter(function (k) { return st(c, k) === 'W'; });
+    if (s === 'Legalized' || (c.ot === 'PTA' && s === 'Registered')) return { who: 'done', t: 'Nothing needed. All done for this year.' };
+    if (need.length) return { who: 'pto', t: 'Waiting on the ' + c.ot + ': ' + need.map(function (k) { return k.charAt(0).toLowerCase() + k.slice(1) + (st(c, k) === 'F' ? ' (sent back to fix)' : ''); }).join(', ') + '.', rev: rev };
+    return { who: 'face', t: 'Waiting on FACE to review: ' + rev.join(', ').toLowerCase() + '.' };
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+  function pill(s) { return '<span class="pill p-' + s.split(' ')[0] + '">' + s + '</span>'; }
+  function dots(c) {
+    var out = '', list = docsFor(c);
+    list.forEach(function (k, i) {
+      if (c.ot !== 'PTA' && i === 3) out += '<span class="dk gap"></span>';
+      var s = st(c, k), sym = { A: '✓', O: '✓', W: '…', F: '!', M: '–' }[s];
+      out += '<span class="dk ' + s + '" title="' + esc(k) + '">' + sym + '</span>';
+    });
+    return '<span class="docs" aria-label="Documents">' + out + '</span>';
+  }
+
+  var state = { opt: 'c', view: 'face', tab: 'overview', chip: '', ao: 'NES Elementary', campus: 'Codwell ES' };
+  try { var saved = JSON.parse(localStorage.getItem('ptoMock') || '{}'); if (saved.opt) state.opt = saved.opt; } catch (e) { /* no storage */ }
+
+  var NOTES = {
+    face: 'FACE staff and C1s sign in. They see everything, including the review list.',
+    ao: 'SEDs and EDs open a link made for their Area Office. No sign-in, no contacts or files: counts, campuses and who each campus is waiting on.',
+    campus: 'Principals and APs search for their campus. They see what is done, what is missing, and whether it is waiting on the PTO/PTA or on FACE.'
+  };
+
+  function render() {
+    document.getElementById('site').setAttribute('data-opt', state.opt);
+    [].forEach.call(document.querySelectorAll('#optSeg button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-opt') === state.opt)); });
+    [].forEach.call(document.querySelectorAll('#viewSeg button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === state.view)); });
+    document.getElementById('rnote').textContent = NOTES[state.view];
+    document.getElementById('signBtn').textContent = state.view === 'face' ? 'Ms. Lee · Sign out' : 'Sign in';
+    var tabs = state.view === 'face' ? [['overview', 'Overview'], ['campuses', 'Campuses'], ['review', 'Review']] : state.view === 'ao' ? [['ao', 'My Area Office'], ['campuses', 'Campuses']] : [['campus', 'My campus']];
+    if (!tabs.some(function (t) { return t[0] === state.tab; })) state.tab = tabs[0][0];
+    document.getElementById('tabs').innerHTML = tabs.map(function (t) {
+      return '<button type="button" class="tab" data-tab="' + t[0] + '" aria-selected="' + (t[0] === state.tab) + '">' + t[1] + '</button>';
+    }).join('');
+    var b = document.getElementById('body');
+    b.innerHTML = state.tab === 'overview' ? overview() : state.tab === 'campuses' ? campuses() : state.tab === 'review' ? review() : state.tab === 'ao' ? aoView() : campusView();
+  }
+
+  function kpis(o, label) {
+    return '<div class="kpis">' +
+      '<div class="kpi" style="--k:var(--teal)"><div class="t">PTO/PTAs</div><div class="v num">' + o.org + '</div><div class="d">' + o.all + ' campuses ' + label + '.</div></div>' +
+      '<div class="kpi" style="--k:var(--teal-ink)"><div class="t">Registered</div><div class="v num">' + o.reg + '</div><div class="d">Includes the ' + o.leg + ' that are also legalized.</div></div>' +
+      '<div class="kpi" style="--k:var(--green)"><div class="t">Legalized</div><div class="v num">' + o.leg + '</div><div class="d">All six documents done.</div></div>' +
+      '<div class="kpi" style="--k:var(--gold)"><div class="t">Waiting for review</div><div class="v num">' + o.rev + '</div><div class="d">Campuses with documents for FACE to check.</div></div></div>';
+  }
+  function stages(o) {
+    var prog = o.org - o.reg - o.ns;
+    return '<h2>Where PTO/PTAs stand</h2><p class="sub">Every PTO/PTA is counted once, in the furthest stage it has reached.</p><div class="stages">' +
+      '<div class="stage" style="--k:var(--green)"><div class="v num">' + o.leg + '</div><div class="n">Legalized</div><div class="d">All six documents done</div></div>' +
+      '<div class="stage" style="--k:var(--teal)"><div class="v num">' + (o.reg - o.leg) + '</div><div class="n">Registered, not yet legalized</div><div class="d">Training, bylaws and officer form done</div></div>' +
+      '<div class="stage" style="--k:var(--gold)"><div class="v num">' + prog + '</div><div class="n">In progress</div><div class="d">Some documents in</div></div>' +
+      '<div class="stage" style="--k:var(--lgrey)"><div class="v num">' + o.ns + '</div><div class="n">Not started</div><div class="d">Nothing received yet</div></div></div>';
+  }
+  function sum() { var t = { all: 0, org: 0, reg: 0, leg: 0, rev: 0, ns: 0 }; AO.forEach(function (a) { for (var k in t) t[k] += a[k]; }); return t; }
+  function asof() { return '<span class="asof">Data from the PTO/PTA tracker, Oct 15, 2026 8:00 AM <span class="sample">Sample</span></span>'; }
+
+  function overview() {
+    var t = sum();
+    return '<div class="bar"><label>Area Office <select id="aoSel"><option>All Area Offices</option>' + AO.map(function (a) { return '<option>' + a.n + '</option>'; }).join('') + '</select></label>' + asof() + '</div>' +
+      kpis(t, 'on the list') + stages(t) +
+      '<h2>By Area Office</h2><p class="sub">Whole numbers for each Area Office. Each SED and ED gets a link that opens on their own office.</p>' +
+      '<div class="tblwrap"><table class="tbl num"><thead><tr><th>Area Office</th><th class="r">Campuses</th><th class="r">PTO/PTAs</th><th class="r">Registered</th><th class="r">Legalized</th><th class="r">Not started</th><th class="r">Waiting for review</th></tr></thead><tbody>' +
+      AO.map(function (a) { return '<tr><td>' + a.n + '</td><td class="r">' + a.all + '</td><td class="r">' + a.org + '</td><td class="r">' + a.reg + '</td><td class="r">' + a.leg + '</td><td class="r">' + a.ns + '</td><td class="r">' + a.rev + '</td></tr>'; }).join('') +
+      '<tr class="total"><td>All Area Offices</td><td class="r">' + t.all + '</td><td class="r">' + t.org + '</td><td class="r">' + t.reg + '</td><td class="r">' + t.leg + '</td><td class="r">' + t.ns + '</td><td class="r">' + t.rev + '</td></tr></tbody></table></div>' +
+      changes();
+  }
+
+  var FILTERS = [['all', 'All campuses'], ['', 'All PTO/PTAs'], ['PTO', 'PTOs'], ['PTA', 'PTAs'], ['Not started', 'Not started', 1], ['In progress', 'In progress'], ['Legalized', 'Legalized'], ['Registered', 'Registered'], ['review', 'Waiting for review', 1], ['fix', 'Sent back for correction'], ['nyc', 'Nothing received yet']];
+  function inFilter(c, k) {
+    var s = status(c), list = docsFor(c);
+    switch (k) {
+      case 'all': case '': return true;
+      case 'PTO': case 'PTA': return c.ot === k;
+      case 'review': return list.some(function (d) { return st(c, d) === 'W'; });
+      case 'fix': return list.some(function (d) { return st(c, d) === 'F'; });
+      case 'nyc': return s === 'Not started';
+      default: return s === k;
+    }
+  }
+  function rows(list, withWait) {
+    if (!list.length) return '<p class="sub">None right now.</p>';
+    return '<div class="tblwrap"><table class="tbl campus"><thead><tr><th>Campus</th><th>Org type</th><th>Status</th><th>Documents</th>' + (withWait ? '<th class="hide-s">Waiting on</th>' : '') + '<th class="r">Done</th></tr></thead><tbody>' +
+      list.map(function (c) {
+        var w = waitOn(c), n = docsFor(c).length;
+        return '<tr><td><b>' + esc(c.n) + '</b><div class="waiton">' + esc(c.ao) + '</div></td><td class="ot' + (c.ot === 'PTA' ? ' pta' : '') + '">' + c.ot + '</td><td>' + pill(status(c)) + '</td><td>' + dots(c) + '</td>' +
+          (withWait ? '<td class="waiton hide-s">' + (w.who === 'pto' ? '<b>The ' + c.ot + '</b>' : w.who === 'face' ? '<b>FACE review</b>' : 'Nobody, all done') + '</td>' : '') +
+          '<td class="r num"><b>' + count(c) + '</b> of ' + n + '</td></tr>';
+      }).join('') + '</tbody></table></div>' + legend();
+  }
+  function legend() {
+    return '<div class="legend"><span><span class="dk A">✓</span> Accepted, or officer form received</span><span><span class="dk W">…</span> Waiting for review</span><span><span class="dk F">!</span> Sent back to fix</span><span><span class="dk M">–</span> Not received</span><span>PTAs track two documents: training certificate and officer form.</span></div>';
+  }
+  function campuses() {
+    var base = state.view === 'ao' ? C.filter(function (c) { return c.ao === state.ao; }) : C;
+    var list = base.filter(function (c) { return inFilter(c, state.chip); });
+    return '<div class="bar"><input type="search" id="find" placeholder="Find a campus" aria-label="Find a campus">' + asof() + '</div>' +
+      '<div class="chips">' + FILTERS.map(function (f) {
+        var n = base.filter(function (c) { return inFilter(c, f[0]); }).length;
+        return '<button type="button" class="chip' + (f[2] ? ' sep' : '') + '" data-chip="' + f[0] + '" aria-pressed="' + (state.chip === f[0]) + '">' + f[1] + '<b class="num">' + n + '</b></button>';
+      }).join('') + '</div><p class="sub">Showing ' + list.length + ' sample campuses' + (state.view === 'ao' ? ' in ' + state.ao : '') + '.</p>' + rows(list, true);
+  }
+  function review() {
+    var list = C.filter(function (c) { return docsFor(c).some(function (d) { return st(c, d) === 'W'; }); });
+    return '<div class="notice">The <b>officer information form</b> no longer needs review. It counts as soon as it comes in from the form. Only uploaded documents land here.</div>' +
+      '<h2>Waiting for review</h2><p class="sub">C1 reminders: automatic, every weekday at 8 AM.</p>' + rows(list, false);
+  }
+  function aoView() {
+    var a = AO.filter(function (x) { return x.n === state.ao; })[0];
+    var mine = C.filter(function (c) { return c.ao === a.n; });
+    var onPto = mine.filter(function (c) { return waitOn(c).who === 'pto'; }), onFace = mine.filter(function (c) { return waitOn(c).who === 'face'; });
+    return '<div class="bar"><label>Area Office <select id="aoPick">' + AO.map(function (x) { return '<option' + (x.n === a.n ? ' selected' : '') + '>' + x.n + '</option>'; }).join('') + '</select></label>' + asof() + '</div>' +
+      '<div class="notice">This page opened on <b>' + a.n + '</b> from the link made for this Area Office.</div>' +
+      kpis(a, 'in this Area Office') + stages(a) +
+      '<h2>Campuses to follow up</h2><p class="sub">Campuses where the next step is on the campus PTO/PTA. A word from the principal helps most here.</p>' +
+      rows(onPto, true) +
+      '<h2>With FACE</h2><p class="sub">Documents are in. FACE is reviewing them; nothing is needed from the campus.</p>' + rows(onFace, false);
+  }
+  function campusView() {
+    var c = C.filter(function (x) { return x.n === state.campus; })[0], w = waitOn(c);
+    var li = function (k) {
+      var s = st(c, k), txt = { A: 'Accepted', O: 'Received from the form', W: 'With FACE for review', F: 'Sent back to the ' + c.ot + ' to fix', M: 'Not received yet' }[s];
+      return '<li><span class="dk ' + s + '">' + { A: '✓', O: '✓', W: '…', F: '!', M: '–' }[s] + '</span><span>' + k + '</span><span class="st">' + txt + '</span></li>';
+    };
+    var body = c.ot === 'PTA'
+      ? '<li class="grp">What FACE tracks for a PTA</li>' + docsFor(c).map(li).join('')
+      : '<li class="grp">To be Registered</li>' + REG.map(li).join('') + '<li class="grp">Also needed to be Legalized</li>' + LEG.map(li).join('');
+    return '<div class="bar"><label>Campus <select id="campPick">' + C.map(function (x) { return '<option' + (x.n === c.n ? ' selected' : '') + '>' + x.n + '</option>'; }).join('') + '</select></label>' + asof() + '</div>' +
+      '<div class="ccard"><div class="top"><h3>' + esc(c.n) + '</h3>' + pill(status(c)) + '<span class="meta">' + c.ot + ' · ' + esc(c.ao) + '</span></div>' +
+      '<div class="next ' + w.who + '">' + esc(w.t) + '</div><ul class="dlist">' + body + '</ul>' +
+      '<p class="contact">Questions? Your campus C1 is <b>' + c.c1 + '</b>.</p></div>';
+  }
+  function changes() {
+    return '<section class="changes"><h2>What changes in this update</h2><ul>' +
+      '<li>The officer information form counts as soon as it comes in. No review.</li>' +
+      '<li>Articles of incorporation and insurance are gone from the list.</li>' +
+      '<li>Files keep the name the person gave them.</li>' +
+      '<li>PTAs track two things: the officer information form and the training certificate.</li>' +
+      '<li>SEDs and EDs get a link for their Area Office. Principals and APs see their campus, with who it is waiting on.</li></ul></section>';
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.hasAttribute('data-opt')) { state.opt = t.getAttribute('data-opt'); try { localStorage.setItem('ptoMock', JSON.stringify({ opt: state.opt })); } catch (err) { /* no storage */ } }
+    else if (t.hasAttribute('data-view')) { state.view = t.getAttribute('data-view'); state.tab = ''; state.chip = ''; }
+    else if (t.hasAttribute('data-tab')) state.tab = t.getAttribute('data-tab');
+    else if (t.hasAttribute('data-chip')) state.chip = t.getAttribute('data-chip');
+    else return;
+    render();
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'aoPick') state.ao = e.target.value;
+    else if (e.target.id === 'campPick') state.campus = e.target.value;
+    else return;
+    render();
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.id !== 'find') return;
+    var q = e.target.value.toLowerCase();
+    [].forEach.call(document.querySelectorAll('.tbl.campus tbody tr'), function (r) { r.hidden = r.textContent.toLowerCase().indexOf(q) < 0; });
+  });
+  render();
+})();
+</script>
