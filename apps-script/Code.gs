@@ -100,7 +100,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-15a (C1 reminders sent to Power Automate by the tracker)';
+var VERSION = 'Script version 2026-10-15b (campus list: Org type column and FACE filters)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -1475,7 +1475,7 @@ function getPayload_(access) {
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
     itemKeys: CFG.ITEMS.map(function (it) { return it.key; }), labels: CFG.ITEMS.map(function (it) { return it.label || it.key; }),
     reg: flags.reg, req: flags.req, inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
-    c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null,
+    c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
     asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), rows: rows, detail: detail };
 }
 

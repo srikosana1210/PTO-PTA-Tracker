@@ -24,7 +24,7 @@ function world() {
   g.applyOctober2026_({ reset: true });
   var si = g.__ss.getSheetByName('Dashboard Sign-ins'), vals = si.values(), ec = vals[0].indexOf('Email');
   vals.forEach(function (r, i) { if (r[0] === 'Ms. Lee') si.getRange(i + 1, ec + 1).setValue('lee@houstonisd.org'); });
-  g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws'), base.upload(g, 'Training Certificate')] }));
+  g.processSubmission_(base.sub('Anderson ES', { orgType: 'PTO', uploads: [base.upload(g, 'Bylaws'), base.upload(g, 'Training Certificate')] }));
   g.processSubmission_(base.sub('Ashford ES', { other: [{ ids: [g.__drive.upload('packet.pdf').getId()] }] }));
   var paste = g.__ss.getSheetByName('Officer Form Paste');
   paste.getRange(1, 1, 2, 8).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email', 'Your email address'],
@@ -158,6 +158,30 @@ async function signIn(page, name, pass) {
     check('reminder goes to the C1 and lists the campus and files', /^mailto:lee@houstonisd\.org/.test(rh) && /Ashford ES: other files/.test(rb), rh.slice(0, 200));
     await page.screenshot({ path: path.join(SHOTS, 'review-staff.png'), fullPage: true });
     check('no page errors (staff)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
+    /* ---------- campus list: FACE's filters and the Org type column ---------- */
+    o = await openPage(browser, w); page = o.page;
+    await page.click('[data-tab="campuses"]');
+    var chips = await page.$$eval('#chips [data-chip]', function (b) { return b.map(function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }); });
+    check('filters in FACE\'s order', JSON.stringify(chips) === JSON.stringify(['All campuses', 'All PTO/PTAs', 'PTOs', 'PTAs', 'Not started', 'In progress', 'Legalized', 'Registered', 'Waiting for review', 'Sent back for correction', 'Nothing received yet']), JSON.stringify(chips));
+    check('the table has an Org type column', /Campus\s*Org type\s*Status\s*Documents\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
+    await page.click('[data-chip="pta"]');
+    var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
+    check('PTAs lists the Texas PTA campuses, with PTA in the Org type column', ptas.length === 11 && ptas.every(function (x) { return /:PTA$/.test(x); }), ptas.join(', '));
+    await page.click('[data-chip="pto"]');
+    var ptos = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
+    check('PTOs lists the campus whose officer form says PTO', ptos.join() === 'Anderson ES', ptos.join());
+    await page.screenshot({ path: path.join(SHOTS, 'campuses.png'), fullPage: false });
+    await page.close();
+
+    /* ---------- automatic reminders on: the Remind C1s buttons give way to one line ---------- */
+    w.g.setReminderHook_('https://prod-1.westus.logic.azure.com:443/workflows/x/triggers/manual/paths/invoke?sig=1');
+    w.g.turnOnC1Reminders();
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
+    var auto = await page.textContent('#reviewBody');
+    check('automatic reminders: one status line, no buttons', /C1 reminders\s*automatic/.test(auto) && /Right now that is 1 C1/.test(auto) && (await page.$$('.c1list')).length === 0, auto.slice(-300));
     await page.close();
 
     /* ---------- phone width ---------- */

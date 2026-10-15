@@ -18,7 +18,7 @@ It runs on Google: one Google Sheet, one Google Form, and one Apps Script web-ap
 | [`tests/`](tests) | Tests: `Code.gs` runs in Node against the template with stand-ins for the Google services (`harness.js`), and the real dashboard runs in Chromium (`test-dashboard.js`) | `node tests/test-script.js` and `node tests/test-dashboard.js` |
 | [`docs/PLANNING.md`](docs/PLANNING.md) | How the system fits together, the rules it enforces, decisions made so far, and the backlog. **Start here before you change anything** | — |
 
-Current script version: `2026-10-15a` (the `VERSION` constant in `Code.gs`).
+Current script version: `2026-10-15b` (the `VERSION` constant in `Code.gs`).
 
 ## Setup in short
 

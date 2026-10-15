@@ -214,7 +214,9 @@ details.defs p { margin-top: 8px; }
 .chip[aria-pressed="true"] b { color: var(--chip-on-n); }
 .chip.sep { margin-left: 8px; }
 .ccount { margin: 12px 0 6px; color: var(--muted); font-size: 13px; }
-.chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 150px 250px 76px; gap: 6px 18px; align-items: center; }
+.chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 90px 150px 250px 76px; gap: 6px 18px; align-items: center; }
+.co { font-size: 13.5px; font-weight: 600; color: var(--ink2); }
+.co.none { font-weight: 400; color: var(--muted); }
 .chead { padding: 0 16px 6px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--axis); }
 .clist { list-style: none; padding: 0; }
 .crow { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; margin-top: 8px; padding: 10px 16px; cursor: pointer; transition: border-color .12s ease, box-shadow .12s ease; }
@@ -407,8 +409,8 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
   .arow, .drow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .asof { margin-left: 0; width: 100%; }
   .chead { display: none; }
-  .crow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "n n" "s c" "d d"; gap: 8px 10px; }
-  .crow .cn { grid-area: n; } .crow .cs { grid-area: s; } .crow .cd { grid-area: d; } .crow .cc { grid-area: c; }
+  .crow { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "n n n" "o s c" "d d d"; gap: 8px 10px; }
+  .crow .cn { grid-area: n; } .crow .co { grid-area: o; } .crow .cs { grid-area: s; } .crow .cd { grid-area: d; } .crow .cc { grid-area: c; }
   .act > li { grid-template-columns: minmax(0, 1fr); }
   #pBody, .phead { padding-left: 16px; padding-right: 16px; }
 }
@@ -549,7 +551,7 @@ a.btn.primary { color: var(--btn-ink); }
       </div>
       <div class="chips" id="chips" role="group" aria-label="Show campuses"></div>
       <p class="ccount" id="ccount" aria-live="polite"></p>
-      <div class="chead" aria-hidden="true"><span>Campus</span><span>Status</span><span>Documents</span><span style="text-align:right">Done</span></div>
+      <div class="chead" aria-hidden="true"><span>Campus</span><span>Org type</span><span>Status</span><span>Documents</span><span style="text-align:right">Done</span></div>
       <ul class="clist" id="clist"></ul>
     </section>
 
@@ -643,7 +645,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-15a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-15b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -875,16 +877,19 @@ function renderOverview(s) {
 }
 
 /* campuses */
+/* FACE's order (October 2026). Every chip always shows, with its count, so the list reads the same every time. "Registered" is a campus whose
+   status is Registered (registered, not yet legalized), like the Status column; the Registered tile on the Overview also counts the legalized. */
 var FILTERS = [
-  { k: '', n: 'All PTO/PTAs' }, { k: 'Not started', n: 'Not started' }, { k: 'In progress', n: 'In progress' },
-  { k: 'Registered', n: 'Registered, not yet legalized' }, { k: 'Legalized', n: 'Legalized' },
-  { k: 'review', n: 'Waiting for review', opt: true, sep: true }, { k: 'fix', n: 'Sent back for correction', opt: true },
-  { k: 'nyc', n: 'Nothing received yet', opt: true, sep: true }, { k: 'no', n: 'No PTO/PTA', opt: true }, { k: 'all', n: 'All campuses' }
+  { k: 'all', n: 'All campuses' }, { k: '', n: 'All PTO/PTAs' }, { k: 'pto', n: 'PTOs' }, { k: 'pta', n: 'PTAs' },
+  { k: 'Not started', n: 'Not started', sep: true }, { k: 'In progress', n: 'In progress' }, { k: 'Legalized', n: 'Legalized' }, { k: 'Registered', n: 'Registered' },
+  { k: 'review', n: 'Waiting for review', sep: true }, { k: 'fix', n: 'Sent back for correction' }, { k: 'nyc', n: 'Nothing received yet' }
 ];
 function inFilter(r, k) {
   switch (k) {
     case '': return r.pto === 'Yes';
     case 'all': return true;
+    case 'pto': return r.pto === 'Yes' && r.ot === 'PTO';
+    case 'pta': return r.pto === 'Yes' && r.ot === 'PTA';
     case 'regall': return r.pto === 'Yes' && regDone(r);
     case 'review': return r.d.indexOf('R') >= 0;
     case 'fix': return r.d.indexOf('C') >= 0;
@@ -941,6 +946,7 @@ function renderCampuses() {
     var st = statusOf(r), cls = st.replace(/[^A-Za-z]+/g, '-'), w = count(r.d, 'R'), f = count(r.d, 'C');
     return '<li class="crow" data-c="' + esc(r.campus) + '"><div class="cn"><button type="button" class="campbtn" aria-haspopup="dialog">' + esc(r.campus) + '</button>' +
       (w ? '<span class="flag R">' + w + ' waiting</span>' : '') + (f ? '<span class="flag C">' + f + ' sent back</span>' : '') + '<span class="ao">' + esc(r.area) + '</span></div>' +
+      '<div class="co' + (r.ot ? '' : ' none') + '" title="Org type">' + esc(r.ot || '—') + '</div>' +
       '<div class="cs"><span class="pill ' + cls + '">' + esc(st) + '</span></div><div class="cd">' + stripOf(r) + '</div>' +
       '<div class="cc"><b>' + acc(r) + '</b> of ' + nReq() + '</div></li>';
   }).join('');
@@ -1005,6 +1011,13 @@ function remindHref(m) {
 }
 function remindHtml() {
   var list = remindList(), due = list.filter(function (c) { return c.rows.length; });
+  if (payload.remindAuto && payload.remindHook) {
+    // automatic reminders are working: no buttons, just what tomorrow's email will cover and who cannot get one
+    var noMail = due.filter(function (c) { return !c.e; });
+    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">Every weekday at 8 AM each C1 with something waiting gets an email from ParentOrgDocs. ' +
+      (due.length ? 'Right now that is ' + plural(due.length - noMail.length, 'C1', 'C1s') + '.' : 'Right now no C1 has anything waiting.') + '</p>' +
+      (noMail.length ? '<p class="rerr">No email on the Dashboard Sign-ins tab, so no reminder: ' + esc(noMail.map(function (c) { return c.n; }).join(', ')) + '.</p>' : '');
+  }
   var out = '<h3 class="rhead" id="remind" tabindex="-1">Remind C1s<small>' + (list.length ? plural(due.length, 'C1 has', 'C1s have') + ' campuses waiting' : 'no C1s set up yet') + '</small></h3>';
   if (!list.length) return out + '<p class="hint">C1s appear here once the C1 Assignments tab and Dashboard sign-ins are set up.</p>';
   out += '<p class="hint">' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ParentOrgDocs. You only need these buttons to send one sooner.'

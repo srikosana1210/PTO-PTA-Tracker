@@ -94,5 +94,5 @@ To see the list without sending anything, choose **C1 reminders: update the list
 - **Stop the reminders:** choose **C1 reminders: stop sending (turn off)**.
 - **Pause just the emails:** turn the flow off in Power Automate.
 - **See what was sent:** open the flow; **28-day run history** lists every run.
-- **The dashboard's Review tab** says whether automatic reminders are on, and its **Remind C1s** buttons still work for sending one sooner.
+- **The dashboard's Review tab** shows one line, "C1 reminders · automatic", once the flow is connected and turned on. The **Remind C1s** email buttons only come back while automatic reminders are off.
 - **No email on Saturday or Sunday:** reminders go out Monday to Friday only.

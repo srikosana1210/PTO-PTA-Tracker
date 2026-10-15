@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-15a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-15b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -130,7 +130,8 @@ Nothing below is committed to. Add items and order them with FACE.
 - [x] **R4. Every campus of every Area Office** (`Area Office Campuses` tab + menu). Nothing received yet → Yes when something arrives.
 - [x] **R2. Checklist review** in three groups (Registration, Legalization, Other documents), with It's there / Needs correction / Not there / Not needed and a remark per document. No hard-coded either/or rules (decision 10).
 - [x] **R1. The email** covers still-needed documents, corrections with remarks, and the overall remarks.
-- [x] **R3. Remind C1s automatically (2026-10-15).** Every weekday at 8 AM the script rewrites the **C1 Reminders** tab and POSTs the Send = Yes rows to a Power Automate flow that starts with *When a Teams webhook request is received* (Script Property `REMINDER_HOOK`); the flow emails each from the ParentOrgDocs shared mailbox. The first design (flow reads the sheet with the Google Sheets connector, then a small separate sheet, `REMINDER_SHEET_ID`) failed: Google kept answering 429 Too many requests. Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback.
+- [x] **R3. Remind C1s automatically (2026-10-15).** Every weekday at 8 AM the script rewrites the **C1 Reminders** tab and POSTs the Send = Yes rows to a Power Automate flow that starts with *When a Teams webhook request is received* (Script Property `REMINDER_HOOK`); the flow emails each from the ParentOrgDocs shared mailbox. The first design (flow reads the sheet with the Google Sheets connector, then a small separate sheet, `REMINDER_SHEET_ID`) failed: Google kept answering 429 Too many requests. Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback only while automatic reminders are off; when they are on, the tab shows one status line instead (2026-10-15b).
+- [x] **Campus list filters and Org type column (2026-10-15b).** FACE's chip order: All campuses, All PTO/PTAs, PTOs, PTAs, Not started, In progress, Legalized, Registered, Waiting for review, Sent back for correction, Nothing received yet. PTOs and PTAs go by the register's Org Type. The No PTO/PTA chip is gone; those campuses show under All campuses.
 - [~] **R7. Texas PTA roster:** PTAs marked from a snapshot (decision 13). _Waiting on FACE: what else to take from the roster (officers? standing?) and how often._
 
 ## 8. Open questions
