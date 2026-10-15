@@ -19,8 +19,8 @@
  *      sends nothing. logResendRequest only writes a line in the Submission Log after the person says they sent it.
  *   7. Lists every campus of every Area Office from the Area Office Campuses tab (addAreaCampuses), marking the campuses the Texas PTA
  *      roster lists as PTAs.
- *   8. Every morning, writes the C1 Reminders tab: one row per C1 with what is waiting for their review and the email to send. A Power
- *      Automate flow reads it and sends the emails from Outlook (this script cannot send mail). See docs/power-automate-c1-reminders.md.
+ *   8. Every weekday at 8 AM, writes the C1 Reminders tab (one row per C1 with what is waiting for their review) and sends the reminders to
+ *      a Power Automate flow, which emails them from Outlook (this script cannot send mail). See docs/power-automate-c1-reminders.md.
  *
  * Do not rename the tabs or the column headers in the sheet: the script finds things by those names.
  */
@@ -40,7 +40,7 @@ var CFG = {
   // Body is the email as HTML (what the flow sends); Text is the same email as plain text, for people reading the tab.
   TAB_REMINDERS: 'C1 Reminders',
   REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Body', 'Text', 'Note', 'Updated'],
-  REMINDER_HOUR: 6,
+  REMINDER_HOUR: 8,
   // A small separate spreadsheet holding only the reminder list. Power Automate reads this one, not the tracker: far fewer Google
   // requests (the Google Sheets connector hits "429 Too many requests" on a big workbook), and the flow never sees officer contacts.
   REMINDER_FILE_TITLE: 'PTO-PTA C1 Reminders (read by Power Automate)',
@@ -100,7 +100,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-14c (C1 reminder list: one-word column names for Power Automate)';
+var VERSION = 'Script version 2026-10-15a (C1 reminders sent to Power Automate by the tracker)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -118,10 +118,11 @@ function onOpen() {
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
     .addItem('Dashboard: check that it works', 'checkDashboard')
-    .addItem('C1 reminders: make the small sheet for Power Automate', 'makeReminderSheet')
-    .addItem('C1 reminders: update the list now', 'updateC1Reminders')
-    .addItem('C1 reminders: update the list every morning (turn on)', 'turnOnC1Reminders')
-    .addItem('C1 reminders: stop updating the list (turn off)', 'turnOffC1Reminders')
+    .addItem('C1 reminders: connect to Power Automate', 'connectPowerAutomate')
+    .addItem('C1 reminders: send now (test)', 'sendC1RemindersNow')
+    .addItem('C1 reminders: send every weekday at 8 AM (turn on)', 'turnOnC1Reminders')
+    .addItem('C1 reminders: stop sending (turn off)', 'turnOffC1Reminders')
+    .addItem('C1 reminders: update the list now (sends nothing)', 'updateC1Reminders')
     .addItem('Show form and dashboard links', 'showLinks')
     .addSeparator()
     .addItem('Refresh the campus list in the form', 'refreshCampusList')
@@ -1496,49 +1497,128 @@ function c1Contacts_() {
 /* ================================================================== C1 reminders (sent by Power Automate) */
 
 /*
- * This script cannot send email (the Google account has no Gmail). Instead it writes the C1 Reminders tab every morning: one row per C1,
- * with Send = Yes when something is waiting for their review and their email is known, and the email ready to send. A Power Automate flow
- * in HISD's Microsoft 365 reads the tab (Google Sheets connector, Get rows) and sends each Send = Yes row from Outlook.
+ * This script cannot send email (the Google account has no Gmail), and Power Automate's Google Sheets connector is too often refused by
+ * Google ("429 Too many requests"), so the tracker hands the reminders to Power Automate itself. Each weekday at 8 AM it rewrites the C1
+ * Reminders tab (one row per C1; Send = Yes when something is waiting for their review and their email is known) and POSTs the Yes rows to
+ * a Power Automate flow that starts with "When a Teams webhook request is received". The flow emails each one from the ParentOrgDocs
+ * mailbox. The flow's link is kept in Script Properties (REMINDER_HOOK). Setup: docs/power-automate-c1-reminders.md.
  */
 var REVIEW_NOTE_RE = /^(Accepted: |Needs correction, |Not needed, |Not there, |Remark, |Remark cleared, |Put back to Received)/;
+var REMINDER_RUN = 'runC1Reminders', REMINDER_OLD = 'refreshC1Reminders';
 
-/** Menu: rewrites the C1 Reminders tab now. */
+/** Menu: rewrites the C1 Reminders tab now (does not send anything). */
 function updateC1Reminders() {
   var ui = SpreadsheetApp.getUi();
   try {
     var r = refreshC1Reminders_();
-    var L = ['The ' + CFG.TAB_REMINDERS + ' tab is up to date (' + r.year + ').', '', plural_(r.send, 'C1 will', 'C1s will') + ' get a reminder the next time the Power Automate flow runs.'];
+    var L = ['The ' + CFG.TAB_REMINDERS + ' tab is up to date (' + r.year + ').', '', plural_(r.send, 'C1 has', 'C1s have') + ' something waiting and would get a reminder. Nothing was sent.'];
     if (r.noEmail.length) L.push('', 'These C1s have something waiting but no email on the ' + CFG.TAB_SIGNINS + ' tab, so they get no reminder: ' + r.noEmail.join(', ') + '. Type their email in the Email column.');
     if (!r.c1s) L.push('', 'No C1s are set up yet. Fill in the ' + CFG.TAB_C1 + ' tab first.');
-    if (!reminderTrigger_()) L.push('', 'The list is not updated by itself yet. Choose "C1 reminders: update the list every morning (turn on)".');
     ui.alert('C1 reminders', L.join('\n'), ui.ButtonSet.OK);
   } catch (err) { ui.alert('C1 reminders were not updated', err.message, ui.ButtonSet.OK); }
 }
 
-/** Menu: updates the list every morning (before the flow runs). */
+/** Menu: stores the Power Automate flow's link (the HTTP POST URL of its "When a Teams webhook request is received" step). */
+function connectPowerAutomate() {
+  var ui = SpreadsheetApp.getUi();
+  var r = ui.prompt('Connect the C1 reminders to Power Automate',
+    'Paste the link from the flow\'s first step, "When a Teams webhook request is received" (the HTTP URL that appears after you save the flow).', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  try {
+    setReminderHook_(r.getResponseText());
+    ui.alert('C1 reminders', 'Connected. Now choose "C1 reminders: send now (test)" to check that the emails arrive, then "C1 reminders: send every weekday at 8 AM (turn on)".', ui.ButtonSet.OK);
+  } catch (err) { ui.alert('Not connected', err.message, ui.ButtonSet.OK); }
+}
+
+function setReminderHook_(url) {
+  url = cellText_(url);
+  if (!/^https:\/\/[^\s"'<>]+$/.test(url)) throw new Error('That is not a link. Copy the whole HTTP URL from the flow\'s first step (it starts with https://) and paste it again.');
+  if (!/(\.logic\.azure\.com|\.powerplatform\.com|\.azure-apihub\.net|\.powerautomate\.com)(:\d+)?\//i.test(url)) throw new Error('That link is not a Power Automate link. Copy the HTTP URL from the flow\'s first step, "When a Teams webhook request is received".');
+  PropertiesService.getScriptProperties().setProperty('REMINDER_HOOK', url);
+}
+
+/** Menu: sends today's reminders now, whatever the day, to test the flow. */
+function sendC1RemindersNow() {
+  var ui = SpreadsheetApp.getUi();
+  try { ui.alert('C1 reminders', sendSummary_(runReminders_(true)), ui.ButtonSet.OK); }
+  catch (err) { ui.alert('C1 reminders were not sent', err.message, ui.ButtonSet.OK); }
+}
+
+function sendSummary_(r) {
+  var L = [];
+  if (!r.hook) L.push('The tracker is not connected to Power Automate yet. Choose "C1 reminders: connect to Power Automate" first.');
+  else if (!r.send) L.push('Nothing was sent: no C1 has something waiting (and an email on file) right now.');
+  else L.push('Sent ' + plural_(r.send, 'reminder', 'reminders') + ' to Power Automate. The emails should arrive from ParentOrgDocs within a few minutes. If they do not, open the flow\'s run history in Power Automate.');
+  if (r.noEmail.length) L.push('', 'No email on the ' + CFG.TAB_SIGNINS + ' tab, so no reminder: ' + r.noEmail.join(', ') + '.');
+  return L.join('\n');
+}
+
+/** Menu: every weekday at 8 AM, update the list and send the reminders. */
 function turnOnC1Reminders() {
   var ui = SpreadsheetApp.getUi();
-  if (!reminderTrigger_()) ScriptApp.newTrigger('refreshC1Reminders').timeBased().everyDays(1).atHour(CFG.REMINDER_HOUR).create();
-  try { refreshC1Reminders_(); } catch (err) { /* the trigger is on; the alert below says how to check */ }
-  ui.alert('C1 reminders', 'The ' + CFG.TAB_REMINDERS + ' tab is now updated every morning between ' + CFG.REMINDER_HOUR + ' and ' + (CFG.REMINDER_HOUR + 1) + ' AM, before the Power Automate flow sends the emails. ' +
-    'Set the flow to run at 8 AM or later.', ui.ButtonSet.OK);
+  removeReminderTriggers_();
+  ScriptApp.newTrigger(REMINDER_RUN).timeBased().everyDays(1).atHour(CFG.REMINDER_HOUR).create();
+  try { refreshC1Reminders_(); } catch (err) { /* the trigger is on; "update the list now" shows any problem */ }
+  ui.alert('C1 reminders', 'On. Every weekday between ' + CFG.REMINDER_HOUR + ' and ' + (CFG.REMINDER_HOUR + 1) + ' AM the tracker updates the ' + CFG.TAB_REMINDERS + ' tab and sends the reminders to Power Automate, which emails each C1 from ParentOrgDocs.' +
+    (reminderHook_() ? '' : '\n\nThe tracker is not connected to Power Automate yet, so nothing will be sent. Choose "C1 reminders: connect to Power Automate".'), ui.ButtonSet.OK);
 }
 
-/** Menu: stops the morning update. The flow then finds the last list; turn the flow off too to stop the emails. */
+/** Menu: stops the weekday reminders. */
 function turnOffC1Reminders() {
-  var ui = SpreadsheetApp.getUi(), n = 0;
-  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === 'refreshC1Reminders') { ScriptApp.deleteTrigger(tr); n++; } });
+  var ui = SpreadsheetApp.getUi(), n = removeReminderTriggers_();
   reminderTabs_().forEach(function (sh) { writeReminderRows_(sh, []); });
-  ui.alert('C1 reminders', (n ? 'The morning update is off' : 'The morning update was already off') + ', and the ' + CFG.TAB_REMINDERS + ' tab is empty, so the Power Automate flow sends nothing. To stop the flow itself, turn it off in Power Automate.', ui.ButtonSet.OK);
+  ui.alert('C1 reminders', (n ? 'Off.' : 'They were already off.') + ' The tracker sends no more reminders, and the ' + CFG.TAB_REMINDERS + ' tab is empty. Choose "send every weekday at 8 AM (turn on)" to start again.', ui.ButtonSet.OK);
 }
 
-function reminderTrigger_() { return ScriptApp.getProjectTriggers().some(function (tr) { return tr.getHandlerFunction() === 'refreshC1Reminders'; }); }
+function removeReminderTriggers_() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (tr) { var f = tr.getHandlerFunction(); if (f === REMINDER_RUN || f === REMINDER_OLD) { ScriptApp.deleteTrigger(tr); n++; } });
+  return n;
+}
+function reminderTrigger_() { return ScriptApp.getProjectTriggers().some(function (tr) { var f = tr.getHandlerFunction(); return f === REMINDER_RUN || f === REMINDER_OLD; }); }
+function reminderHook_() { return PropertiesService.getScriptProperties().getProperty('REMINDER_HOOK') || ''; }
 
-/** Time trigger. */
-function refreshC1Reminders() {
+/** Time trigger, every day at 8 AM: sends on weekdays only. */
+function runC1Reminders() {
   var lock = LockService.getScriptLock();
   lock.waitLock(60000);
-  try { refreshC1Reminders_(); } finally { lock.releaseLock(); }
+  try { runReminders_(false); } finally { lock.releaseLock(); }
+}
+
+/** The older trigger (before 2026-10-15) only updated the list; it now does the whole job, so a tracker that still has it keeps working. */
+function refreshC1Reminders() { runC1Reminders(); }
+
+/**
+ * Updates the list and, on a weekday (or always when now is true), POSTs the reminders to the Power Automate flow. The body is shaped like
+ * a Teams message (an attachments array holding an adaptive card), which the "When a Teams webhook request is received" trigger expects;
+ * the reminders ride along in the card's content as reminders: [{ c1, to, subject, body }]. Returns { send, noEmail, hook, sent, skipped }.
+ */
+function runReminders_(now) {
+  var r = refreshC1Reminders_(), hook = reminderHook_();
+  var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), day = Number(Utilities.formatDate(new Date(), tz, 'u'));   // 1 = Monday ... 7 = Sunday
+  var out = { send: r.out.length, noEmail: r.noEmail, hook: !!hook, sent: false, skipped: '' };
+  if (!hook) { out.skipped = 'not connected'; return out; }
+  if (!now && day > 5) { out.skipped = 'weekend'; return out; }
+  if (!r.out.length) { out.skipped = 'nothing waiting'; return out; }
+  var payload = { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: {
+    type: 'AdaptiveCard', version: '1.4', body: [{ type: 'TextBlock', text: 'PTO/PTA C1 reminders: ' + plural_(r.out.length, 'email', 'emails') }],
+    reminders: r.out } }] };
+  var resp = UrlFetchApp.fetch(hook, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true });
+  var code = resp.getResponseCode();
+  if (code < 200 || code >= 300) {
+    throw new Error('Power Automate did not accept the reminders (it answered ' + code + '). Check that the flow is turned on and that its first step lets "Anyone" trigger it. If you made a new flow, connect the tracker to its new link.');
+  }
+  markSent_(Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm'));
+  out.sent = true;
+  return out;
+}
+
+/** Notes on the C1 Reminders tab which rows went to Power Automate, and when. */
+function markSent_(when) {
+  reminderTabs_().forEach(function (sh) {
+    var v = sh.getDataRange().getValues(), si = v[0].indexOf('Send'), ni = v[0].indexOf('Note');
+    for (var i = 1; i < v.length; i++) if (v[i][si] === 'Yes') sh.getRange(i + 1, ni + 1).setValue('Sent to Power Automate ' + when + '.');
+  });
 }
 
 /** What is waiting for review at each campus of the school year: { normalised campus: { campus, items: [labels], other: true/false } }. */
@@ -1563,11 +1643,11 @@ function waitingByCampus_(year) {
   return out;
 }
 
-/** Rewrites the C1 Reminders tab. Returns { year, c1s, send, noEmail: [names] }. */
+/** Rewrites the C1 Reminders tab. Returns { year, c1s, send, noEmail: [names], out: [{ c1, to, subject, body }] for the C1s to remind }. */
 function refreshC1Reminders_() {
   var year = currentYear_(), wait = waitingByCampus_(year), a = c1Assignments_(), people = signInRows_();
   var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-  var url = dashboardUrl_(), rows = [], res = { year: year, c1s: a.order.length, send: 0, noEmail: [] };
+  var url = dashboardUrl_(), rows = [], res = { year: year, c1s: a.order.length, send: 0, noEmail: [], out: [] };
   a.order.forEach(function (k) {
     var rec = a.names[k], p = people.byKey[k], email = p && p.email ? p.email : '';
     var list = Object.keys(rec.campuses).map(function (x) { return wait[x]; }).filter(function (w) { return w && (w.items.length || w.other); })
@@ -1578,6 +1658,7 @@ function refreshC1Reminders_() {
     if (list.length && !send) res.noEmail.push(rec.name);
     if (send) res.send++;
     var m = reminderMessage_(rec.name, list, year, url);
+    if (send) res.out.push({ c1: rec.name, to: email, subject: m.subject, body: m.html });
     rows.push([send ? 'Yes' : 'No', rec.name, email, list.map(function (w) { return w.campus; }).join(', '), docs, m.subject, m.html, m.text, note, now]);
   });
   ensureTab_(CFG.TAB_REMINDERS, CFG.REMINDER_HEADERS);

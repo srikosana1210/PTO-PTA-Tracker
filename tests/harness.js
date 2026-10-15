@@ -152,8 +152,8 @@ function load(opts) {
       // formats in UTC, which is what the tests use for dates; enough for yyyy, MM, M, dd, d, HH, mm, ss, MMM, h, a
       var M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       var y = d.getUTCFullYear(), mo = d.getUTCMonth(), da = d.getUTCDate(), H = d.getUTCHours(), mi = d.getUTCMinutes(), s = d.getUTCSeconds();
-      return fmt.replace(/yyyy|MMM|MM|M|dd|d|HH|h|mm|ss|a/g, function (t) {
-        return { yyyy: y, MMM: M[mo], MM: pad(mo + 1), M: mo + 1, dd: pad(da), d: da, HH: pad(H), h: (H % 12) || 12, mm: pad(mi), ss: pad(s), a: H < 12 ? 'AM' : 'PM' }[t];
+      return fmt.replace(/yyyy|MMM|MM|M|dd|d|HH|h|mm|ss|a|u/g, function (t) {
+        return { yyyy: y, MMM: M[mo], MM: pad(mo + 1), M: mo + 1, dd: pad(da), d: da, HH: pad(H), h: (H % 12) || 12, mm: pad(mi), ss: pad(s), a: H < 12 ? 'AM' : 'PM', u: d.getUTCDay() || 7 }[t];
       });
     },
     getUuid: function () { return crypto.randomUUID(); },
@@ -166,7 +166,7 @@ function load(opts) {
   Rule.prototype.setHelpText = function (t) { this.help = t; return this; };
   Rule.prototype.build = function () { return this; };
 
-  var triggers = [], books = {}, bookN = 0;
+  var triggers = [], books = {}, bookN = 0, fetched = [];
   /** another spreadsheet (SpreadsheetApp.create): one empty tab, like a new Google Sheet */
   function book(title) {
     var b = { id: 'BOOK' + (++bookN), title: title, sheets: [] };
@@ -197,11 +197,13 @@ function load(opts) {
       } },
     HtmlService: { createHtmlOutputFromFile: function () { var h = fs.readFileSync(path.join(ROOT, 'apps-script', 'Dashboard.html'), 'utf8'); return { getContent: function () { return h; } }; } },
     FormApp: { openById: function () { throw new Error('No form in tests'); } },
-    Logger: { log: function (m) { log.push(m); } }
+    Logger: { log: function (m) { log.push(m); } },
+    // records every request; opts.fetchCode sets the answer (default 202, what Power Automate's webhook trigger answers)
+    UrlFetchApp: { fetch: function (url, o) { fetched.push({ url: url, opts: o, json: o && o.payload ? JSON.parse(o.payload) : null }); var code = opts.fetchCode || 202; return { getResponseCode: function () { return code; }, getContentText: function () { return ''; } }; } }
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script', 'Code.gs'), 'utf8'), sandbox, { filename: 'Code.gs' });
-  sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__books = books; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
+  sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__books = books; sandbox.__fetched = fetched; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
   return sandbox;
 }
 

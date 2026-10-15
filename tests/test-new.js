@@ -356,17 +356,89 @@ test('once a campus is checked off, its "other files" stop counting and it drops
   eq(reminderRows(g)[0].Send, 'No');
 });
 
-test('turning the morning update on and off', function () {
+test('turning the weekday reminders on and off', function () {
   var g = h.load();
   withPeople(g);
   g.turnOnC1Reminders();
-  eq(g.__triggers.filter(function (t) { return t.fn === 'refreshC1Reminders' && t.hour === 6; }).length, 1);
+  eq(g.__triggers.filter(function (t) { return t.fn === 'runC1Reminders' && t.hour === 8; }).length, 1);
   g.turnOnC1Reminders();
   eq(g.__triggers.length, 1, 'turning it on twice makes one trigger');
   ok(g.getDashboard('').remindAuto === null, 'leadership is not told');
   g.turnOffC1Reminders();
   eq(g.__triggers.length, 0);
-  eq(reminderRows(g).length, 0, 'the list is emptied, so the flow sends nothing');
+  eq(reminderRows(g).length, 0);
+});
+
+/* the tracker sends the reminders to Power Automate (a "When a Teams webhook request is received" flow) */
+var HOOK = 'https://prod-12.westus.logic.azure.com:443/workflows/abc/triggers/manual/paths/invoke?api-version=2016-06-01&sig=XYZ';
+function readyToRemind(g) {
+  var p = withPeople(g);
+  setEmail(g, 'Ms. Lee', 'lee@houstonisd.org');
+  g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws')] }));
+  g.setReminderHook_(HOOK);
+  return p;
+}
+
+test('the Power Automate link must be a Power Automate link', function () {
+  var g = h.load();
+  function err(u) { try { g.setReminderHook_(u); return ''; } catch (e) { return e.message; } }
+  ok(/not a link/.test(err('copy this')));
+  ok(/not a Power Automate link/.test(err('https://example.com/hook')));
+  eq(err(HOOK), '');
+  eq(err('https://default1234.56.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/x/triggers/manual/paths/invoke?sig=1'), '');
+  eq(g.__props.REMINDER_HOOK.indexOf('https://default1234'), 0);
+});
+
+test('"send now" posts one reminder per C1 with something waiting, shaped like a Teams message', function () {
+  var g = h.load();
+  readyToRemind(g);
+  var r = g.runReminders_(true);
+  ok(r.sent);
+  eq(g.__fetched.length, 1);
+  var f = g.__fetched[0];
+  eq(f.url, HOOK); eq(f.opts.method, 'post'); eq(f.opts.contentType, 'application/json');
+  var att = f.json.attachments[0];
+  eq(f.json.type, 'message'); eq(att.contentType, 'application/vnd.microsoft.card.adaptive'); eq(att.content.type, 'AdaptiveCard');
+  var rem = att.content.reminders;
+  eq(rem.length, 1);
+  eq(rem[0].to, 'lee@houstonisd.org'); eq(rem[0].c1, 'Ms. Lee');
+  eq(rem[0].subject, 'PTO/PTA documents waiting for your review (2026-27)');
+  ok(/<li><b>Anderson ES<\/b>: The organization/.test(rem[0].body), rem[0].body);
+  ok(/^Sent to Power Automate /.test(reminderRows(g)[0].Note), reminderRows(g)[0].Note);
+});
+
+test('nothing is posted when nothing is waiting, when not connected, or (on the timer) at the weekend', function () {
+  var g = h.load();
+  withPeople(g);
+  setEmail(g, 'Ms. Lee', 'lee@houstonisd.org');
+  eq(g.runReminders_(true).skipped, 'not connected');
+  g.setReminderHook_(HOOK);
+  eq(g.runReminders_(true).skipped, 'nothing waiting');
+  eq(g.__fetched.length, 0);
+  g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws')] }));
+  var RealDate = Date, sat = new RealDate(Date.UTC(2026, 9, 17, 13));   // a Saturday
+  g.Date = function () { return arguments.length ? new (Function.prototype.bind.apply(RealDate, [null].concat([].slice.call(arguments))))() : new RealDate(sat.getTime()); };
+  eq(g.runReminders_(false).skipped, 'weekend');
+  eq(g.runReminders_(true).sent, true, '"send now" sends whatever the day');
+  g.Date = RealDate;
+});
+
+test('a refused post says what to check; the old morning trigger still works', function () {
+  var g = h.load({ fetchCode: 404 });
+  readyToRemind(g);
+  var m = ''; try { g.runReminders_(true); } catch (e) { m = e.message; }
+  ok(/did not accept the reminders \(it answered 404\)/.test(m), m);
+  var g2 = h.load();
+  readyToRemind(g2);
+  g2.__triggers.push({ fn: 'refreshC1Reminders', getHandlerFunction: function () { return 'refreshC1Reminders'; } });
+  ok(g2.reminderTrigger_(), 'the old trigger counts as on');
+  var RealDate = Date, mon = new RealDate(Date.UTC(2026, 9, 19, 13));   // a Monday
+  g2.Date = function () { return arguments.length ? new (Function.prototype.bind.apply(RealDate, [null].concat([].slice.call(arguments))))() : new RealDate(mon.getTime()); };
+  g2.refreshC1Reminders();
+  g2.Date = RealDate;
+  eq(g2.__fetched.length, 1, 'the old trigger now sends too');
+  g2.turnOnC1Reminders();
+  eq(g2.__triggers.map(function (t) { return t.fn; }), ['runC1Reminders'], 'turning on replaces the old trigger');
 });
 
 test('the small reminders sheet: made once, gets the same rows, emptied when reminders are turned off', function () {
