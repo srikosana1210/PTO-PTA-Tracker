@@ -7,23 +7,24 @@
 <style>
 :root {
   color-scheme: light;
-  /* HISD brand: Teal #00a3af, Dark Green #006f5b, Dark Grey #24383c, Gold (Yellow) #f9d04e, Red #d96364, Light Grey #d4d4d5.
+  /* HISD brand: Teal #00a3af, Dark Green #006f5b, Dark Grey #24383c, Light Green #6db83d, Gold (Yellow) #f9d04e, Red #d96364, Light Grey #d4d4d5.
+     FACE chose option A (October 2026): a dark green header, dark green buttons, teal accents, light green for accepted documents.
      Light teal, the tint of Teal, is #e3f5f6 / #c7ebee. #00747e is Teal darkened so that white text on it stays readable. */
   --teal:#00a3af; --teal-ink:#00747e; --teal-dk:#006f5b; --gold:#f9d04e;
-  --page:#f4fafa; --surface:#ffffff; --ink:#24383c; --ink2:#43585c; --muted:#5c7075;
+  --page:#f3faf9; --surface:#ffffff; --ink:#24383c; --ink2:#43585c; --muted:#5c7075;
   --grid:#dde8e9; --axis:#bfcfd1; --ring:rgba(36,56,60,.10);
   --lt1:#e3f5f6; --lt2:#c7ebee;
-  --hero:#24383c; --hero-ink:#ffffff; --hero-mut:#b9cbce;
-  --acc:#00a3af; --on-acc:#24383c; --rev:#f9d04e; --on-rev:#24383c;
+  --hero:#006f5b; --hero-ink:#ffffff; --hero-mut:#cfe9e1;
+  --acc:#6db83d; --on-acc:#1b3409; --rev:#f9d04e; --on-rev:#24383c;
   --fix:#d96364; --on-fix:#24383c; --none:#d4d4d5;
-  --k1:#24383c; --k2:#00a3af; --k3:#006f5b; --k4:#f9d04e;
+  --k1:#00a3af; --k2:#00747e; --k3:#006f5b; --k4:#f9d04e;
   --b-leg:#006f5b; --on-b-leg:#ffffff; --b-reg:#00a3af; --on-b-reg:#24383c; --b-prog:#f9d04e; --on-b-prog:#24383c; --b-ns:#d4d4d5; --on-b-ns:#24383c;
   --leg-bg:#006f5b; --leg-ink:#ffffff; --reg-bg:#c7ebee; --reg-ink:#24383c;
   --prog-bg:#f9d04e; --prog-ink:#24383c; --ns-bg:#e9eaea; --ns-ink:#43585c;
   --warn-bg:#fdf0c4; --warn-ink:#4d3d00; --err-bg:#f8dcdc; --err-ink:#6b1f20; --ok-bg:#d6efe8; --ok-ink:#064a3c;
-  --btn-bg:#00747e; --btn-ink:#ffffff; --link:#00747e; --hover:#e3f5f6;
-  --chip-on:#24383c; --chip-on-ink:#ffffff; --chip-on-n:#f9d04e;
-  --focus:#00747e; --shadow:rgba(36,56,60,.16);
+  --btn-bg:#006f5b; --btn-ink:#ffffff; --link:#006f5b; --hover:#e3f5f6;
+  --chip-on:#006f5b; --chip-on-ink:#ffffff; --chip-on-n:#f9d04e;
+  --focus:#006f5b; --shadow:rgba(36,56,60,.16);
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
@@ -31,15 +32,15 @@
     --page:#152326; --surface:#1d2f33; --ink:#eef5f5; --ink2:#c5d3d5; --muted:#9db0b3;
     --grid:#2b4146; --axis:#3d565b; --ring:rgba(255,255,255,.10);
     --lt1:#20393d; --lt2:#28484e;
-    --acc:#00a3af; --on-acc:#0e1c1f; --rev:#f9d04e; --on-rev:#24383c;
+    --hero:#0d4337; --hero-mut:#b5d9cf; --acc:#7cc94a; --on-acc:#0e1c1f; --rev:#f9d04e; --on-rev:#24383c;
     --fix:#e07576; --on-fix:#1a0b0b; --none:#3d5257;
-    --k1:#c5d3d5; --k2:#00a3af; --k3:#8ae8cf; --k4:#f9d04e;
+    --k1:#00a3af; --k2:#56c7cf; --k3:#8ae8cf; --k4:#f9d04e;
     --b-leg:#8ae8cf; --on-b-leg:#0e1c1f; --b-reg:#00a3af; --on-b-reg:#0e1c1f; --b-prog:#f9d04e; --on-b-prog:#24383c; --b-ns:#3d5257; --on-b-ns:#eef5f5;
     --leg-bg:#8ae8cf; --leg-ink:#0e1c1f; --reg-bg:#28484e; --reg-ink:#d7f0f2;
     --prog-bg:#f9d04e; --prog-ink:#24383c; --ns-bg:#2b4146; --ns-ink:#c5d3d5;
     --warn-bg:#3a3210; --warn-ink:#f7dd87; --err-bg:#3f1f20; --err-ink:#f4b9ba; --ok-bg:#16392f; --ok-ink:#a7e6d2;
-    --btn-bg:#00a3af; --btn-ink:#0e1c1f; --link:#56c7cf; --hover:#20393d;
-    --chip-on:#00a3af; --chip-on-ink:#0e1c1f; --chip-on-n:#0e1c1f;
+    --btn-bg:#2fae8f; --btn-ink:#0e1c1f; --link:#7fd8c4; --hover:#20393d;
+    --chip-on:#2fae8f; --chip-on-ink:#0e1c1f; --chip-on-n:#0e1c1f;
     --focus:#56c7cf; --shadow:rgba(0,0,0,.45);
   }
 }
@@ -48,15 +49,15 @@
   --page:#152326; --surface:#1d2f33; --ink:#eef5f5; --ink2:#c5d3d5; --muted:#9db0b3;
   --grid:#2b4146; --axis:#3d565b; --ring:rgba(255,255,255,.10);
   --lt1:#20393d; --lt2:#28484e;
-  --acc:#00a3af; --on-acc:#0e1c1f; --rev:#f9d04e; --on-rev:#24383c;
+  --hero:#0d4337; --hero-mut:#b5d9cf; --acc:#7cc94a; --on-acc:#0e1c1f; --rev:#f9d04e; --on-rev:#24383c;
   --fix:#e07576; --on-fix:#1a0b0b; --none:#3d5257;
-  --k1:#c5d3d5; --k2:#00a3af; --k3:#8ae8cf; --k4:#f9d04e;
+  --k1:#00a3af; --k2:#56c7cf; --k3:#8ae8cf; --k4:#f9d04e;
   --b-leg:#8ae8cf; --on-b-leg:#0e1c1f; --b-reg:#00a3af; --on-b-reg:#0e1c1f; --b-prog:#f9d04e; --on-b-prog:#24383c; --b-ns:#3d5257; --on-b-ns:#eef5f5;
   --leg-bg:#8ae8cf; --leg-ink:#0e1c1f; --reg-bg:#28484e; --reg-ink:#d7f0f2;
   --prog-bg:#f9d04e; --prog-ink:#24383c; --ns-bg:#2b4146; --ns-ink:#c5d3d5;
   --warn-bg:#3a3210; --warn-ink:#f7dd87; --err-bg:#3f1f20; --err-ink:#f4b9ba; --ok-bg:#16392f; --ok-ink:#a7e6d2;
-  --btn-bg:#00a3af; --btn-ink:#0e1c1f; --link:#56c7cf; --hover:#20393d;
-  --chip-on:#00a3af; --chip-on-ink:#0e1c1f; --chip-on-n:#0e1c1f;
+  --btn-bg:#2fae8f; --btn-ink:#0e1c1f; --link:#7fd8c4; --hover:#20393d;
+  --chip-on:#2fae8f; --chip-on-ink:#0e1c1f; --chip-on-n:#0e1c1f;
   --focus:#56c7cf; --shadow:rgba(0,0,0,.45);
 }
 
@@ -86,7 +87,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn.sm { padding: 4px 11px; font-size: 13px; min-height: 30px; }
 .btn[disabled] { opacity: .55; cursor: progress; }
 
-/* hero: the dark grey band, with the tabs sitting on its lower edge */
+/* hero: the dark green band, with the tabs sitting on its lower edge */
 .hero { background: var(--hero); color: var(--hero-ink); }
 .hero .wrap { padding-top: 26px; }
 .hero :focus-visible { outline-color: var(--gold); }
@@ -214,7 +215,33 @@ details.defs p { margin-top: 8px; }
 .chip[aria-pressed="true"] b { color: var(--chip-on-n); }
 .chip.sep { margin-left: 8px; }
 .ccount { margin: 12px 0 6px; color: var(--muted); font-size: 13px; }
-.chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 90px 150px 250px 76px; gap: 6px 18px; align-items: center; }
+.chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 72px 140px 180px 130px 66px; gap: 6px 16px; align-items: center; }
+.cw { font-size: 13px; color: var(--ink2); line-height: 1.3; }
+.cw b { color: var(--ink); font-weight: 600; }
+.cw.done, .cw.none { color: var(--muted); }
+/* My campus: one campus at a time, for principals and APs */
+.pick { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-top: 22px; }
+.pick label { display: inline-flex; gap: 8px; align-items: center; color: var(--ink2); }
+.pick select { max-width: 100%; }
+.ccard { background: var(--surface); border: 1px solid var(--grid); border-top: 6px solid var(--teal-dk); border-radius: 12px; padding: 20px 22px; margin-top: 16px; max-width: 760px; box-shadow: 0 1px 3px var(--ring); }
+.ccard .ctop { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.ccard h3 { font-size: 24px; line-height: 1.2; }
+.ccard .cmeta { color: var(--muted); }
+.cnext { margin-top: 14px; border-radius: 10px; padding: 12px 16px; font-weight: 600; }
+.cnext.pto, .cnext.both { background: var(--err-bg); color: var(--err-ink); }
+.cnext.face { background: var(--warn-bg); color: var(--warn-ink); }
+.cnext.done { background: var(--ok-bg); color: var(--ok-ink); }
+.cnext.none { background: var(--ns-bg); color: var(--ns-ink); }
+.cgrp { margin-top: 18px; font-size: 12.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.cdocs { list-style: none; margin: 6px 0 0; padding: 0; }
+.cdocs li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); }
+.cdocs .cst { color: var(--ink2); font-size: 13.5px; text-align: right; }
+.ccontact { margin-top: 16px; color: var(--ink2); font-size: 14px; }
+.ccard .campbtn { margin-top: 14px; }
+details.links { margin-top: 14px; color: var(--ink2); font-size: 13.5px; }
+details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
+.linkrow { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; margin-top: 8px; }
+.linkrow input { width: 100%; min-width: 0; font-size: 13px; }
 .co { font-size: 13.5px; font-weight: 600; color: var(--ink2); }
 .co.none { font-weight: 400; color: var(--muted); }
 .chead { padding: 0 16px 6px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--axis); }
@@ -409,8 +436,9 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
   .arow, .drow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .asof { margin-left: 0; width: 100%; }
   .chead { display: none; }
-  .crow { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "n n n" "o s c" "d d d"; gap: 8px 10px; }
-  .crow .cn { grid-area: n; } .crow .co { grid-area: o; } .crow .cs { grid-area: s; } .crow .cd { grid-area: d; } .crow .cc { grid-area: c; }
+  .crow { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "n n n" "o s c" "d d d" "w w w"; gap: 8px 10px; }
+  .crow .cn { grid-area: n; } .crow .co { grid-area: o; } .crow .cs { grid-area: s; } .crow .cd { grid-area: d; } .crow .cc { grid-area: c; } .crow .cw { grid-area: w; }
+  .linkrow { grid-template-columns: minmax(0, 1fr) auto; } .linkrow span { grid-column: 1 / -1; }
   .act > li { grid-template-columns: minmax(0, 1fr); }
   #pBody, .phead { padding-left: 16px; padding-right: 16px; }
 }
@@ -489,6 +517,7 @@ a.btn.primary { color: var(--btn-ink); }
     <div class="tabs" role="tablist" aria-label="Dashboard sections">
       <button class="tab" role="tab" id="tab-overview" data-tab="overview" aria-controls="v-overview" aria-selected="true" type="button">Overview</button>
       <button class="tab" role="tab" id="tab-campuses" data-tab="campuses" aria-controls="v-campuses" aria-selected="false" tabindex="-1" type="button">Campuses</button>
+      <button class="tab" role="tab" id="tab-campus" data-tab="campus" aria-controls="v-campus" aria-selected="false" tabindex="-1" type="button">My campus</button>
       <button class="tab" role="tab" id="tab-review" data-tab="review" aria-controls="v-review" aria-selected="false" tabindex="-1" type="button" hidden>Review<span class="n" id="reviewN" hidden></span></button>
     </div>
   </div>
@@ -551,8 +580,14 @@ a.btn.primary { color: var(--btn-ink); }
       </div>
       <div class="chips" id="chips" role="group" aria-label="Show campuses"></div>
       <p class="ccount" id="ccount" aria-live="polite"></p>
-      <div class="chead" aria-hidden="true"><span>Campus</span><span>Org type</span><span>Status</span><span>Documents</span><span style="text-align:right">Done</span></div>
+      <div class="chead" aria-hidden="true"><span>Campus</span><span>Org type</span><span>Status</span><span>Documents</span><span>Waiting on</span><span style="text-align:right">Done</span></div>
       <ul class="clist" id="clist"></ul>
+    </section>
+
+    <section id="v-campus" role="tabpanel" aria-labelledby="tab-campus" tabindex="-1" hidden>
+      <div class="pick"><label for="pickCampus">Campus</label><select id="pickCampus"></select></div>
+      <p class="hint">For principals and assistant principals: pick your campus to see what is done, what is still needed, and whether it is waiting on your PTO/PTA or on FACE.</p>
+      <div id="campusCard"></div>
     </section>
 
     <section id="v-review" role="tabpanel" aria-labelledby="tab-review" tabindex="-1" hidden>
@@ -621,12 +656,10 @@ var DOCS = [
   { nm: 'Training certificate', key: 'Training Certificate', label: 'Training certificate', short: 'Training', reg: true, alias: ['training certificate', 'training proof'] },
   { nm: 'Budget report or minutes', key: 'Budget or Financial Report', label: 'Annual budget report or meeting minutes showing budget approval', short: 'Budget', alias: ['budget or financial report', 'proof of budget', 'budget treasurer s report or audit', 'budget'] },
   { nm: 'Proof of 501(c) status', key: 'Proof of 501c Status', label: 'Proof of 501(c) status', short: '501(c)', alias: ['proof of 501c status', 'proof of 501 c status', '501c proof', '501 c proof'] },
-  { nm: 'Bank verification letter', key: 'Bank Verification Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank letter', alias: ['bank verification letter', 'bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] },
-  { nm: 'Articles of incorporation', key: 'Articles of Incorporation', label: 'Articles of incorporation', short: 'Articles', opt: true, alias: ['articles of incorporation', 'articles'] },
-  { nm: 'Insurance', key: 'Insurance', label: 'Liability and property insurance', short: 'Insurance', opt: true, alias: ['insurance', 'insurance liability property'] }
+  { nm: 'Bank verification letter', key: 'Bank Verification Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank letter', alias: ['bank verification letter', 'bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] }
 ];
 /* FACE lists the training certificate first; DOCS stays in the register's column order, so the page shows them in this order */
-var SHOW = [2, 0, 1, 3, 4, 5, 6, 7];
+var SHOW = [2, 0, 1, 3, 4, 5];
 function shown() { return SHOW.filter(function (i) { return i < DOCS.length; }); }
 var TXT = { A: 'Accepted', R: 'Received, awaiting review', C: 'Needs correction', N: 'Not received', X: 'Not needed for this PTO/PTA' };
 var ICON = {
@@ -645,7 +678,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-15b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-15c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -654,8 +687,15 @@ if (!payload.rows) payload.rows = [];
 useLabels();
 /** FACE's wording for each document comes from the script, so the page, the emails and the sheet say the same thing. */
 function useLabels() { var L = payload.labels; if (L && L.length === DOCS.length) DOCS.forEach(function (d, i) { if (L[i]) d.label = L[i]; }); }
-var booting = !!payload.boot;                      // live page: the numbers have not arrived yet
-var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', mine: false };
+var booting = !!payload.boot;
+/* A link made for an Area Office (?ao=...) or a campus (?campus=...) opens the page there, once, when the numbers arrive. */
+var LINK = { ao: String(payload.ao || ''), campus: String(payload.campus || '') };
+function applyLink() {
+  if (LINK.ao) { var a = nk(LINK.ao); yearRows().some(function (r) { if (nk(r.area) === a) { state.area = r.area; return true; } return false; }); }
+  if (LINK.campus) { var c = nk(LINK.campus); yearRows().some(function (r) { if (nk(r.campus) === c) { state.pick = r.campus; state.tab = 'campus'; return true; } return false; }); }
+  LINK = { ao: '', campus: '' };
+}                      // live page: the numbers have not arrived yet
+var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', mine: false, pick: '' };
 var session = { token: '' };
 var memTok = '';
 
@@ -685,14 +725,22 @@ function nReg() { return nOf(isReg); }
 function nReq() { return nOf(isReq); }
 /* an item is done when it is Accepted, or Not needed for this PTO/PTA (a reviewer decided it does not need it) */
 function isDone(c) { return c === 'A' || c === 'X'; }
-function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (test(i) && isDone(r.d[i])) n++; return n; }
-function accReg(r) { return accIn(r, isReg); }
-function accReq(r) { return accIn(r, isReq); }
-function accOpt(r) { return accIn(r, function (i) { return !isReq(i); }); }
-function regDone(r) { return accReg(r) === nReg(); }
-function legDone(r) { return accReq(r) === nReq(); }
-function anyIn(r) { return count(r.d, 'N') + count(r.d, 'X') < r.d.length; }
-function grpOf(i) { return isReg(i) ? 0 : isReq(i) ? 1 : 2; }
+/* FACE tracks two documents for a PTA: the training certificate and the officer information form. A PTA with both is Registered;
+   a PTA is never Legalized here. Every other document is left out of a PTA's counts, lists and emails. */
+var PTA_KEYS = ['Training Certificate', 'Officer Information'];
+function isPta(r) { return r.ot === 'PTA'; }
+function tracked(r, i) { return !isPta(r) || PTA_KEYS.indexOf(DOCS[i].key) >= 0; }
+function docsOf(r) { return shown().filter(function (i) { return tracked(r, i); }); }
+function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (tracked(r, i) && test(i) && isDone(r.d[i])) n++; return n; }
+function nRegOf(r) { return isPta(r) ? docsOf(r).length : nReg(); }
+function nReqOf(r) { return isPta(r) ? docsOf(r).length : nReq(); }
+function accReg(r) { return isPta(r) ? accIn(r, function () { return true; }) : accIn(r, isReg); }
+function accReq(r) { return isPta(r) ? accReg(r) : accIn(r, isReq); }
+function accOpt(r) { return isPta(r) ? 0 : accIn(r, function (i) { return !isReq(i); }); }
+function regDone(r) { return accReg(r) === nRegOf(r); }
+function legDone(r) { return !isPta(r) && accReq(r) === nReq(); }
+function anyIn(r) { return docsOf(r).some(function (i) { return r.d[i] !== 'N' && r.d[i] !== 'X'; }); }
+function grpOf(i, r) { return r && isPta(r) ? 0 : isReg(i) ? 0 : isReq(i) ? 1 : 2; }
 
 function statusOf(r) {
   if (r.pto === 'No') return 'No PTO/PTA';
@@ -715,7 +763,7 @@ function stats(rows) {
   s.regOnly = s.registered - s.legalized;
   s.inprog = s.started - s.registered;
   s.notStarted = s.yes - s.started;
-  s.docs = DOCS.map(function (_, i) { var o = { A: 0, R: 0, C: 0, N: 0, X: 0 }; yes.forEach(function (r) { o[r.d[i]] = (o[r.d[i]] || 0) + 1; }); return o; });
+  s.docs = DOCS.map(function (_, i) { var o = { A: 0, R: 0, C: 0, N: 0, X: 0 }; yes.forEach(function (r) { if (tracked(r, i)) o[r.d[i]] = (o[r.d[i]] || 0) + 1; }); return o; });
   s.nycWithDocs = rows.filter(function (r) { return r.pto === 'NYC' && anyIn(r); }).length;
   s.waitDocs = 0; s.waitCampuses = 0; s.fixDocs = 0; s.fixCampuses = 0;
   rows.forEach(function (r) { var w = count(r.d, 'R'), f = count(r.d, 'C'); if (w) { s.waitDocs += w; s.waitCampuses++; } if (f) { s.fixDocs += f; s.fixCampuses++; } });
@@ -748,7 +796,7 @@ function renderHero() {
   $('#tab-review').hidden = !me;
   var w = reviewCount();
   $('#reviewN').hidden = !(me && w); $('#reviewN').textContent = w;
-  ['overview', 'campuses', 'review'].forEach(function (t) {
+  ['overview', 'campuses', 'campus', 'review'].forEach(function (t) {
     var b = $('#tab-' + t), on = state.tab === t;
     b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1;
   });
@@ -839,12 +887,12 @@ function renderAreas() {
   if (!names.length) { $('#areas').innerHTML = '<p class="empty">No data.</p>'; return; }
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
   var all = stats(rows);
-  $('#areas').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Area Office</th><th scope="col">Campuses</th><th scope="col">PTO/PTAs</th><th scope="col">Registered</th><th scope="col">Legalized</th><th scope="col">Waiting for review</th></tr></thead><tbody>' +
+  $('#areas').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Area Office</th><th scope="col">Campuses</th><th scope="col">PTO/PTAs</th><th scope="col">Registered</th><th scope="col">Legalized</th><th scope="col">Not started</th><th scope="col">Waiting for review</th></tr></thead><tbody>' +
     names.map(function (a) {
       var x = stats(map[a]);
-      return '<tr><th scope="row"><button type="button" class="linkbtn" data-area="' + esc(a) + '">' + esc(a) + '</button></th>' + cell(x.roster) + cell(x.yes) + cell(x.registered) + cell(x.legalized) + cell(x.waitDocs) + '</tr>';
+      return '<tr><th scope="row"><button type="button" class="linkbtn" data-area="' + esc(a) + '">' + esc(a) + '</button></th>' + cell(x.roster) + cell(x.yes) + cell(x.registered) + cell(x.legalized) + cell(x.notStarted) + cell(x.waitDocs) + '</tr>';
     }).join('') +
-    '</tbody><tfoot><tr><th scope="row">All Area Offices</th>' + cell(all.roster) + cell(all.yes) + cell(all.registered) + cell(all.legalized) + cell(all.waitDocs) + '</tr></tfoot></table></div>';
+    '</tbody><tfoot><tr><th scope="row">All Area Offices</th>' + cell(all.roster) + cell(all.yes) + cell(all.registered) + cell(all.legalized) + cell(all.notStarted) + cell(all.waitDocs) + '</tr></tfoot></table></div>' + areaLinks(names);
 }
 
 function renderDocs(s) {
@@ -866,7 +914,8 @@ function renderDefs() {
   var other = shown().filter(function (i) { return !isReq(i); }).map(function (i) { return DOCS[i].label.toLowerCase(); });
   $('#defsBody').innerHTML = '<p><b>Registration:</b></p>' + list(isReg) + '<p><b>Legalization:</b></p>' + list(isReq) +
     (other.length ? '<p>Not required: ' + esc(other.join(' and ')) + '. They are tracked when a PTO/PTA sends them.</p>' : '') +
-    '<p>"Waiting for review" means a document has arrived and has not been checked yet. A document counts when a reviewer accepts it, or marks it not needed for that PTO/PTA.</p>';
+    '<p><b>PTAs:</b> FACE tracks two documents for a PTA, the training certificate and the officer information form. A PTA with both is Registered.</p>' +
+    '<p>The officer information form counts as soon as it comes in; nobody needs to review it. "Waiting for review" means an uploaded document has arrived and has not been checked yet. A document counts when a reviewer accepts it, or marks it not needed for that PTO/PTA.</p>';
 }
 
 function renderOverview(s) {
@@ -898,6 +947,20 @@ function inFilter(r, k) {
     default: return r.pto === 'Yes' && statusOf(r) === k;
   }
 }
+/** Who the next step is on: the PTO/PTA (documents still needed or sent back), FACE (documents waiting for review), both, or nobody. */
+function waitOn(r) {
+  var org = r.ot === 'PTA' || r.ot === 'PTO' ? 'the ' + r.ot : 'the PTO/PTA';
+  if (r.pto !== 'Yes') return { who: 'none', short: '', text: r.pto === 'No' ? 'This campus reported that it has no PTO/PTA.' : 'Nothing has been received from this campus yet. If it has a PTO/PTA, ask it to send its documents to ' + (payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.' };
+  var st = statusOf(r);
+  var need = docsOf(r).filter(function (i) { return (r.d[i] === 'N' && (isPta(r) || isReq(i))) || r.d[i] === 'C'; });
+  var rev = docsOf(r).filter(function (i) { return r.d[i] === 'R'; });
+  if (st === 'Legalized' || (isPta(r) && st === 'Registered') || (!need.length && !rev.length)) return { who: 'done', short: 'Nobody, all done', text: 'All done for this year. Nothing is needed.' };
+  var needTxt = need.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1) + (r.d[i] === 'C' ? ' (sent back to fix)' : ''); }).join(', ');
+  var revTxt = rev.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1); }).join(', ');
+  if (need.length && rev.length) return { who: 'both', short: org.charAt(0).toUpperCase() + org.slice(1) + ' and FACE', text: 'Waiting on ' + org + ': ' + needTxt + '. FACE is also reviewing: ' + revTxt + '.' };
+  if (need.length) return { who: 'pto', short: org.charAt(0).toUpperCase() + org.slice(1), text: 'Waiting on ' + org + ': ' + needTxt + '.' };
+  return { who: 'face', short: 'FACE review', text: 'Waiting on FACE to review: ' + revTxt + '. Nothing is needed from the campus.' };
+}
 function campusBase() { var rows = scoped(); if (state.mine) rows = rows.filter(isMine); return rows; }
 
 function renderChips(base) {
@@ -916,8 +979,8 @@ function renderChips(base) {
 
 function stripOf(r) {
   var a = accReq(r), o = accOpt(r), w = count(r.d, 'R'), c = count(r.d, 'C');
-  var label = a + ' of ' + nReq() + ' required documents done' + (o ? ', ' + o + ' other documents done' : '') + (w ? ', ' + w + ' waiting for review' : '') + (c ? ', ' + c + ' need correction' : '');
-  return '<span class="strip" role="img" aria-label="' + esc(label) + '">' + shown().map(function (i) {
+  var label = a + ' of ' + nReqOf(r) + ' required documents done' + (o ? ', ' + o + ' other documents done' : '') + (w ? ', ' + w + ' waiting for review' : '') + (c ? ', ' + c + ' need correction' : '');
+  return '<span class="strip" role="img" aria-label="' + esc(label) + '">' + docsOf(r).map(function (i) {
     var d = DOCS[i], ch = r.d[i];
     return '<span class="ic ' + ch + (isReq(i) ? '' : ' opt') + '" title="' + esc(d.label + (isReq(i) ? '' : ' (optional)') + ': ' + TXT[ch]) + '">' + ICON[ch] + '</span>';
   }).join('') + '</span>';
@@ -948,13 +1011,61 @@ function renderCampuses() {
       (w ? '<span class="flag R">' + w + ' waiting</span>' : '') + (f ? '<span class="flag C">' + f + ' sent back</span>' : '') + '<span class="ao">' + esc(r.area) + '</span></div>' +
       '<div class="co' + (r.ot ? '' : ' none') + '" title="Org type">' + esc(r.ot || '—') + '</div>' +
       '<div class="cs"><span class="pill ' + cls + '">' + esc(st) + '</span></div><div class="cd">' + stripOf(r) + '</div>' +
-      '<div class="cc"><b>' + acc(r) + '</b> of ' + nReq() + '</div></li>';
+      cwCell(r) + '<div class="cc"><b>' + acc(r) + '</b> of ' + nReqOf(r) + '</div></li>';
   }).join('');
+}
+
+function cwCell(r) {
+  var w = waitOn(r);
+  return '<div class="cw ' + w.who + '" title="' + esc(w.text) + '">' + (w.short ? (w.who === 'done' ? esc(w.short) : '<span class="sr">Waiting on </span><b>' + esc(w.short) + '</b>') : '—') + '</div>';
+}
+
+/* My campus: one campus, in plain words, for principals and APs (no names, contacts or files) */
+var CTXT = { A: 'Accepted', R: 'With FACE for review', C: 'Sent back to fix', N: 'Not received yet', X: 'Not needed' };
+function renderCampusCard() {
+  var rows = yearRows().slice().sort(function (a, b) { return cmp(a.campus, b.campus); });
+  if (state.area) rows = rows.filter(function (r) { return r.area === state.area; });
+  var sel = $('#pickCampus');
+  if (!rows.length) { sel.innerHTML = ''; $('#campusCard').innerHTML = '<p class="empty">No campuses to show here.</p>'; return; }
+  if (!rows.some(function (r) { return r.campus === state.pick; })) {
+    var mine = rows.filter(isMine);
+    state.pick = (mine[0] || rows[0]).campus;
+  }
+  sel.innerHTML = rows.map(function (r) { return '<option' + (r.campus === state.pick ? ' selected' : '') + '>' + esc(r.campus) + '</option>'; }).join('');
+  var r = rows.filter(function (x) { return x.campus === state.pick; })[0], st = statusOf(r), w = waitOn(r);
+  function li(i) {
+    var c = r.d[i], t = DOCS[i].key === 'Officer Information' && c === 'A' ? 'Received from the form' : CTXT[c];
+    return '<li><span class="ic ' + c + '" aria-hidden="true">' + ICON[c] + '</span><span>' + esc(DOCS[i].nm) + '</span><span class="cst">' + esc(t) + '</span></li>';
+  }
+  var list = docsOf(r), body;
+  if (isPta(r)) body = '<p class="cgrp">What FACE tracks for a PTA</p><ul class="cdocs">' + list.map(li).join('') + '</ul>';
+  else body = '<p class="cgrp">To be Registered</p><ul class="cdocs">' + list.filter(isReg).map(li).join('') + '</ul>' +
+    '<p class="cgrp">Also needed to be Legalized</p><ul class="cdocs">' + list.filter(function (i) { return !isReg(i) && isReq(i); }).map(li).join('') + '</ul>';
+  var org = [r.ot, r.area].filter(Boolean).join(' · ');
+  $('#campusCard').innerHTML = '<article class="ccard"><div class="ctop"><h3>' + esc(r.campus) + '</h3><span class="pill ' + st.replace(/[^A-Za-z]+/g, '-') + '">' + esc(st) + '</span>' +
+    (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
+    '<p class="ccontact">' + (r.c1 ? 'Questions? This campus\'s C1 coordinator is <b>' + esc(r.c1) + '</b>.' : 'Questions? Email ' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.') + '</p>' +
+    (canSee(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">Open the checklist and files</button></div>' : '') + '</article>';
+}
+
+/** Signed-in FACE staff: a link for each Area Office, for SEDs and EDs. The link opens the page on that office; nobody signs in. */
+function areaLinks(names) {
+  if (!payload.me || payload.me.role !== 'staff' || !safeUrl(payload.url)) return '';
+  var base = payload.url, i = 0;
+  function row(label, url) { i++; return '<div class="linkrow"><span>' + esc(label) + '</span><input type="text" readonly id="lnk' + i + '" value="' + esc(url) + '" aria-label="' + esc('Link for ' + label) + '"><button type="button" class="btn sm" data-copy="lnk' + i + '">Copy</button></div>'; }
+  return '<details class="links"><summary>Links for SEDs, EDs and principals</summary><p>Each Area Office link opens the dashboard on that office. Principals and APs use the main link and pick their campus on <b>My campus</b>. Nobody needs to sign in.</p>' +
+    row('Main link', base) + names.filter(function (a) { return a !== 'No Area Office'; }).map(function (a) { return row(a, base + (base.indexOf('?') >= 0 ? '&' : '?') + 'ao=' + encodeURIComponent(a)); }).join('') + '</details>';
+}
+function copyField(btn) {
+  var f = document.getElementById(btn.getAttribute('data-copy')); if (!f) return;
+  function done(ok) { btn.textContent = ok ? 'Copied' : 'Selected: press Ctrl+C'; setTimeout(function () { btn.textContent = 'Copy'; }, 2500); }
+  function pick() { f.focus(); f.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } done(ok); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(f.value).then(function () { done(true); }, pick); else pick();
 }
 
 /* review (signed in only) */
 function reviewCard(r, ch, cls) {
-  var chips = shown().map(function (i) { return r.d[i] === ch ? '<span class="dchip ' + ch + '">' + esc(DOCS[i].short) + '</span>' : ''; }).join('') +
+  var chips = docsOf(r).map(function (i) { return r.d[i] === ch ? '<span class="dchip ' + ch + '">' + esc(DOCS[i].short) + '</span>' : ''; }).join('') +
     (ch === 'R' && newFiles(r) ? '<span class="dchip R">Other files</span>' : '');
   return '<li data-c="' + esc(r.campus) + '"><button type="button" class="rcard campbtn ' + cls + '" aria-haspopup="dialog"><span><b>' + esc(r.campus) + '</b><span class="ao">' + esc(r.area) + '</span></span>' +
     '<span class="dchips">' + chips + '</span><span class="rgo">Open</span></button></li>';
@@ -996,7 +1107,7 @@ function remindList() {
 function remindMessage(c) {
   var yr = state.year || '', url = payload.url || '';
   var lines = c.rows.map(function (r) {
-    var what = shown().filter(function (i) { return r.d[i] === 'R'; }).map(function (i) { return DOCS[i].nm; });
+    var what = docsOf(r).filter(function (i) { return r.d[i] === 'R'; }).map(function (i) { return DOCS[i].nm; });
     if (newFiles(r)) what.push('other files');
     return '- ' + r.campus + ': ' + what.join(', ');
   });
@@ -1035,7 +1146,7 @@ function remindHtml() {
 function render() {
   if (state.tab === 'review' && !payload.me) state.tab = 'overview';
   if (!payload.me) $('#reviewBody').innerHTML = '';
-  var views = ['overview', 'campuses', 'review'];
+  var views = ['overview', 'campuses', 'campus', 'review'];
   $('#boot').hidden = !($('#boot').dataset.show === '1');
   if (booting) {
     views.forEach(function (t) { $('#v-' + t).hidden = true; });
@@ -1047,6 +1158,7 @@ function render() {
   views.forEach(function (t) { $('#v-' + t).hidden = state.tab !== t; });
   if (state.tab === 'overview') renderOverview(s);
   else if (state.tab === 'campuses') renderCampuses();
+  else if (state.tab === 'campus') renderCampusCard();
   else renderReview();
   window.__ptoStats = s;
 }
@@ -1083,6 +1195,8 @@ function headline(r, st, hasAny) {
   var reg = accReg(r), rest = accReq(r) - reg;
   if (r.pto === 'No') return 'This campus reported that it has no PTO/PTA.';
   if (r.pto !== 'Yes') return 'Nothing has been received from this campus yet. It counts as a PTO/PTA once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
+  if (isPta(r)) return st === 'Registered' ? 'Registered. FACE tracks two documents for a PTA, the training certificate and the officer information form, and both are done.'
+    : 'Not registered yet. ' + reg + ' of the ' + nRegOf(r) + ' documents FACE tracks for a PTA ' + (reg === 1 ? 'is' : 'are') + ' done' + (hasAny ? '.' : ', and nothing has been received.');
   if (st === 'Legalized') return 'Legalized. All ' + words(nReq()) + ' documents are done.';
   if (st === 'Registered') return 'Registered. ' + rest + ' of the ' + (nReq() - nReg()) + ' other legalization documents ' + (rest === 1 ? 'is' : 'are') + ' done; the rest are still needed to become legalized.';
   return 'Not registered yet. ' + reg + ' of the ' + nReg() + ' registration documents ' + (reg === 1 ? 'is' : 'are') + ' done' + (hasAny ? '.' : ', and nothing has been received.');
@@ -1092,10 +1206,10 @@ function panelStatus(r, st) {
   var hasAny = anyIn(r), cls = st.replace(/[^A-Za-z]+/g, '-');
   var counts = [];
   if (r.pto === 'Yes') {
-    counts.push('<span>Registration: <b>' + accReg(r) + ' of ' + nReg() + '</b> done</span>');
-    counts.push('<span>Legalization: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
+    counts.push('<span>Registration: <b>' + accReg(r) + ' of ' + nRegOf(r) + '</b> done</span>');
+    if (!isPta(r)) counts.push('<span>Legalization: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
   }
-  var miss = nOf(function (i) { return isReq(i) && r.d[i] === 'N'; });
+  var miss = docsOf(r).filter(function (i) { return (isPta(r) || isReq(i)) && r.d[i] === 'N'; }).length;
   var pend = [['R', 'waiting for review', 'waiting for review'], ['C', 'needs correction', 'need correction']].filter(function (x) { return count(r.d, x[0]) && r.pto === 'Yes'; })
     .map(function (x) { var n = count(r.d, x[0]); return '<span><b>' + n + '</b> ' + (n === 1 ? x[1] : x[2]) + '</span>'; });
   if (miss && r.pto === 'Yes') pend.push('<span><b>' + miss + '</b> still needed</span>');
@@ -1160,11 +1274,11 @@ function panelDocs(r, d) {
     return out + '</div></li>';
   }
   var groups = [[], [], []];
-  shown().forEach(function (i) { groups[grpOf(i)].push(item(i)); });
+  docsOf(r).forEach(function (i) { groups[grpOf(i, r)].push(item(i)); });
   var help = rev ? '<p class="pnote rhelp">Open each file, then check off each document: it\'s there, it needs correction, it\'s not there, or it\'s not needed for this PTO/PTA. ' +
     'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registration and Legalization. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you.</p>' : '';
-  var out = '<section class="psec" id="pChecklist"><h3>Registration</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
-    '<section class="psec"><h3>Legalization<small>also needed to become legalized</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' +
+  var out = '<section class="psec" id="pChecklist"><h3>' + (isPta(r) ? 'Registration<small>a PTA needs these two</small>' : 'Registration') + '</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
+    (groups[1].length ? '<section class="psec"><h3>Legalization<small>also needed to become legalized</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' : '') +
     (groups[2].length ? '<section class="psec"><h3>Other documents<small>not required</small></h3><ul class="plist chk">' + groups[2].join('') + '</ul></section>' : '');
   if (other.length) out += '<section class="psec"><h3>Other files<small>several documents in one file, or anything else</small></h3><p class="pnote">Open each file and check off above what it contains.</p><ul class="plist act">' +
     other.slice(0, 10).map(function (a) { return '<li><span class="d">' + esc(fmtDay(a[0])) + '</span><span>' + link(a[3], a[2] || 'file') + '</span></li>'; }).join('') + '</ul></section>';
@@ -1384,9 +1498,9 @@ function mailRecipients(r) { return mailSource(r).to; }
 /** What an email to this PTO/PTA would cover: required documents still not there, documents to correct (with their remarks), the overall remarks. */
 function mailParts(r) {
   var rm = remarksOf(r), need = [], fix = [];
-  shown().forEach(function (i) {
+  docsOf(r).forEach(function (i) {
     if (r.d[i] === 'C') fix.push({ i: i, m: rm.items[i] || '' });
-    else if (r.d[i] === 'N' && isReq(i)) need.push({ i: i, m: rm.items[i] || '' });
+    else if (r.d[i] === 'N' && (isPta(r) || isReq(i))) need.push({ i: i, m: rm.items[i] || '' });
   });
   return { need: need, fix: fix, remarks: rm.campus || '' };
 }
@@ -1475,7 +1589,7 @@ function askPrompt(r) {
 
 /** One campus in the Review tab's list of corrections to chase. */
 function fixCard(r) {
-  var chips = shown().map(function (i) { return r.d[i] === 'C' ? '<span class="dchip C">' + esc(DOCS[i].short) + '</span>' : ''; }).join('');
+  var chips = docsOf(r).map(function (i) { return r.d[i] === 'C' ? '<span class="dchip C">' + esc(DOCS[i].short) + '</span>' : ''; }).join('');
   var st = mailStatus(r), none = !mailRecipients(r).length;
   return '<li class="fixli" data-c="' + esc(r.campus) + '"><div class="rcard fix fixcard"><span><button type="button" class="campbtn" aria-haspopup="dialog">' + esc(r.campus) + '</button><span class="ao">' + esc(r.area) + '</span></span>' +
     '<span class="dchips">' + chips + '</span>' +
@@ -1562,6 +1676,7 @@ function loadLive(token, done) {
       if (res.sessionEnded) { session.token = ''; tokSet(''); setNotice('warn', 'Your sign-in has ended, so you are seeing the leadership view. Sign in again to review documents.', true); }
       else if ($('#notice').textContent.indexOf('sign-in has ended') >= 0) clearNotice();
       state.tab = keepTab;
+      applyLink();
       render();
       if (done) done(true);
     })
@@ -1658,6 +1773,7 @@ $('#app').addEventListener('click', function (e) {
     if (ma === 'mailpref') mailPrefChanged(el.getAttribute('data-v')); else if (ma === 'sent' && li) mailSent(li.getAttribute('data-c'), el);
     return;
   }
+  if ((el = t.closest('[data-copy]'))) { copyField(el); return; }
   if ((el = t.closest('[data-jump]'))) { var tg = document.getElementById(el.getAttribute('data-jump')); if (tg) { tg.scrollIntoView(); tg.focus({ preventScroll: true }); } return; }
   if ((el = t.closest('[data-tab]'))) { setTab(el.getAttribute('data-tab')); return; }
   if ((el = t.closest('[data-clear]'))) { state.area = ''; render(); return; }
@@ -1668,7 +1784,7 @@ $('#app').addEventListener('click', function (e) {
   if ((el = t.closest('[data-c]'))) { if (el.getAttribute('data-c')) openCampus(el.getAttribute('data-c'), el.querySelector('.campbtn')); }
 });
 $('.tabs').addEventListener('keydown', function (e) {
-  var order = ['overview', 'campuses', 'review'].filter(function (t) { return !$('#tab-' + t).hidden; });
+  var order = ['overview', 'campuses', 'campus', 'review'].filter(function (t) { return !$('#tab-' + t).hidden; });
   var i = order.indexOf(state.tab), n = -1;
   if (e.key === 'ArrowRight') n = (i + 1) % order.length;
   else if (e.key === 'ArrowLeft') n = (i - 1 + order.length) % order.length;
@@ -1679,6 +1795,7 @@ $('#fArea').addEventListener('change', function (e) { state.area = e.target.valu
 $('#fYear').addEventListener('change', function (e) { closePanel(true); state.year = e.target.value; state.area = ''; render(); });
 $('#q').addEventListener('input', function (e) { state.q = e.target.value; renderCampuses(); });
 $('#sort').addEventListener('change', function (e) { state.sort = e.target.value; renderCampuses(); });
+$('#pickCampus').addEventListener('change', function (e) { state.pick = e.target.value; renderCampusCard(); });
 $('#signinBtn').addEventListener('click', openSignIn);
 $('#signoutBtn').addEventListener('click', function () { endSession(false); });
 $('#siForm').addEventListener('submit', function (e) { e.preventDefault(); doSignIn(); });

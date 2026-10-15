@@ -13,7 +13,7 @@ function regRow(g, campus, year) {
 }
 function logRows(g) { return g.__ss.getSheetByName('Submission Log').values().slice(1).filter(function (r) { return r.join('') !== ''; }); }
 function sub(campus, extra) {
-  return Object.assign({ timestamp: new Date(Date.UTC(2026, 9, 5, 15)), email: 'inbox@houstonisd.org', campus: campus, hasPto: '', orgType: '', orgName: '', notes: '', officer: false, uploads: [], unknown: [], other: [] }, extra || {});
+  return Object.assign({ timestamp: new Date(Date.UTC(2026, 9, 5, 15)), email: 'inbox@houstonisd.org', campus: campus, hasPto: '', orgType: '', orgName: '', notes: '', officer: false, uploads: [], unknown: [], other: [], retired: [] }, extra || {});
 }
 function upload(g, key, name) { return { item: g.itemByKey_(key), ids: [g.__drive.upload(name || 'scan.pdf').getId()] }; }
 /** A workbook with one C1 (Ms. Lee, for Anderson ES and Ashford ES) and one FACE staff member, both with passcodes. Returns tokens. */
@@ -42,7 +42,7 @@ test('a form submission files the document, marks it Received and logs it', func
   var L = logRows(g);
   eq(L.length, 1);
   eq(L[0][3], 'Bylaws');
-  eq(L[0][4], '2026-27 - Bylaws - Anderson ES.pdf');
+  eq(L[0][4], 'bylaws.pdf', 'the file keeps the name it was sent with');
 });
 
 test('a submission for a campus not on the register adds it', function () {
@@ -85,7 +85,7 @@ test('leadership gets no private detail; staff get officers and notes', function
   eq(st.detail['Anderson ES||2026-27'].a[0].length, 6);
 });
 
-test('the officer import adds officers and marks Officer Information Received', function () {
+test('the officer import adds officers and marks Officer Information Accepted (no review)', function () {
   var g = h.load();
   var paste = g.__ss.getSheetByName('Officer Form Paste');
   var head = ['ID', 'Start time', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'What type of organization is it?',
@@ -95,7 +95,7 @@ test('the officer import adds officers and marks Officer Information Received', 
   var r = g.importOfficers_();
   eq(r.added, 1);
   eq(r.officers, 1);
-  eq(regRow(g, 'Ashford ES')['Officer Information'], 'Received');
+  eq(regRow(g, 'Ashford ES')['Officer Information'], 'Accepted');
   eq(g.importOfficers_().already, 1, 'a second import adds nothing');
 });
 
@@ -113,5 +113,6 @@ test('the dashboard check passes every step', function () {
 module.exports = { regRow: regRow, logRows: logRows, sub: sub, upload: upload, withPeople: withPeople };
 if (require.main === module) {
   try { require('./test-new'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND' || !/test-new/.test(e.message)) throw e; }
+  require('./test-oct15');
   process.exit(h.report() ? 0 : 1);
 }

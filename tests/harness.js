@@ -195,7 +195,8 @@ function load(opts) {
           forForm: function () { tr.kind = 'form'; return b; }, onFormSubmit: function () { return b; }, create: function () { triggers.push(tr); return tr; } };
         return b;
       } },
-    HtmlService: { createHtmlOutputFromFile: function () { var h = fs.readFileSync(path.join(ROOT, 'apps-script', 'Dashboard.html'), 'utf8'); return { getContent: function () { return h; } }; } },
+    HtmlService: { createHtmlOutputFromFile: function () { var h = fs.readFileSync(path.join(ROOT, 'apps-script', 'Dashboard.html'), 'utf8'); return { getContent: function () { return h; } }; },
+      createHtmlOutput: function (h) { var o = { getContent: function () { return h; }, setTitle: function () { return o; }, addMetaTag: function () { return o; } }; return o; } },
     FormApp: { openById: function () { throw new Error('No form in tests'); } },
     Logger: { log: function (m) { log.push(m); } },
     // records every request; opts.fetchCode sets the answer (default 202, what Power Automate's webhook trigger answers)

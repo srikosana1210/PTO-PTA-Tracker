@@ -108,7 +108,7 @@ test('"Other documents" files are filed and logged without changing any item', f
   ok(['Bylaws', 'Training Certificate', 'Officer Information'].every(function (k) { return row[k] === 'Not Received'; }), 'no item changed');
   var L = logRows(g);
   eq(L[0][3], 'Other documents');
-  eq(L[0][4], '2026-27 - Other documents - Anderson ES.pdf');
+  eq(L[0][4], 'packet.pdf');
 });
 
 test('an officer form for a Not Yet Confirmed campus marks it Yes', function () {
@@ -130,17 +130,17 @@ test('the checklist saves several documents at once, with remarks, and logs each
   var res = g.saveChecklist(p.c1, 'Anderson ES', '2026-27', [
     { key: 'Bylaws', status: 'Accepted', remark: '' },
     { key: 'Training Certificate', status: 'Needs Correction', remark: 'The certificate is for last year.' },
-    { key: 'Articles of Incorporation', status: 'Not Needed', remark: 'They have 501(c) proof.' },
+    { key: 'Proof of 501c Status', status: 'Not Needed', remark: 'They have 501(c) proof.' },
     { key: 'Budget or Financial Report', status: 'Not Received', remark: 'We need the approved budget, not the draft.' }
   ], 'Please send everything to ParentOrgDocs.');
   ok(res.ok && res.changed);
-  eq(res.d, 'ANCNNNXN');
+  eq(res.d, 'ANCNXN');
   var row = regRow(g, 'Anderson ES');
-  eq(row['Articles of Incorporation'], 'Not Needed');
+  eq(row['Proof of 501c Status'], 'Not Needed');
   var notes = logRows(g).map(function (r) { return r[7]; });
   ok(notes.indexOf('Accepted: Bylaws') >= 0, notes.join(' | '));
   ok(notes.indexOf('Needs correction, Training Certificate: The certificate is for last year.') >= 0);
-  ok(notes.indexOf('Not needed, Articles of Incorporation: They have 501(c) proof.') >= 0);
+  ok(notes.indexOf('Not needed, Proof of 501c Status: They have 501(c) proof.') >= 0);
   ok(notes.indexOf('Remark, Budget or Financial Report: We need the approved budget, not the draft.') >= 0, 'status unchanged: a remark line');
   ok(notes.indexOf('Remarks for the PTO/PTA: Please send everything to ParentOrgDocs.') >= 0);
   eq(logRows(g)[0][1], 'Ms. Lee (C1)');
@@ -198,7 +198,7 @@ test('"I sent it" records an email about missing documents, corrections and rema
   var g = h.load();
   var p = withPeople(g);
   var r = g.logResendRequest(p.c1, 'Anderson ES', '2026-27', 'ann@example.org');
-  ok(/^Emailed the PTO\/PTA about still needed: Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter, Articles of Incorporation/.test(r.note), r.note);
+  ok(/^Emailed the PTO\/PTA about still needed: Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter\. To: /.test(r.note), r.note);
   g.applyOctober2026_({ reset: false });
   g.saveChecklist(p.c1, 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Needs Correction', remark: 'Unsigned' }], 'Thanks!');
   var r2 = g.logResendRequest(p.c1, 'Anderson ES', '2026-27', '');
@@ -286,7 +286,7 @@ test('the old name still works: a sheet not yet updated, an old form question, a
   eq(g.itemForTitle_('Bank and EIN Letter (bank verification letter listing two authorized signers, together with the Tax ID EIN letter)').key, 'Bank Verification Letter');
   g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bank Verification Letter', 'bank.pdf')] }));
   eq(regRow(g, 'Anderson ES')['Bank and EIN Letter'], 'Received');
-  eq(logRows(g)[0][4], '2026-27 - Bank Verification Letter - Anderson ES.pdf');
+  eq(logRows(g)[0][4], 'bank.pdf');
   // a page from before the rename sends the old key
   eq(g.reviewItem(p.c1, 'Anderson ES', '2026-27', 'Bank and EIN Letter', 'Needs Correction', 'Only one signer listed').ok, true);
   g.applyOctober2026_({ reset: false });

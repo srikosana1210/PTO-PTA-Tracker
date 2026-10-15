@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-15b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-15c`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -19,7 +19,7 @@ Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-1
 
 ```
 PTO/PTA email ──> inbox person ──> Google Form ──onFormSubmit──> Code.gs
-                                                                  ├─ renames + moves file into Drive: Parent Org Documents/<Campus>/
+                                                                  ├─ moves file (keeping its name) into Drive: Parent Org Documents/<Campus>/
                                                                   ├─ Campus Register: item -> "Received"
                                                                   └─ Submission Log: one row per file
 
@@ -57,13 +57,13 @@ The script finds everything by tab name and column header. **Renaming either bre
 | Settings | Current school year, start month (7), the Registered and Legalized flags for each item, dropdown lists, Area Offices | Staff |
 | Summary, Start Here, Roster Match Notes | Formulas and guidance | — |
 
-**Documents** (`CFG.ITEMS`, in register column order; `label` is FACE's wording, shown everywhere): Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter (called *Bank and EIN Letter* until 2026-10-09; the old name is still read everywhere), Articles of Incorporation (not required), Insurance (not required). The dashboard shows them in FACE's order: training certificate first.
+**Documents** (`CFG.ITEMS`, in register column order; `label` is FACE's wording, shown everywhere): Bylaws, Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter (called *Bank and EIN Letter* until 2026-10-09; the old name is still read everywhere), Articles of Incorporation and Insurance (*retired* 2026-10-15: columns kept and hidden, not shown, not counted, not emailed; `activeItems_()` is everything else). The dashboard shows them in FACE's order: training certificate first.
 
 **FACE's wording (2026-10-09):**
 - **Registration:** training certificate; the organization's bylaws; the officer information form.
 - **Legalization:** those three, plus the annual budget report or meeting minutes showing budget approval; proof of 501(c) status; the bank account verification letter from financial institution listing two authorized account signers.
 
-**Item status:** Not Received → Received (waiting for review) → Accepted | Needs Correction | Not Needed. A new upload always puts an item back to Received. *Not Needed* means a reviewer decided this PTO/PTA does not need the document (with a reason); it counts like Accepted.
+**Item status:** Not Received → Received (waiting for review) → Accepted | Needs Correction | Not Needed. A new upload always puts an item back to Received. The officer information form is the exception: it is set to **Accepted** as soon as it arrives (form checkbox or officer import), with no review (FACE, 2026-10-15). *Not Needed* means a reviewer decided this PTO/PTA does not need the document (with a reason); it counts like Accepted.
 
 **Remarks** live in the Submission Log, not in the register: the newest note about a document is its remark (`itemNote_` reads them back), and the newest "Remarks for the PTO/PTA: …" line is the overall remark. They are sent only to signed-in reviewers.
 
@@ -93,17 +93,20 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 3. ~~The starting roster is the 154 campuses marked Yes or Unsure in the TB PTO/PTA Tracker.~~ Since 2026-10-09: every campus of the five Area Offices (264 in the 26-27 assignments, plus 2 register campuses not in them = 266). Where the register spells a campus differently, the register's spelling is kept ("Name in the register" column; see Roster Match Notes).
 4. Officers come from the Microsoft *HISD Parent Organization Officer Update Form*, through paste and import. A school not in the register is **added** as a new campus. A name typed by hand that is not in the register is **flagged**, never added.
 5. C1 review uses passcode sign-in, for the reason given in section 4.
-6. Registered = training + bylaws + officer info. Legalized = those + budget proof, 501(c) proof, bank verification letter (FACE's wording, 2026-10-09). Articles of Incorporation and insurance are tracked but not required.
+6. Registered = training + bylaws + officer info. Legalized = those + budget proof, 501(c) proof, bank verification letter (FACE's wording, 2026-10-09). Articles of Incorporation and insurance are no longer asked for (2026-10-15).
 7. Booster clubs are not tracked. The import skips them, but a combined name such as "PTA and Booster Club" still counts.
 8. Changed 2026-10-02: the bank letter and the EIN letter are one item (*Bank and EIN Letter*), insurance became optional, and the separate bank folder is gone. `updateDocumentList()` migrates older sheets.
 9. Emails to PTO/PTAs go from the person's own Outlook. The tracker's Google account has no Gmail, so the script can't send mail; it only logs "I sent it". C1 reminders are sent by Power Automate from the ParentOrgDocs mailbox (FACE, 2026-10-14); the script posts them to the flow (a Teams-webhook trigger, so no Google connector).
 10. No "either/or" rules are built in. Reviewers decide: they can mark any document *Not Needed* for a PTO/PTA, with a reason (2026-10-09).
 11. The dashboard shows whole numbers only: no percentages, no progress bars (2026-10-09). The sheet's Summary tab still has percentage columns.
 12. A campus counts as a PTO/PTA once it has sent something, or the Texas PTA roster lists it (charter not withdrawn). The October update can set campuses marked Yes that sent nothing back to Not Yet Confirmed; it asks first.
-13. Texas PTA roster: only the officer form is tracked for now; the roster just marks which campuses are PTAs. 11 are marked: Hamilton MS, Hogg MS, South EC HS ("South Early Community" on the roster, confirmed by FACE), and Browning, Durham, Harvard, Helms, Ketelsen, Oak Forest, Tijerina and Travis ES. Bonham ES, Northside HS and Wainwright ES are *Charter Withdrawn* and are not marked.
+13. Texas PTA roster: the roster marks which campuses are PTAs. For a PTA (Org Type = PTA) FACE tracks only the training certificate and the officer information form (`CFG.PTA_ITEMS`, FACE 2026-10-15). With both done a PTA is **Registered**; it is never Legalized. Its other uploads are filed and logged, but don't change its checklist. 11 are marked: Hamilton MS, Hogg MS, South EC HS ("South Early Community" on the roster, confirmed by FACE), and Browning, Durham, Harvard, Helms, Ketelsen, Oak Forest, Tijerina and Travis ES. Bonham ES, Northside HS and Wainwright ES are *Charter Withdrawn* and are not marked.
 14. An email with all documents in one file goes under the form's **Other documents** question. It is filed and logged but changes no item; the reviewer checks off what it contains.
 15. No Tax ID (EIN) letter (FACE, 2026-10-09). *Bank and EIN Letter* is renamed *Bank Verification Letter*; `updateOctober2026` renames the column, the Settings column and the Summary row. Old form questions, log lines and pages that use the old name still work (`headerAliases`, `formAliases`, `itemByKey_`, `itemNote_`).
 16. Programs/Charters stays on the campus list, all 19 entries, including programs that are not schools (FACE, 2026-10-09).
+17. Uploaded files keep the name they were sent with; they are still moved into the campus folder (FACE, 2026-10-15: the renamed files confused people).
+18. Leadership never signs in (FACE, 2026-10-15). SEDs and EDs get a link per Area Office (`?ao=`), listed for signed-in staff under By Area Office. Principals and APs use **My campus**. A campus link (`?campus=`) also works. Each campus's C1 is shown by name only.
+19. Colors: option A (FACE, 2026-10-15): dark green header, dark green buttons, teal accents, light green for accepted documents. The mockup with the three options is `mock/pto-pta-mock.html`.
 
 ## 6. Known gaps and risks
 
@@ -132,7 +135,8 @@ Nothing below is committed to. Add items and order them with FACE.
 - [x] **R1. The email** covers still-needed documents, corrections with remarks, and the overall remarks.
 - [x] **R3. Remind C1s automatically (2026-10-15).** Every weekday at 8 AM the script rewrites the **C1 Reminders** tab and POSTs the Send = Yes rows to a Power Automate flow that starts with *When a Teams webhook request is received* (Script Property `REMINDER_HOOK`); the flow emails each from the ParentOrgDocs shared mailbox. The first design (flow reads the sheet with the Google Sheets connector, then a small separate sheet, `REMINDER_SHEET_ID`) failed: Google kept answering 429 Too many requests. Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback only while automatic reminders are off; when they are on, the tab shows one status line instead (2026-10-15b).
 - [x] **Campus list filters and Org type column (2026-10-15b).** FACE's chip order: All campuses, All PTO/PTAs, PTOs, PTAs, Not started, In progress, Legalized, Registered, Waiting for review, Sent back for correction, Nothing received yet. PTOs and PTAs go by the register's Org Type. The No PTO/PTA chip is gone; those campuses show under All campuses.
-- [~] **R7. Texas PTA roster:** PTAs marked from a snapshot (decision 13). _Waiting on FACE: what else to take from the roster (officers? standing?) and how often._
+- [x] **Officer form, PTAs, documents, leadership views (2026-10-15c).** Officer form needs no review; PTAs track two documents; Articles and Insurance retired; files keep their names; option A colors; *Waiting on* column; *My campus* tab; Area Office links. One-time menu step: **Update the tracker: officer form, PTAs and documents** (`updateOctober15`).
+- [~] **R7. Texas PTA roster:** PTAs marked from a snapshot (decision 13). _Waiting on FACE: whether to import the roster regularly._
 
 ## 8. Open questions
 

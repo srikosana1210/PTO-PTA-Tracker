@@ -26,6 +26,8 @@ function world() {
   vals.forEach(function (r, i) { if (r[0] === 'Ms. Lee') si.getRange(i + 1, ec + 1).setValue('lee@houstonisd.org'); });
   g.processSubmission_(base.sub('Anderson ES', { orgType: 'PTO', uploads: [base.upload(g, 'Bylaws'), base.upload(g, 'Training Certificate')] }));
   g.processSubmission_(base.sub('Ashford ES', { other: [{ ids: [g.__drive.upload('packet.pdf').getId()] }] }));
+  // a Texas PTA: its officer form (counts at once) and its training certificate (waits for review); bylaws are filed only
+  g.processSubmission_(base.sub('Oak Forest ES', { officer: true, uploads: [base.upload(g, 'Training Certificate'), base.upload(g, 'Bylaws')] }));
   var paste = g.__ss.getSheetByName('Officer Form Paste');
   paste.getRange(1, 1, 2, 8).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email', 'Your email address'],
     ['11', new Date(Date.UTC(2026, 8, 1)), 'Anderson ES', 'Anderson PTO', 'Ann Officer', 'President', 'ann@example.org', 'ann@example.org']]);
@@ -33,7 +35,7 @@ function world() {
   return { g: g, p: p };
 }
 
-async function openPage(browser, w, width) {
+async function openPage(browser, w, width, boot) {
   var page = await browser.newPage({ viewport: { width: width || 1280, height: 900 } });
   var errors = [];
   page.on('pageerror', function (e) { errors.push(String(e)); });
@@ -52,10 +54,10 @@ async function openPage(browser, w, width) {
     }
     window.google = { script: { run: runner(null, null) } };
   });
-  var html = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Dashboard.html'), 'utf8').replace('__DATA__', '{"live":true,"boot":true}');
+  var html = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Dashboard.html'), 'utf8').replace('__DATA__', JSON.stringify(boot || { live: true, boot: true }));
   await page.route('https://dashboard.test/', function (route) { route.fulfill({ status: 200, contentType: 'text/html', body: html }); });
   await page.goto('https://dashboard.test/');
-  await page.waitForSelector('#kpis .kpi', { timeout: 10000 });
+  await page.waitForSelector('#kpis .kpi, #campusCard .ccard', { timeout: 10000 });
   return { page: page, errors: errors };
 }
 async function signIn(page, name, pass) {
@@ -85,7 +87,7 @@ async function signIn(page, name, pass) {
     await page.click('#defs summary');
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
-    check('Legalization list has the bank letter wording and no Articles', /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && /Not required: articles of incorporation/.test(defs), defs);
+    check('Legalization list has the bank letter wording and no Articles', /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && /PTAs: FACE tracks two documents/.test(defs), defs);
     await page.screenshot({ path: path.join(SHOTS, 'overview.png'), fullPage: true });
     // campus panel without sign-in: no checklist, no remarks
     await page.click('[data-st="review"]');
@@ -102,15 +104,16 @@ async function signIn(page, name, pass) {
     check('review tab lists the campus with documents and the one with other files', /Anderson ES/.test(rev) && /Ashford ES/.test(rev) && /Other files/.test(rev), rev.slice(0, 300));
     await page.click('#reviewBody [data-c="Anderson ES"] .campbtn');
     await page.waitForSelector('#panel .seg');
-    check('checklist shows the three groups', /Registration[\s\S]*Legalization[\s\S]*Other documents/.test(await page.textContent('#pBody')));
-    // Bylaws: needs correction with a remark; training: it's there; Articles: not needed; budget: remark only
+    var pb = await page.textContent('#pBody');
+    check('checklist shows Registration and Legalization, and no retired documents', /Registration[\s\S]*Legalization/.test(pb) && !/Articles of incorporation|insurance/i.test(pb), pb.slice(0, 300));
+    // Bylaws: needs correction with a remark; training: it's there; bank letter: not needed; budget: remark only
     await page.click('#panel [data-item="0"] [data-v="C"]');
     await page.fill('#rmk0', 'Please send the signed copy.');
     await page.click('#panel [data-item="2"] [data-v="A"]');
-    await page.click('#panel [data-item="6"] [data-v="X"]');
+    await page.click('#panel [data-item="5"] [data-v="X"]');
     await page.click('#panel [data-act="save"]');
     check('saving without a reason for Not needed is refused', /Say why/.test(await page.textContent('#panel .savebar')));
-    await page.fill('#rmk6', 'They have 501(c) proof.');
+    await page.fill('#rmk5', 'The district holds the account.');
     await page.click('#panel [data-item="3"] [data-act="addrmk"]');
     await page.fill('#rmk3', 'The approved budget, not the draft.');
     await page.fill('#crmk', 'Thank you for getting started early!');
@@ -118,13 +121,13 @@ async function signIn(page, name, pass) {
     await page.click('#panel [data-act="save"]');
     await page.waitForSelector('#panel .rask', { timeout: 10000 });
     var row = base.regRow(w.g, 'Anderson ES');
-    check('saved to the register', row['Bylaws'] === 'Needs Correction' && row['Training Certificate'] === 'Accepted' && row['Articles of Incorporation'] === 'Not Needed', JSON.stringify(row));
+    check('saved to the register', row['Bylaws'] === 'Needs Correction' && row['Training Certificate'] === 'Accepted' && row['Bank Verification Letter'] === 'Not Needed', JSON.stringify(row));
     var href = await page.getAttribute('#pResend a[data-mail]', 'href');
     var body = decodeURIComponent(href.split('body=')[1] || '');
     check('email goes to the officer, copies the inbox', /^mailto:ann@example\.org\?cc=ParentOrgDocs@houstonisd\.org/.test(href), href.slice(0, 120));
     check('email lists the correction with its remark', /The organization's bylaws: Please send the signed copy\./.test(body), body);
     check('email lists what is still needed, with the remark', /We also still need these documents:[\s\S]*Annual budget report or meeting minutes showing budget approval \(The approved budget, not the draft\.\)/.test(body), body);
-    check('email does not ask for the not-needed or optional documents', !/Articles of incorporation/i.test(body) && !/insurance/i.test(body), body);
+    check('email does not ask for the not-needed document', !/Bank account verification/i.test(body) && !/Articles of incorporation|insurance/i.test(body), body);
     check('email has the overall remarks', /Remarks:\r?\nThank you for getting started early!/.test(body), body);
     check('Proof of 501(c) status is written correctly', /Proof of 501\(c\) status\r?\n/.test(body + '\n'), body);
     await page.screenshot({ path: path.join(SHOTS, 'checklist-saved.png'), fullPage: false });
@@ -141,7 +144,7 @@ async function signIn(page, name, pass) {
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     check('remarks come back after reopening', (await page.inputValue('#rmk0')) === 'Please send the signed copy.' && (await page.inputValue('#crmk')) === 'Thank you for getting started early!');
     // unsaved changes are not lost silently
-    await page.click('#panel [data-item="1"] [data-v="A"]');
+    await page.click('#panel [data-item="4"] [data-v="A"]');
     page.once('dialog', function (d) { d.dismiss(); });
     await page.keyboard.press('Escape');
     check('closing with unsaved changes asks first', !(await page.isHidden('#panel')));
@@ -165,14 +168,49 @@ async function signIn(page, name, pass) {
     await page.click('[data-tab="campuses"]');
     var chips = await page.$$eval('#chips [data-chip]', function (b) { return b.map(function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }); });
     check('filters in FACE\'s order', JSON.stringify(chips) === JSON.stringify(['All campuses', 'All PTO/PTAs', 'PTOs', 'PTAs', 'Not started', 'In progress', 'Legalized', 'Registered', 'Waiting for review', 'Sent back for correction', 'Nothing received yet']), JSON.stringify(chips));
-    check('the table has an Org type column', /Campus\s*Org type\s*Status\s*Documents\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
+    check('the table has Org type and Waiting on columns', /Campus\s*Org type\s*Status\s*Documents\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');
     var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
     check('PTAs lists the Texas PTA campuses, with PTA in the Org type column', ptas.length === 11 && ptas.every(function (x) { return /:PTA$/.test(x); }), ptas.join(', '));
     await page.click('[data-chip="pto"]');
     var ptos = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
     check('PTOs lists the campus whose officer form says PTO', ptos.join() === 'Anderson ES', ptos.join());
+    var and = await page.textContent('.crow[data-c="Anderson ES"]');
+    check('a PTO with documents to fix waits on the PTO', /Waiting on\s*The PTO and FACE|Waiting on\s*The PTO/.test(and) && /of 6/.test(and), and);
     await page.screenshot({ path: path.join(SHOTS, 'campuses.png'), fullPage: false });
+    await page.click('[data-chip="pta"]');
+    var oak = await page.textContent('.crow[data-c="Oak Forest ES"]');
+    check('a PTA is counted on two documents and waits on FACE review', /1\s*of 2/.test(oak) && /FACE review/.test(oak) && /In progress/.test(oak), oak);
+    check('a PTA shows two document icons', (await page.$$('.crow[data-c="Oak Forest ES"] .strip .ic')).length === 2);
+    var bg = await page.evaluate(function () { return getComputedStyle(document.querySelector('.hero')).backgroundColor; });
+    check('option A: a dark green header', bg === 'rgb(0, 111, 91)', bg);
+    /* My campus: for principals and APs, no sign-in */
+    await page.click('[data-tab="campus"]');
+    await page.selectOption('#pickCampus', 'Oak Forest ES');
+    var card = await page.textContent('#campusCard');
+    check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /What FACE tracks for a PTA/.test(card) && /Received from the form/.test(card), card);
+    check('My campus offers no checklist without sign-in', (await page.$$('#campusCard .campbtn')).length === 0);
+    await page.selectOption('#pickCampus', 'Anderson ES');
+    card = await page.textContent('#campusCard');
+    check('My campus names the C1, without contact details', /C1 coordinator is Ms\. Lee/.test(card) && !/@/.test(card), card);
+    await page.screenshot({ path: path.join(SHOTS, 'my-campus.png'), fullPage: false });
+    check('no page errors (campus views)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
+    /* a link made for an Area Office, and one for a campus */
+    o = await openPage(browser, w, 1280, { live: true, boot: true, ao: 'nes elementary' }); page = o.page;
+    check('an Area Office link opens on that office', (await page.inputValue('#fArea')) === 'NES Elementary', await page.inputValue('#fArea'));
+    await page.close();
+    o = await openPage(browser, w, 1280, { live: true, boot: true, campus: 'Oak Forest ES' }); page = o.page;
+    check('a campus link opens My campus on that campus', !(await page.isHidden('#v-campus')) && (await page.inputValue('#pickCampus')) === 'Oak Forest ES');
+    await page.close();
+    /* staff get the links to hand out */
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
+    await page.click('[data-tab="overview"]');
+    await page.click('details.links summary');
+    var links = await page.$$eval('details.links input', function (xs) { return xs.map(function (x) { return x.value; }); });
+    check('staff see a link for each Area Office', links.length === 6 && links.some(function (l) { return /\?ao=NES%20Elementary$/.test(l); }), links.join(' '));
     await page.close();
 
     /* ---------- automatic reminders on: the Remind C1s buttons give way to one line ---------- */

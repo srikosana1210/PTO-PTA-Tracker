@@ -16,16 +16,17 @@ It runs on Google: one Google Sheet, one Google Form, and one Apps Script web-ap
 | [`docs/power-automate-c1-reminders.md`](docs/power-automate-c1-reminders.md) | How to set up the automatic C1 reminder emails (the tracker sends each weekday's reminders to a Power Automate flow, which emails them from ParentOrgDocs) | Sheet menu + make.powerautomate.com |
 | [`docs/onedrive-copy-setup-guide.md`](docs/onedrive-copy-setup-guide.md) | How to set up and troubleshoot the OneDrive copy | — |
 | [`tests/`](tests) | Tests: `Code.gs` runs in Node against the template with stand-ins for the Google services (`harness.js`), and the real dashboard runs in Chromium (`test-dashboard.js`) | `node tests/test-script.js` and `node tests/test-dashboard.js` |
+| [`mock/pto-pta-mock.html`](mock/pto-pta-mock.html) | The clickable mockup FACE used to pick the colors (option A) and the leadership views. Sample data | Any browser |
 | [`docs/PLANNING.md`](docs/PLANNING.md) | How the system fits together, the rules it enforces, decisions made so far, and the backlog. **Start here before you change anything** | — |
 
-Current script version: `2026-10-15b` (the `VERSION` constant in `Code.gs`).
+Current script version: `2026-10-15c` (the `VERSION` constant in `Code.gs`).
 
 ## Setup in short
 
 The **Start Here** tab in the sheet has the full steps:
 
 1. Save the `.xlsx` as a Google Sheet. Paste `Code.gs`, and add an HTML file named `Dashboard` with `Dashboard.html` in it.
-2. Use **PTO/PTA Tracker > 1. Create the form**. Then add the file-upload questions by hand (Google does not let a script add them): the seven documents (the bank one is **Bank Verification Letter**), plus **Other documents** for an email whose documents are all in one file. Then run **2. Check setup**.
+2. Use **PTO/PTA Tracker > 1. Create the form**. Then add the file-upload questions by hand (Google does not let a script add them): the five uploaded documents (the bank one is **Bank Verification Letter**), plus **Other documents** for an email whose documents are all in one file. Then run **2. Check setup**.
 3. Deploy as a web app: Execute as *Me*, access *Anyone within Houston ISD*.
 4. Fill in **C1 Assignments**, then use **Dashboard sign-ins: set up and make passcodes**. Type each C1's email in the **Email** column of Dashboard Sign-ins, then set up the reminder emails: [docs/power-automate-c1-reminders.md](docs/power-automate-c1-reminders.md).
 
@@ -33,7 +34,7 @@ The **Start Here** tab in the sheet has the full steps:
 
 The live copy is the Apps Script project inside the Google Sheet. Git does not deploy it. After you change a file here, paste it into the matching file in the Apps Script editor. Then use **Deploy > Manage deployments > Edit > New version** so the dashboard address serves the new code.
 
-Every change that affects a live sheet comes with a one-time menu item that updates it safely (it saves a backup copy first): **Update to the new document list** (October 2, 2026) and **Update the tracker: October 2026 changes** (October 9, 2026).
+Every change that affects a live sheet comes with a one-time menu item that updates it safely (it saves a backup copy first): **Update to the new document list** (October 2, 2026) and **Update the tracker: October 2026 changes** (October 9, 2026) and **Update the tracker: officer form, PTAs and documents** (October 15, 2026).
 
 ## Tests
 

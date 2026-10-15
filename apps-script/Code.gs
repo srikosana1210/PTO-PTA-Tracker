@@ -71,15 +71,18 @@ var CFG = {
     { key: 'Bank Verification Letter',  title: 'Bank Verification Letter (letter from the financial institution listing two authorized account signers)', upload: true,
       formAliases: ['Bank and EIN Letter', 'Bank Account Info', 'Tax ID EIN Letter'], headerAliases: ['Bank and EIN Letter', 'Bank Account Info'],
       label: 'Bank account verification letter from financial institution listing two authorized account signers' },
-    // Not needed to be Legalized since 2026-10-09 (FACE's wording lists six documents). Still tracked when a PTO/PTA sends it.
-    { key: 'Articles of Incorporation', title: 'Articles of Incorporation',                                                       upload: true,  optional: true,
+    // Retired 2026-10-15: FACE no longer asks for these. The columns stay (hidden) so old records and the sheet's layout are kept, but
+    // nothing on the dashboard, in an email or in a count uses them. A file still sent under one of these questions is filed, not tracked.
+    { key: 'Articles of Incorporation', title: 'Articles of Incorporation',                                                       upload: true,  optional: true, retired: true,
       label: 'Articles of incorporation' },
-    { key: 'Insurance',                 title: 'Insurance (liability and property). Optional',                                    upload: true,  optional: true,
+    { key: 'Insurance',                 title: 'Insurance (liability and property). Optional',                                    upload: true,  optional: true, retired: true,
       label: 'Liability and property insurance' }
   ],
   // A file question starting with this holds several documents in one file, or anything else. The file is filed in the campus folder
   // and logged, and changes no item: a reviewer opens it and checks off on the dashboard what it contains.
   Q_OTHER: 'Other documents',
+  // FACE tracks only these two for a PTA (2026-10-15). A PTA with both is Registered; a PTA is never Legalized in this tracker.
+  PTA_ITEMS: ['Training Certificate', 'Officer Information'],
   // Names the tracker used before 2026-10-02 (see updateDocumentList).
   OLD_BANK_HEADER: 'Bank Account Info',
   OLD_TAX_HEADER: 'Tax ID EIN Letter',
@@ -100,7 +103,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-15b (campus list: Org type column and FACE filters)';
+var VERSION = 'Script version 2026-10-15c (officer form needs no review, PTAs track two documents, files keep their names, leadership views)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -111,6 +114,7 @@ function onOpen() {
     .addItem('2. Check setup', 'checkSetup')
     .addItem('Update to the new document list (run once)', 'updateDocumentList')
     .addItem('Update the tracker: October 2026 changes (run once)', 'updateOctober2026')
+    .addItem('Update the tracker: officer form, PTAs and documents (run once)', 'updateOctober15')
     .addSeparator()
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
@@ -164,7 +168,7 @@ function createForm() {
 
   var lines = ['The form, the Drive folder and the trigger are ready.', '',
     'One step is left that Google does not let a script do. Open the form editor and add a "File upload" question for each of these, in this order:', ''];
-  CFG.ITEMS.forEach(function (it) { if (it.upload) lines.push('   ' + it.title); });
+  uploadItems_().forEach(function (it) { lines.push('   ' + it.title); });
   lines.push('   ' + OTHER_TITLE);
   lines.push('', 'For each one: Question type = File upload, allow PDF, Document and Image, maximum 5 files, 100 MB, leave it not required.',
     'Then run "2. Check setup" from the menu.', '', 'Form editor: ' + form.getEditUrl());
@@ -213,8 +217,7 @@ function checkSetup_() {
   if (!hasTrigger) { installTrigger_(form); fixed.push('The submit trigger was missing and has been put back.'); }
   var uploadTitles = form.getItems().filter(function (it) { return String(it.getType()) === 'FILE_UPLOAD'; })
     .map(function (it) { return it.getTitle(); });
-  CFG.ITEMS.forEach(function (it) {
-    if (!it.upload) return;
+  uploadItems_().forEach(function (it) {
     var found = uploadTitles.some(function (ti) { return titleIsItem_(ti, it); });
     if (!found) problems.push('The form has no File upload question starting with "' + it.key + '".');
   });
@@ -223,6 +226,8 @@ function checkSetup_() {
     if (isOtherTitle_(ti)) return;
     if (!CFG.ITEMS.some(function (it) { return it.upload && titleIsItem_(ti, it); })) problems.push('The file question "' + ti + '" does not start with one of the item names, so its files will not be filed.');
   });
+  var retiredQs = uploadTitles.filter(function (ti) { var it = itemForTitle_(ti); return it && it.retired; });
+  if (retiredQs.length) fixed.push('Tip: FACE no longer asks for ' + retiredQs.map(function (ti) { return '"' + ti + '"'; }).join(' or ') + '. Delete ' + (retiredQs.length === 1 ? 'that question' : 'those questions') + ' from the form. Until then, a file sent there is filed in the campus folder but not tracked.');
   // Older bank questions still file correctly (they all go to Bank Verification Letter). Say so, and say what to tidy.
   var oldOnes = uploadTitles.filter(function (ti) {
     var it = itemForTitle_(ti);
@@ -293,7 +298,7 @@ function onFormSubmit(e) {
 
 /** Turns a FormResponse into a plain object. */
 function parseResponse_(response) {
-  var sub = { timestamp: response.getTimestamp(), email: '', campus: '', hasPto: '', orgType: '', orgName: '', notes: '', officer: false, uploads: [], unknown: [], other: [] };
+  var sub = { timestamp: response.getTimestamp(), email: '', campus: '', hasPto: '', orgType: '', orgName: '', notes: '', officer: false, uploads: [], unknown: [], other: [], retired: [] };
   try { sub.email = response.getRespondentEmail() || ''; } catch (err) { sub.email = ''; }
   response.getItemResponses().forEach(function (ir) {
     var item = ir.getItem(), title = String(item.getTitle()).trim(), type = String(item.getType()), val = ir.getResponse();
@@ -301,6 +306,7 @@ function parseResponse_(response) {
       var ids = Array.isArray(val) ? val : (val ? [val] : []);
       var it = itemForTitle_(title);
       if (isOtherTitle_(title)) { if (ids.length) sub.other.push({ ids: ids }); }
+      else if (it && it.retired) { if (ids.length) sub.retired.push({ item: it, ids: ids }); }
       else if (it && it.upload) sub.uploads.push({ item: it, ids: ids });
       else if (ids.length) sub.unknown.push({ title: title, ids: ids });
       return;
@@ -330,22 +336,32 @@ function processSubmission_(sub) {
   // Has PTO or PTA, org type and name. A "Not Yet Confirmed" answer never overwrites a Yes or a No. A campus that sends documents has a
   // PTO/PTA: when the answer is Not Yet Confirmed (or blank) and something was attached, it becomes Yes, unless the register says No.
   var cur = String(t.values[rowNum - 1][t.col['Has PTO or PTA']] || '').trim();
-  var sent = sub.officer || sub.other.length > 0 || sub.uploads.some(function (u) { return u.ids.length > 0; });
+  var sent = sub.officer || sub.other.length > 0 || sub.uploads.some(function (u) { return u.ids.length > 0; }) || (sub.retired || []).length > 0;
   var pto = sub.hasPto;
   if ((!pto || pto === 'Not Yet Confirmed') && sent && cur !== 'No') pto = 'Yes';
   if (pto && (pto !== 'Not Yet Confirmed' || (cur !== 'Yes' && cur !== 'No'))) setCell_(t, rowNum, 'Has PTO or PTA', pto);
   if (sub.orgType) setCell_(t, rowNum, 'Org Type', sub.orgType);
   if (sub.orgName) setCell_(t, rowNum, 'Org Name', sub.orgName);
   var anything = false;
+  var pta = orgTypeFrom_(sub.orgType || t.values[rowNum - 1][t.col['Org Type']]) === 'PTA';
 
   sub.uploads.forEach(function (u) {
-    var used = {};
+    // a PTA is tracked on two documents only; anything else it sends is filed and logged, and its checklist is left alone
+    var skip = pta && CFG.PTA_ITEMS.indexOf(u.item.key) < 0;
     u.ids.forEach(function (id) {
       anything = true;
       var f = fileIntoCampus_(id, sub.campus, year, u.item.key, dateStr);
-      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, f.name, f.link, year, f.note]);
+      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, f.name, f.link, year, f.note || (skip ? 'Filed only: FACE tracks the training certificate and the officer information form for a PTA.' : '')]);
     });
-    if (u.ids.length) setCell_(t, rowNum, u.item.key, 'Received');   // a new file always goes back to review
+    if (u.ids.length && !skip) setCell_(t, rowNum, u.item.key, 'Received');   // a new file always goes back to review
+  });
+
+  (sub.retired || []).forEach(function (u) {
+    u.ids.forEach(function (id) {
+      anything = true;
+      var f = fileIntoCampus_(id, sub.campus, year, u.item.key, dateStr);
+      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, f.name, f.link, year, f.note || 'Filed only: FACE no longer asks for this document, so it is not tracked. Delete this question from the form.']);
+    });
   });
 
   sub.other.forEach(function (u) {
@@ -367,7 +383,7 @@ function processSubmission_(sub) {
 
   if (sub.officer) {
     anything = true;
-    setCell_(t, rowNum, 'Officer Information', 'Received');
+    setCell_(t, rowNum, 'Officer Information', 'Accepted');   // the officer form counts as soon as it comes in: nobody reviews it
     logRows.push([sub.timestamp, sub.email, sub.campus, 'Officer Information', '(officer information form)', '', year, sub.notes || '']);
   }
 
@@ -381,16 +397,17 @@ function processSubmission_(sub) {
   return { year: year, row: rowNum, logged: logRows.length };
 }
 
-/** Renames one uploaded file "year - what - campus" and moves it into the campus folder. Returns { name, link, note }; note says why not. */
+/**
+ * Moves one uploaded file into the campus folder. The file keeps the name the person gave it (since 2026-10-15: the renamed files
+ * confused people). Returns { name, link, note }; note says why it could not be filed.
+ */
 function fileIntoCampus_(id, campus, year, what, dateStr) {
   var out = { name: '', link: '', note: '' };
   try {
     var file = DriveApp.getFileById(id);
     var folder = campusFolder_(rootFolder_(), campus);
-    var name = uniqueName_(folder, year + ' - ' + what + ' - ' + safeName_(campus), extensionOf_(file.getName()), dateStr);
-    file.setName(name);
     file.moveTo(folder);
-    out.name = name; out.link = file.getUrl();
+    out.name = file.getName(); out.link = file.getUrl();
   } catch (err) {
     out.note = 'Could not file this document (' + err.message + '). It is still in the form\'s upload folder in Drive.';
     try { out.link = DriveApp.getFileById(id).getUrl(); out.name = DriveApp.getFileById(id).getName(); } catch (err2) { /* leave blank */ }
@@ -446,7 +463,7 @@ function officerSummary_(r) {
   var L = [];
   L.push('Read ' + plural_(r.read, 'form response', 'form responses') + ': ' + r.added + ' new, ' + r.already + ' already imported.');
   if (r.added) L.push(plural_(r.officers, 'officer was', 'officers were') + ' added to the Officers tab.');
-  if (r.registerSet) L.push('Officer Information was marked Received for ' + plural_(r.registerSet, 'campus', 'campuses') + '.');
+  if (r.registerSet) L.push('Officer Information was marked Accepted for ' + plural_(r.registerSet, 'campus', 'campuses') + '. It counts right away; nobody needs to review it.');
   if (r.newCampuses && r.newCampuses.length) {
     L.push('', plural_(r.newCampuses.length, 'campus was', 'campuses were') + ' not on the Campus Register, so ' + (r.newCampuses.length === 1 ? 'it was' : 'they were') + ' added: ' + r.newCampuses.join(', ') + '. Area Office is blank for ' + (r.newCampuses.length === 1 ? 'it' : 'them') + '; fill it in on the Campus Register.');
     if (r.formSynced > 0) L.push('The document form\'s campus list was updated.');
@@ -590,9 +607,9 @@ function importOfficersLocked_() {
     if (!regRow) { regRow = ensureRegisterRow_(rt, year, campus); rt = table_(CFG.TAB_REGISTER); }
     var reg = rt.values[regRow - 1];
     var col = rt.col['Officer Information'], cur = cellText_(reg[col]);
-    if (cur === '' || cur === 'Not Received' || cur === 'Needs Correction') {
-      setCell_(rt, regRow, 'Officer Information', 'Received');
-      reg[col] = 'Received';
+    if (cur !== 'Accepted' && cur !== 'Not Needed') {
+      setCell_(rt, regRow, 'Officer Information', 'Accepted');     // counts as soon as it comes in: nobody reviews it
+      reg[col] = 'Accepted';
       setCampuses[year + '||' + campus] = true;
     }
     // fill in organization name and type when the register has none; never overwrite
@@ -1017,6 +1034,7 @@ function reviewItem(token, campus, year, itemKey, status, reason) {
     if (who.role === 'c1' && !who.campuses[norm_(campus)]) throw new Error(campus + ' is not on your list of campuses.');
     var item = itemByKey_(cellText_(itemKey));
     if (!item) throw new Error('That document type is not recognized.');
+    if (item.retired) throw new Error('FACE no longer asks for ' + item.key + ', so it cannot be checked off. Reload the page.');
     if (REVIEW_STATUSES.indexOf(status) < 0) throw new Error('That status cannot be set here.');
     reason = cellText_(reason).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
     if (status === 'Needs Correction' && !reason) throw new Error('Say what needs to be corrected.');
@@ -1111,6 +1129,7 @@ function saveChecklist(token, campus, year, changes, campusRemark) {
     list.forEach(function (c) {
       var item = itemByKey_(cellText_(c && c.key));
       if (!item) throw new Error('That document type is not recognized.');
+      if (item.retired) throw new Error('FACE no longer asks for ' + item.key + ', so it cannot be checked off. Reload the page.');
       if (seen[item.key]) throw new Error(item.key + ' is listed twice.');
       seen[item.key] = 1;
       var status = cellText_(c.status), remark = cleanText_(c.remark, REMARK_MAX);
@@ -1151,9 +1170,9 @@ function saveChecklist(token, campus, year, changes, campusRemark) {
   } finally { lock.releaseLock(); }
 }
 
-/** The status letters of one register row, in CFG.ITEMS order (the dashboard's "d" string). */
+/** The status letters of one register row, in activeItems_() order (the dashboard's "d" string). */
 function codesOf_(t, row) {
-  return CFG.ITEMS.map(function (it) { return CFG.STATUS_CODE[cellText_(t.values[row - 1][t.col[it.key]])] || 'N'; }).join('');
+  return activeItems_().map(function (it) { return CFG.STATUS_CODE[cellText_(t.values[row - 1][t.col[it.key]])] || 'N'; }).join('');
 }
 
 /** The newest remark for each document of one campus and school year, and the overall remarks: { items: { key: text }, campus: text }. */
@@ -1213,11 +1232,12 @@ function logResendRequest(token, campus, year, sentTo) {
 
 /** What an email to the PTO/PTA would ask for now: { parts: ['still needed: A, B', 'needs correction: C', 'remarks'] }. */
 function emailAsks_(t, row, campus, year) {
-  var flags = itemFlags_(), need = [], fix = [], parts = [];
+  var flags = itemFlags_(), need = [], fix = [], parts = [], pta = isPtaRow_(t.values[row - 1], t);
   CFG.ITEMS.forEach(function (it, i) {
+    if (!tracksItem_(it, pta)) return;
     var st = cellText_(t.values[row - 1][t.col[it.key]]) || 'Not Received';
     if (st === 'Needs Correction') fix.push(it.key);
-    else if (st === 'Not Received' && flags.req[i]) need.push(it.key);
+    else if (st === 'Not Received' && (flags.req[i] || pta)) need.push(it.key);
   });
   if (need.length) parts.push('still needed: ' + need.join(', '));
   if (fix.length) parts.push('needs correction: ' + fix.join(', '));
@@ -1391,7 +1411,14 @@ function startYear_(label) {
  */
 function doGet(e) {
   try {
-    var html = HtmlService.createHtmlOutputFromFile('Dashboard').getContent().replace('__DATA__', function () { return '{"live":true,"boot":true}'; });
+    // A link made for an Area Office (?ao=NES%20Elementary) or a campus (?campus=Anderson%20ES) opens the page there. The values are
+    // only names to look for in the campus list the page loads anyway, so they reveal nothing; they are cleaned and escaped all the same.
+    var q = (e && e.parameter) || {}, boot = { live: true, boot: true };
+    var ao = cleanText_(q.ao, 80), camp = cleanText_(q.campus, 80);
+    if (ao) boot.ao = ao;
+    if (camp) boot.campus = camp;
+    var data = JSON.stringify(boot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+    var html = HtmlService.createHtmlOutputFromFile('Dashboard').getContent().replace('__DATA__', function () { return data; });
     return HtmlService.createHtmlOutput(html)
       .setTitle(CFG.DASHBOARD_TITLE)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -1449,7 +1476,10 @@ function getPayload_(access) {
   var staff = !!(access && access.staff);
   var c1 = access && access.c1 ? access.c1 : null;      // a C1 sees details of, and may review, only the campuses on their list
   var t = table_(CFG.TAB_REGISTER);
-  var rows = [];
+  var rows = [], act = activeItems_();
+  // each campus's C1 coordinator by name (no email or phone), so a principal knows whom to ask
+  var c1Of = {};
+  try { var asg = c1Assignments_(); asg.order.forEach(function (k) { var rec = asg.names[k]; Object.keys(rec.campuses).forEach(function (c) { c1Of[c] = rec.name; }); }); } catch (err) { c1Of = {}; }
   for (var i = 1; i < t.values.length; i++) {
     var v = t.values[i], campus = String(v[t.col['Campus']] || '').trim();
     if (!campus) continue;
@@ -1461,11 +1491,13 @@ function getPayload_(access) {
       pto: p === 'yes' ? 'Yes' : p === 'no' ? 'No' : 'NYC',
       ot: String(v[t.col['Org Type']] || '').trim(),
       on: String(v[t.col['Org Name']] || '').trim(),
-      d: CFG.ITEMS.map(function (it) { return CFG.STATUS_CODE[String(v[t.col[it.key]] || '').trim()] || 'N'; }).join('')
+      d: act.map(function (it) { return CFG.STATUS_CODE[String(v[t.col[it.key]] || '').trim()] || 'N'; }).join(''),
+      c1: c1Of[norm_(campus)] || ''
     });
   }
   var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
-  var flags = itemFlags_();
+  var flags = itemFlags_(), on = CFG.ITEMS.map(function (it) { return !it.retired; });
+  function only(list) { return list.filter(function (_, k) { return on[k]; }); }
   // Every campus's status is in the page for everyone. Officer names, contact details, file links and notes are added only for
   // the campuses the signed-in person may see: all of them for FACE staff, a C1's own list for a C1, none for leadership.
   var detail = buildDetail_(false, tz, null);
@@ -1473,8 +1505,8 @@ function getPayload_(access) {
   else if (c1) { var priv = buildDetail_(true, tz, c1.campuses); Object.keys(priv).forEach(function (k) { detail[k] = priv[k]; }); }
   return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: 'c1', name: c1.name } : null,
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
-    itemKeys: CFG.ITEMS.map(function (it) { return it.key; }), labels: CFG.ITEMS.map(function (it) { return it.label || it.key; }),
-    reg: flags.reg, req: flags.req, inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
+    itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
+    reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
     c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
     asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), rows: rows, detail: detail };
 }
@@ -1627,7 +1659,8 @@ function waitingByCampus_(year) {
   for (var i = 1; i < t.values.length; i++) {
     var v = t.values[i], campus = cellText_(v[t.col['Campus']]);
     if (!campus || cellText_(v[t.col['School Year']]) !== year) continue;
-    var items = CFG.ITEMS.filter(function (it) { return cellText_(v[t.col[it.key]]) === 'Received'; }).map(function (it) { return it.key; });
+    var pta = isPtaRow_(v, t);
+    var items = CFG.ITEMS.filter(function (it) { return tracksItem_(it, pta) && cellText_(v[t.col[it.key]]) === 'Received'; }).map(function (it) { return it.key; });
     out[norm_(campus)] = { campus: campus, items: items, other: false };
   }
   // "Other documents" files that arrived after the last time anyone checked the campus off
@@ -1948,6 +1981,7 @@ function carrySettings_() {
 function itemFlags_() {
   var reg = CFG.ITEMS.map(function (it) { return !!it.reg; });
   var req = CFG.ITEMS.map(function (it) { return !it.optional; });
+  var retired = CFG.ITEMS.map(function (it) { return !!it.retired; });
   var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_SETTINGS);
   if (sh) {
     var vals = sh.getDataRange().getValues(), names = null, regRow = null, reqRow = null;
@@ -1972,7 +2006,7 @@ function itemFlags_() {
       });
     }
   }
-  CFG.ITEMS.forEach(function (it, i) { if (reg[i]) req[i] = true; });
+  CFG.ITEMS.forEach(function (it, i) { if (retired[i]) { reg[i] = false; req[i] = false; } else if (reg[i]) req[i] = true; });
   return { reg: reg, req: req };
 }
 
@@ -2173,7 +2207,7 @@ function rewriteRegisterFormulas_(fillMissing) {
     if (a !== b && !(a === norm_(CFG.OLD_BANK_HEADER) && b === norm_(CFG.OLD_BANK_HEADER))) throw new Error('Settings lists "' + names[L.first + p] + '" where Campus Register has "' + t.headers[lo + p] + '", so the formulas were not rewritten. Restore the backup and ask for help.');
   }
   var h = {};
-  ['Campus', 'Has PTO or PTA', 'Items Received', 'Registration Items Accepted', 'Legalization Items Accepted', 'Status', 'Items Awaiting Review', 'Items Needing Correction', 'Not Yet Accepted'].forEach(function (k) {
+  ['Campus', 'Has PTO or PTA', 'Org Type', 'Items Received', 'Registration Items Accepted', 'Legalization Items Accepted', 'Status', 'Items Awaiting Review', 'Items Needing Correction', 'Not Yet Accepted'].forEach(function (k) {
     if (t.col[k] === undefined) throw new Error('Campus Register has no column headed "' + k + '". The formulas were not rewritten.');
     h[k] = colLetter_(t.col[k]);
   });
@@ -2188,7 +2222,12 @@ function rewriteRegisterFormulas_(fillMissing) {
   var existing = sh.getRange(2, statusCol + 1, nrows, 1).getFormulas();
   var campusVals = sh.getRange(2, t.col['Campus'] + 1, nrows, 1).getValues();
   function build(r) {
-    var g = fl + r + ':' + ll + r, camp = '$' + h['Campus'] + r, pto = '$' + h['Has PTO or PTA'] + r;
+    var g = fl + r + ':' + ll + r, camp = '$' + h['Campus'] + r, pto = '$' + h['Has PTO or PTA'] + r, ot = '$' + h['Org Type'] + r;
+    // a PTA is tracked on two documents (CFG.PTA_ITEMS): with both done it is Registered, and it is never Legalized
+    var pc = CFG.PTA_ITEMS.map(function (k) { return colLetter_(t.col[k]) + r; });
+    var ptaOk = 'AND(' + pc.map(function (c) { return 'OR(' + c + '="Accepted",' + c + '="Not Needed")'; }).join(',') + ')';
+    var ptaAny = 'OR(' + pc.map(function (c) { return 'OR(' + c + '="Accepted",' + c + '="Received",' + c + '="Needs Correction")'; }).join(',') + ')';
+    var ptaParts = CFG.PTA_ITEMS.map(function (k) { var cl = colLetter_(t.col[k]); return 'IF(AND(' + cl + r + '<>"Accepted",' + cl + r + '<>"Not Needed"),", "&' + cl + '$1,"")'; }).join('&');
     var P = '$' + h['Items Received'] + r, Q = '$' + h['Registration Items Accepted'] + r, R = '$' + h['Legalization Items Accepted'] + r;
     var parts = CFG.ITEMS.map(function (it) {
       var cl = colLetter_(t.col[it.key]);
@@ -2200,10 +2239,11 @@ function rewriteRegisterFormulas_(fillMissing) {
     // Not Needed (a reviewer decided this PTO/PTA does not need the document) counts the same as Accepted
     f['Registration Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(((' + g + '="Accepted")+(' + g + '="Not Needed"))*(' + flagsReg + '="Yes")))';
     f['Legalization Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(((' + g + '="Accepted")+(' + g + '="Not Needed"))*(' + flagsReq + '="Yes")))';
-    f['Status'] = '=IF(' + camp + '="","",IF(' + pto + '="No","No PTO/PTA",IF(' + pto + '<>"Yes","Not Yet Confirmed",IF(' + R + '>=' + sLeg + ',"Legalized",IF(' + Q + '>=' + sReg + ',"Registered",IF(' + P + '>0,"In Progress","Not Started"))))))';
+    f['Status'] = '=IF(' + camp + '="","",IF(' + pto + '="No","No PTO/PTA",IF(' + pto + '<>"Yes","Not Yet Confirmed",IF(' + ot + '="PTA",IF(' + ptaOk + ',"Registered",IF(' + ptaAny + ',"In Progress","Not Started")),' +
+      'IF(' + R + '>=' + sLeg + ',"Legalized",IF(' + Q + '>=' + sReg + ',"Registered",IF(' + P + '>0,"In Progress","Not Started")))))))';
     f['Items Awaiting Review'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Received"))';
     f['Items Needing Correction'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Needs Correction"))';
-    f['Not Yet Accepted'] = '=IF(' + camp + '="","",IF(' + pto + '<>"Yes","",IF(' + R + '>=' + sLeg + ',"None",MID(' + parts + ',3,400))))';
+    f['Not Yet Accepted'] = '=IF(' + camp + '="","",IF(' + pto + '<>"Yes","",IF(' + ot + '="PTA",IF(' + ptaOk + ',"None",MID(' + ptaParts + ',3,400)),IF(' + R + '>=' + sLeg + ',"None",MID(' + parts + ',3,400)))))';
     return f;
   }
   var calc = ['Items Received', 'Registration Items Accepted', 'Legalization Items Accepted', 'Status', 'Items Awaiting Review', 'Items Needing Correction', 'Not Yet Accepted'];
@@ -2507,6 +2547,123 @@ function applyOctober2026_(opts) {
   return { ok: !bad.length, lines: lines };
 }
 
+/**
+ * Menu (October 15, 2026): the officer information form counts as soon as it comes in; FACE tracks two documents for a PTA; Articles
+ * of Incorporation and Insurance are no longer asked for. Saves a backup copy first. Safe to run again.
+ */
+function updateOctober15() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Update the tracker: officer form, PTAs and documents',
+    'This brings this spreadsheet up to the October 15, 2026 changes:\n\n' +
+    '- The officer information form counts as soon as it comes in. Forms waiting for review are marked Accepted.\n' +
+    '- For a PTA, FACE tracks the training certificate and the officer information form. A PTA with both is Registered. Other documents waiting for review at a PTA are marked Not Needed.\n' +
+    '- Articles of Incorporation and Insurance are no longer asked for. Their columns are hidden, and anything waiting for review in them is marked Not Needed.\n' +
+    '- The Campus Register formulas, the Summary tab and the Start Here tab are updated.\n\n' +
+    'A backup copy of this spreadsheet is saved in your Drive first. Running this again is safe.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  var res;
+  try { res = applyOctober15_(); }
+  catch (err) { ui.alert('Not updated', err.message, ui.ButtonSet.OK); return; }
+  ui.alert(res.ok ? 'Updated' : 'Updated, but please check', res.lines.join('\n'), ui.ButtonSet.OK);
+}
+
+function applyOctober15_() {
+  var ss = SpreadsheetApp.getActive(), lines = [];
+  if (!ss.getSheetByName(CFG.TAB_REGISTER)) throw new Error('The tab "' + CFG.TAB_REGISTER + '" was not found. Nothing was changed.');
+  var t = table_(CFG.TAB_REGISTER);
+  ['Org Type'].concat(CFG.ITEMS.map(function (it) { return it.key; })).forEach(function (h) {
+    if (t.col[h] === undefined) throw new Error('Campus Register has no column headed "' + h + '". Run "Update the tracker: October 2026 changes" first. Nothing was changed.');
+  });
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    // 1. backup
+    var tz = ss.getSpreadsheetTimeZone();
+    var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before the October 15 2026 update ' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss'));
+    lines.push('Backup saved in your Drive: ' + copy.getName());
+
+    // 2. statuses: officer forms waiting for review are accepted; nothing waits at a retired item or at a document a PTA does not need
+    var off = 0, ptaN = 0, oldN = 0, rows = t.values.length - 1;
+    var oc = t.col['Officer Information'];
+    for (var i = 1; i <= rows; i++) {
+      var v = t.values[i];
+      if (!cellText_(v[t.col['Campus']])) continue;
+      var pta = isPtaRow_(v, t);
+      if (cellText_(v[oc]) === 'Received') { setCell_(t, i + 1, 'Officer Information', 'Accepted'); off++; }
+      CFG.ITEMS.forEach(function (it) {
+        var st = cellText_(v[t.col[it.key]]);
+        if (st !== 'Received' && st !== 'Needs Correction') return;
+        if (it.retired) { setCell_(t, i + 1, it.key, 'Not Needed'); oldN++; }
+        else if (pta && CFG.PTA_ITEMS.indexOf(it.key) < 0) { setCell_(t, i + 1, it.key, 'Not Needed'); ptaN++; }
+      });
+    }
+    lines.push(off ? plural_(off, 'officer information form that was waiting for review is', 'officer information forms that were waiting for review are') + ' now Accepted.' : 'No officer information form was waiting for review.');
+    if (ptaN) lines.push(plural_(ptaN, 'document', 'documents') + ' waiting at PTAs, other than the training certificate and the officer form, ' + (ptaN === 1 ? 'is' : 'are') + ' now Not Needed.');
+    if (oldN) lines.push(plural_(oldN, 'Articles of Incorporation or Insurance document', 'Articles of Incorporation or Insurance documents') + ' waiting for review ' + (oldN === 1 ? 'is' : 'are') + ' now Not Needed.');
+
+    // 3. hide the retired columns; the formulas know about PTAs
+    var hid = 0;
+    CFG.ITEMS.forEach(function (it) { if (it.retired) { t.sh.hideColumns(t.col[it.key] + 1); hid++; } });
+    if (hid) lines.push('Campus Register: the Articles of Incorporation and Insurance columns are hidden (not deleted).');
+    var nf = rewriteRegisterFormulas_(true);
+    lines.push('Campus Register: recalculated Status and the counts for ' + nf + ' rows. A PTA with the training certificate and the officer form is Registered.');
+
+    // 4. the Summary rows of the retired items
+    var sum = ss.getSheetByName('Summary');
+    if (sum) {
+      var sv = sum.getDataRange().getValues(), sh = 0;
+      for (var r = 0; r < sv.length; r++) {
+        var a = cellText_(sv[r][0]);
+        if (a && CFG.ITEMS.some(function (it) { return it.retired && startsWith_(a, it.key); })) { sum.hideRows(r + 1); sh++; }
+      }
+      if (sh) lines.push('Summary: the Articles of Incorporation and Insurance rows are hidden.');
+    }
+
+    // 5. wording
+    var w = updateWordingOctober15_();
+    if (w) lines.push('Updated the wording on Start Here (' + w + ' places).');
+  } finally { lock.releaseLock(); }
+
+  lines.push('', 'One step is yours: open the form editor and delete the "Articles of Incorporation" and "Insurance" questions. Then run "2. Check setup".');
+  SpreadsheetApp.flush();
+  var bad = scanForErrors_();
+  if (bad.length) lines.push('', 'Please check: these cells show an error: ' + bad.slice(0, 6).join(', ') + (bad.length > 6 ? ' and ' + (bad.length - 6) + ' more' : '') + '.', 'If anything looks wrong, the backup copy above has everything as it was.');
+  return { ok: !bad.length, lines: lines };
+}
+
+/** Start Here wording for the October 15, 2026 changes. Returns how many cells changed. Safe to run again. */
+function updateWordingOctober15_() {
+  var start = SpreadsheetApp.getActive().getSheetByName('Start Here');
+  if (!start) return 0;
+  var byStart = [
+    ['Registered:', 'Registered: these three are accepted for the school year: ' + defsList_(true) + '. For a PTA, FACE tracks two documents, the training certificate and the officer information form; a PTA with both is Registered.'],
+    ['Legalized:', 'Legalized: these are all accepted: ' + defsList_(false) + '. A PTA is not tracked for Legalized. A reviewer can mark any document Not Needed for a PTO/PTA; it then counts as done.'],
+    ['Item status:', 'Item status: Not Received, Received (waiting for review), Accepted, Needs Correction, or Not Needed. Accepted and Not Needed count. An uploaded document is set to Received, and a reviewer checks it off on the dashboard (or in the Campus Register tab). The officer information form is set to Accepted as soon as it comes in: nobody reviews it.'],
+    ['4. Google does not let a script add file-upload questions', '4. Google does not let a script add file-upload questions, so add them by hand. Open the form editor (the link is in the message from step 3, or use Show form and dashboard links). Add a File upload question for each of the five lines below, with exactly this wording. For each one allow PDF, Document and Image, maximum 5 files, 100 MB, and leave Required off.'],
+    ['      Articles of Incorporation', ''],
+    ['      Insurance (liability and property)', ''],
+    ['3. Submit. Each file is renamed', '3. Submit. Each file keeps the name it was sent with. It is filed in the campus folder and logged.'],
+    ['Articles of Incorporation (', 'Articles of Incorporation and Insurance: no longer asked for (October 15, 2026). Their columns on Campus Register are hidden, not deleted, so older records stay. Delete their questions from the form.'],
+    ['Insurance (Optional):', ''],
+    ['Leadership, meaning anyone who opens the address without signing in', 'Leadership, meaning anyone who opens the address without signing in, sees campus status, the checklist, document dates, how many documents are waiting, who each campus is waiting on, and each campus\'s C1 by name. Officer names, emails and phone numbers, file names and links, notes and who reviewed what are not hidden on the page: they are not sent to the browser at all until someone signs in. SEDs and EDs can use a link that opens on their Area Office: signed-in FACE staff find these links under By Area Office on the Overview. Principals and APs open the main link and pick their campus on My campus.'],
+    ['In July choose PTO/PTA Tracker > Start a new school year.', 'In July choose PTO/PTA Tracker > Start a new school year. It copies every campus into the new year and resets the documents to Not Received. Check Area Office if campus assignments changed. The dashboard switches to the new year by itself.']
+  ];
+  var v = start.getDataRange().getValues(), changed = 0;
+  for (var i = 0; i < v.length; i++) {
+    var cell = v[i][0];
+    if (typeof cell !== 'string' || !cell) continue;
+    var s = cell;
+    byStart.forEach(function (p) { if (cell.indexOf(p[0]) === 0) s = p[1]; });
+    s = s.split('marks Officer Information Received').join('marks Officer Information Accepted (it needs no review)');
+    if (cell.indexOf('1. Only Articles of Incorporation is one-time') === 0 && cell.indexOf('10. Changed on October 15, 2026') < 0) {
+      s = cell + '  10. Changed on October 15, 2026: the officer information form counts as soon as it comes in; a PTA is tracked on the training certificate and the officer information form; ' +
+        'Articles of Incorporation and Insurance are no longer asked for; files keep the name they were sent with; the dashboard has a My campus page and a Waiting on column.';
+    }
+    if (s !== cell) { start.getRange(i + 1, 1).setValue(s); changed++; }
+  }
+  return changed;
+}
+
 /** Renames the Bank and EIN Letter column of Campus Register, its Settings column and its Summary row to Bank Verification Letter.
  *  Returns true when something was renamed. Files and log lines keep the old name; they are still read as this item. */
 function renameBankItem_() {
@@ -2642,7 +2799,13 @@ function nextYearLabel_(label) {
 function itemByKey_(key) {
   return CFG.ITEMS.filter(function (i) { return i.key === key; })[0] || CFG.ITEMS.filter(function (i) { return (i.headerAliases || []).indexOf(key) >= 0; })[0];
 }
-function uploadItems_() { return CFG.ITEMS.filter(function (i) { return i.upload; }); }
+function uploadItems_() { return CFG.ITEMS.filter(function (i) { return i.upload && !i.retired; }); }
+/** The items the tracker still asks for, in register order: what the dashboard shows. */
+function activeItems_() { return CFG.ITEMS.filter(function (i) { return !i.retired; }); }
+/** Whether a register row (its values array) belongs to a PTA. */
+function isPtaRow_(v, t) { return orgTypeFrom_(v[t.col['Org Type']]) === 'PTA'; }
+/** Whether this item counts for a campus: never when retired, and for a PTA only the two in CFG.PTA_ITEMS. */
+function tracksItem_(it, pta) { return !it.retired && (!pta || CFG.PTA_ITEMS.indexOf(it.key) >= 0); }
 /** Words a form question may start with to mean this item: its key, and the names the form used before the items were combined. */
 function itemNames_(it) { return [it.key].concat(it.formAliases || []); }
 function titleIsItem_(title, it) { return itemNames_(it).some(function (n) { return startsWith_(title, n); }); }
