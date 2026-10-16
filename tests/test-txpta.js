@@ -206,3 +206,70 @@ test('view only: a principal sees just their campus', function () {
   ok(d.detail['Codwell ES||2026-27'].a.some(function (x) { return x[2] === 'codwell.pdf'; }));
   ok(d.detail['Anderson ES||2026-27'].a.every(function (x) { return x.length === 2; }), 'Anderson ES: dates and document types only');
 });
+
+/* ---------- leaders by Google account: Area Offices (officers + bylaws) and principals (everything, view only), 2026-10-16d ---------- */
+function withLeaders(g) {
+  var r0 = g.checkLeaders_();
+  ok(r0.created, 'the Leaders tab is made');
+  var sh = g.__ss.getSheetByName('Leaders');
+  sh.getRange(2, 1, 4, 4).setValues([
+    ['sed.one@houstonisd.org', 'Dr. Area', 'Area Office', 'NES Elementary'],
+    ['Principal.Codwell@HoustonISD.org', 'Ms. Principal', 'Principal', 'Codwell ES'],
+    ['nobody@houstonisd.org', 'Typo', 'Principal', 'Atlantis ES'],
+    ['someone@houstonisd.org', 'Odd Role', 'Teacher', 'Anderson ES']]);
+  return g.checkLeaders_();
+}
+
+test('leaders: the Leaders tab says who will be recognized and why a row is not used', function () {
+  var g = tracker();
+  var r = withLeaders(g);
+  eq(r.area, 1); eq(r.principal, 1);
+  eq(r.problems.length, 2, r.problems.join(' | '));
+  var st = g.__ss.getSheetByName('Leaders').values().map(function (x) { return String(x[4]); });
+  ok(/^Sees officers and bylaws of \d+ campuses/.test(st[1]), st[1]);
+  ok(/^Sees everything, view only, for 1 campus/.test(st[2]), st[2]);
+  ok(/matches the Campus Register/.test(st[3]) && /Area Office or Principal/.test(st[4]), st.join(' | '));
+});
+
+test('leaders: an Area Office leader is recognized by Google account and sees officers and bylaws only', function () {
+  var g = tracker();
+  g.processSubmission_(base.sub('Anderson ES', { notes: 'call the treasurer', uploads: [base.upload(g, 'Bylaws', 'bylaws.pdf'), base.upload(g, 'Training Certificate', 'cert.pdf')] }));
+  withLeaders(g);
+  g.__user.email = 'SED.One@houstonisd.org';
+  var d = g.getDashboard('');
+  eq(d.me.role, 'viewer'); eq(d.me.level, 'area'); eq(d.me.name, 'Dr. Area');
+  var a = d.detail['Anderson ES||2026-27'].a;
+  ok(a.some(function (x) { return x[2] === 'bylaws.pdf' && /^https:/.test(x[3]); }), 'the bylaws file');
+  ok(a.every(function (x) { return x[2] !== 'cert.pdf' && x.length <= 4; }), 'no other file, no notes: ' + JSON.stringify(a));
+  ok(JSON.stringify(d).indexOf('call the treasurer') < 0, 'notes are left out');
+  var msg = '';
+  try { g.saveChecklist('', 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Accepted', remark: '' }], null); } catch (e) { msg = e.message; }
+  ok(/sign-in has ended/.test(msg), 'a leader cannot change anything: ' + msg);
+});
+
+test('leaders: a principal sees everything for their campus only; an unknown account sees what everyone sees', function () {
+  var g = tracker();
+  g.processSubmission_(base.sub('Codwell ES', { uploads: [base.upload(g, 'Training Certificate', 'codwell-cert.pdf')] }));
+  g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'anderson.pdf')] }));
+  withLeaders(g);
+  g.__user.email = 'principal.codwell@houstonisd.org';
+  var d = g.getDashboard('');
+  eq(d.me.level, 'principal');
+  eq(d.mine.join(), 'Codwell ES');
+  ok(d.detail['Codwell ES||2026-27'].a.some(function (x) { return x[2] === 'codwell-cert.pdf'; }), 'every document of their campus');
+  ok(d.detail['Anderson ES||2026-27'].a.every(function (x) { return x.length === 2; }), 'nothing private about other campuses');
+  g.__user.email = 'stranger@houstonisd.org';
+  eq(g.getDashboard('').me, null);
+  g.__user.email = '';
+  eq(g.getDashboard('').me, null);
+  var chk = g.diagnose().filter(function (x) { return /Google account/.test(x[0]); })[0];
+  ok(chk && /^no: Google does not say/.test(chk[2]), chk && chk[2]);
+});
+
+test('leaders: a passcode session still wins over the Google account', function () {
+  var g = tracker();
+  var p = base.withPeople(g);
+  withLeaders(g);
+  g.__user.email = 'sed.one@houstonisd.org';
+  eq(g.getDashboard(p.staff).me.role, 'staff');
+});

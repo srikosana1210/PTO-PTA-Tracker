@@ -40,6 +40,9 @@ var CFG = {
   // Body is the email as HTML (what the flow sends); Text is the same email as plain text, for people reading the tab.
   TAB_REMINDERS: 'C1 Reminders',
   // Texas PTA's own spreadsheet, pasted in each week (Texas PTA Paste), and what the tracker keeps of it (Texas PTA): one row per PTA
+  // SEDs, EDs, principals and APs, recognized by the district Google account they open the dashboard with (no passcode)
+  TAB_LEADERS: 'Leaders',
+  LEADER_HEADERS: ['Email', 'Name', 'Role', 'Area Office or Campus', 'Status'],
   TAB_TXPTA_PASTE: 'Texas PTA Paste',
   TAB_TXPTA: 'Texas PTA',
   TXPTA_HEADERS: ['Campus', 'Texas PTA Name', 'Texas PTA ID', 'PTA Status', 'Good Standing Date', 'SOA Officers', 'SOA Membership', 'SOA Bylaws',
@@ -110,7 +113,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-16c (view-only sign-in for Area Offices and principals; emails go to one officer)';
+var VERSION = 'Script version 2026-10-16d (Area Office leaders and principals recognized by their district Google account; emails go to one officer)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -130,6 +133,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
+    .addItem('Dashboard leaders: set up and check the Leaders tab', 'checkLeaders')
     .addItem('Dashboard: check that it works', 'checkDashboard')
     .addItem('C1 reminders: connect to Power Automate', 'connectPowerAutomate')
     .addItem('C1 reminders: send now (test)', 'sendC1RemindersNow')
@@ -1199,7 +1203,10 @@ function signOut(token) {
 /** What the page shows. No token (or a dead one) gets the leadership view. */
 function getDashboard(token) {
   var who = token ? sessionFrom_(token) : null;
-  var p = getPayload_(who ? (who.role === 'staff' ? { staff: true, name: who.name } : { c1: { name: who.name, campuses: who.campuses }, viewer: who.role === 'viewer' }) : null);
+  var lead = who ? null : leaderFor_(activeEmail_());   // no passcode session: is this a leader, by their Google account?
+  var access = who ? (who.role === 'staff' ? { staff: true, name: who.name } : { c1: { name: who.name, campuses: who.campuses }, viewer: who.role === 'viewer' })
+    : lead ? { c1: { name: lead.name, campuses: lead.campuses }, viewer: true, level: lead.level } : null;
+  var p = getPayload_(access);
   if (token && !who) p.sessionEnded = true;
   p.people = signInNames_();
   p.version = VERSION;
@@ -1450,8 +1457,8 @@ function setUpSignIns() {
   var L = [];
   if (r.createdTab) L.push('The ' + CFG.TAB_SIGNINS + ' tab was missing, so it has been added with one row, FACE Staff.');
   if (r.createdC1Tab) L.push('The ' + CFG.TAB_C1 + ' tab was missing, so it has been added. Put each campus in column A and its C1 Coordinator in column B (one row per campus), then run this again to give each C1 a passcode.');
-  L.push(plural_(r.people, 'person can', 'people can') + ' sign in (' + plural_(r.c1Total, 'C1', 'C1s') + ', ' + plural_(r.staffTotal, 'FACE staff member', 'FACE staff members') + ' and ' + plural_(r.viewerTotal, 'view-only person', 'view-only people') + ').');
-  L.push('View only: for an SED, ED, principal or AP, add a row with the Role Viewer and, in Can See, their Area Office or campus (several separated by commas). They see officers and files for those campuses and cannot change anything.');
+  L.push(plural_(r.people, 'person can', 'people can') + ' sign in (' + plural_(r.c1Total, 'C1', 'C1s') + ' and ' + plural_(r.staffTotal, 'FACE staff member', 'FACE staff members') + (r.viewerTotal ? ', plus ' + plural_(r.viewerTotal, 'view-only person', 'view-only people') : '') + ').');
+  L.push('SEDs, EDs, principals and APs need no passcode: list them on the ' + CFG.TAB_LEADERS + ' tab (PTO/PTA Tracker > Dashboard leaders) and the dashboard recognizes their district Google account.');
   if (r.made.length) L.push('', plural_(r.made.length, 'new passcode was', 'new passcodes were') + ' made. They are on the ' + CFG.TAB_PASS + ' tab. Send each person only their own, then delete that tab. The passcodes are not stored anywhere else and cannot be shown again; use "new passcode for one person" if one is lost.');
   else L.push('', 'Nobody needed a new passcode.');
   if (r.noCampus.length) L.push('', plural_(r.noCampus.length, 'person is', 'people are') + ' on the ' + CFG.TAB_SIGNINS + ' tab as a C1 or viewer but ' + (r.noCampus.length === 1 ? 'has' : 'have') + ' no campuses yet (for a C1, the ' + CFG.TAB_C1 + ' tab; for a viewer, the Can See column), so they cannot sign in yet: ' + r.noCampus.slice(0, 6).join(', ') + (r.noCampus.length > 6 ? ', and ' + (r.noCampus.length - 6) + ' more' : '') + '.');
@@ -1481,7 +1488,6 @@ function setUpSignIns_() {
   var statusCol = rows.status;
   if (statusCol < 0) { var lc = Math.max(sh.getLastColumn(), 1) + 1; sh.getRange(1, lc).setValue('Passcode status'); statusCol = lc - 1; }
   ensureEmailColumn_(sh);
-  ensureCanSeeColumn_(sh);
   var made = [];
   rows.order.forEach(function (k) {
     var p = rows.byKey[k];
@@ -1678,6 +1684,12 @@ function diagnose() {
     if (c.get('t:diag') !== '1') throw new Error('The script cache did not hold a value');
     c.remove('t:diag'); return 'yes';
   });
+  step('Your Google account is recognized', function () {
+    var em = activeEmail_();
+    if (!em) return 'no: Google does not say who is opening the page, so Area Office leaders and principals see what everyone sees';
+    var l = leaderFor_(em);
+    return l ? 'yes, as ' + (l.level === 'area' ? 'an Area Office leader' : 'a principal') + ' for ' + plural_(Object.keys(l.campuses).length, 'campus', 'campuses') : 'yes, but this account is not on the ' + CFG.TAB_LEADERS + ' tab';
+  });
   step('Passwords can be hashed', function () { return hashPass_('x', 'abc').length === 64 ? 'yes' : 'no'; });
   return out;
 }
@@ -1717,8 +1729,12 @@ function getPayload_(access) {
   // the campuses the signed-in person may see: all of them for FACE staff, a C1's own list for a C1, none for leadership.
   var detail = buildDetail_(false, tz, null);
   if (staff) detail = buildDetail_(true, tz, null);
-  else if (c1) { var priv = buildDetail_(true, tz, c1.campuses); Object.keys(priv).forEach(function (k) { detail[k] = priv[k]; }); }
-  return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: access.viewer ? 'viewer' : 'c1', name: c1.name } : null,
+  else if (c1) {
+    var priv = buildDetail_(true, tz, c1.campuses);
+    if (access.level === 'area') priv = limitToBylaws_(priv);       // Area Office leaders: officers and bylaws only
+    Object.keys(priv).forEach(function (k) { detail[k] = priv[k]; });
+  }
+  return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: access.viewer ? 'viewer' : 'c1', name: c1.name, level: access.level || '' } : null,
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
     itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
     reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
@@ -2944,6 +2960,114 @@ function setItemValidation_() {
  * Campuses of the school year marked Yes that have sent nothing: every document Not Received, no officer form on the Officers tab and no
  * line in the Submission Log. apply = true sets them to Not Yet Confirmed. Returns how many.
  */
+/* ================================================================== leaders: Area Offices and principals, by Google account */
+
+/*
+ * The dashboard is deployed for "Anyone within Houston ISD", so whoever opens it is signed in with a district Google account. The script
+ * reads that email (Session.getActiveUser) on every call and looks it up on the Leaders tab: Email, Name, Role, Area Office or Campus.
+ *   Role Area Office (SED, ED): the officers and the bylaws of every campus in the Area Offices named.
+ *   Role Principal (AP):        everything about the campuses named (officers, every filed document, activity), view only.
+ * Nobody types a passcode. Leaders cannot change anything: every write needs a C1 or staff passcode session.
+ */
+var AREA_ROLES = ['area office', 'area', 'sed', 'senior ed', 'senior executive director', 'ed', 'executive director'];
+var PRINCIPAL_ROLES = ['principal', 'ap', 'assistant principal', 'campus', 'campus leader'];
+
+/** The Leaders tab as { normalised email: { email, name, level: 'area' | 'principal', sees, row } }, plus rows for the check. */
+function leaderRows_() {
+  var out = { byEmail: {}, rows: [], sh: null };
+  var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_LEADERS);
+  if (!sh) return out;
+  out.sh = sh;
+  var vals = sh.getDataRange().getValues(), head = vals[0].map(function (h) { return norm_(h); });
+  var ei = head.indexOf('email'), ni = head.indexOf('name'), ri = head.indexOf('role'), si = head.indexOf('area office or campus');
+  if (ei < 0 || ri < 0 || si < 0) throw new Error('The ' + CFG.TAB_LEADERS + ' tab needs the headings Email, Role and Area Office or Campus in row 1.');
+  for (var i = 1; i < vals.length; i++) {
+    var em = cellText_(vals[i][ei]).toLowerCase(), r = norm_(vals[i][ri]);
+    var level = AREA_ROLES.indexOf(r) >= 0 ? 'area' : PRINCIPAL_ROLES.indexOf(r) >= 0 ? 'principal' : '';
+    var rec = { email: em, name: ni >= 0 ? cellText_(vals[i][ni]) : '', level: level, sees: cellText_(vals[i][si]), row: i + 1 };
+    out.rows.push(rec);
+    if (em && level && !out.byEmail[em]) out.byEmail[em] = rec;
+  }
+  return out;
+}
+
+/** The person opening the dashboard, if the Leaders tab lists their Google account: { name, level, campuses } or null. */
+function leaderFor_(email) {
+  email = String(email || '').trim().toLowerCase();
+  if (!email) return null;
+  var rec = leaderRows_().byEmail[email];
+  if (!rec) return null;
+  var vc = viewerCampuses_(rec.sees).campuses;
+  if (!Object.keys(vc).length) return null;
+  return { name: rec.name || email, level: rec.level, campuses: vc };
+}
+
+/** The Google account opening the web app, or '' when Google does not say (outside the district, or not signed in). */
+function activeEmail_() { try { return String(Session.getActiveUser().getEmail() || ''); } catch (err) { return ''; } }
+
+/**
+ * An Area Office leader sees officers and bylaws only: every other filed document keeps just its date and type, as everyone sees it,
+ * and notes, remarks and who sent or reviewed what are left out.
+ */
+function limitToBylaws_(detail) {
+  var bylaws = norm_(itemByKey_('Bylaws').key);
+  Object.keys(detail).forEach(function (k) {
+    var d = detail[k];
+    d.a = (d.a || []).map(function (e) { return norm_(e[1]) === bylaws ? [e[0], e[1], e[2], e[3]] : [e[0], e[1]]; });
+    delete d.rm;
+  });
+  return detail;
+}
+
+/** Menu: makes the Leaders tab if it is missing, and says who on it will be recognized and what each row could not match. */
+function checkLeaders() {
+  var ui = SpreadsheetApp.getUi();
+  try { ui.alert('Dashboard leaders', leadersSummary_(checkLeaders_()), ui.ButtonSet.OK); }
+  catch (err) { ui.alert('Leaders tab not checked', err.message, ui.ButtonSet.OK); }
+}
+
+function checkLeaders_() {
+  var res = { created: false, area: 0, principal: 0, problems: [] };
+  if (!SpreadsheetApp.getActive().getSheetByName(CFG.TAB_LEADERS)) {
+    var sh = ensureTab_(CFG.TAB_LEADERS, CFG.LEADER_HEADERS);
+    try { sh.getRange(1, 4).setNote('Area Office leaders: their Area Office (for example NES Elementary). Principals and APs: their campus as it is in the Campus Register (for example Anderson ES). Several can be separated by commas.'); } catch (e) { /* a note is a nicety */ }
+    res.created = true;
+  }
+  var L = leaderRows_(), t = L.sh, sc = -1;
+  var head = t.getRange(1, 1, 1, Math.max(t.getLastColumn(), 1)).getValues()[0].map(function (h) { return norm_(h); });
+  sc = head.indexOf('status');
+  if (sc < 0) { sc = Math.max(t.getLastColumn(), 1); t.getRange(1, sc + 1).setValue('Status'); }
+  var seen = {};
+  L.rows.forEach(function (r) {
+    var msg = '';
+    if (!r.email && !r.sees && !r.name) msg = '';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)) msg = 'Not used: type their district email';
+    else if (!r.level) msg = 'Not used: the Role must be Area Office or Principal';
+    else if (seen[r.email]) msg = 'Not used: this email is already on row ' + seen[r.email];
+    else {
+      var v = viewerCampuses_(r.sees), n = Object.keys(v.campuses).length;
+      if (!n) msg = 'Not used: nothing in Area Office or Campus matches the Campus Register';
+      else {
+        msg = (r.level === 'area' ? 'Sees officers and bylaws of ' : 'Sees everything, view only, for ') + plural_(n, 'campus', 'campuses') + (v.unknown.length ? '. Not found: ' + v.unknown.join(', ') : '');
+        if (r.level === 'area') res.area++; else res.principal++;
+      }
+      seen[r.email] = r.row;
+    }
+    if (msg.indexOf('Not used') === 0) res.problems.push('Row ' + r.row + ': ' + msg.replace(/^Not used: /, ''));
+    t.getRange(r.row, sc + 1).setValue(msg);
+  });
+  return res;
+}
+
+function leadersSummary_(r) {
+  var L = [];
+  if (r.created) L.push('The ' + CFG.TAB_LEADERS + ' tab was added. Paste one row per person: Email, Name, Role (Area Office or Principal), and their Area Office or campus. Then run this again.');
+  L.push(plural_(r.area, 'Area Office leader', 'Area Office leaders') + ' and ' + plural_(r.principal, 'principal or AP', 'principals and APs') + ' will be recognized when they open the dashboard with their district Google account. Nobody needs a passcode.');
+  if (r.problems.length) L.push('', 'Please fix these rows (the Status column says why):', r.problems.slice(0, 10).join('\n') + (r.problems.length > 10 ? '\n...and ' + (r.problems.length - 10) + ' more' : ''));
+  L.push('', 'To open files, leaders also need view access to the Parent Org Documents folder in Drive (Share > General access > Houston ISD > Viewer).');
+  return L.join('\n');
+}
+
 /** Campuses (normalised) with anything in the Submission Log or on the Officers tab for this school year. */
 function sentThisYear_(year) {
   var ss = SpreadsheetApp.getActive(), active = {};

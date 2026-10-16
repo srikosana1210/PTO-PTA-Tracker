@@ -214,31 +214,40 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w, 1280, { live: true, boot: true, campus: 'Oak Forest ES' }); page = o.page;
     check('a campus link opens My campus on that campus', !(await page.isHidden('#v-campus')) && (await page.inputValue('#pickCampus')) === 'Oak Forest ES');
     await page.close();
-    /* view only: an Area Office leader sees officers and files, and changes nothing */
-    var si = w.g.__ss.getSheetByName('Dashboard Sign-ins');
-    w.g.ensureCanSeeColumn_(si);
-    var sh = si.values()[0].map(function (x) { return String(x).trim(); }), sl = si.getLastRow() + 1;
-    si.getRange(sl, sh.indexOf('Name') + 1).setValue('Dr. Area'); si.getRange(sl, sh.indexOf('Role') + 1).setValue('Viewer'); si.getRange(sl, sh.indexOf('Can See') + 1).setValue('NES Elementary');
-    var vp = w.g.setUpSignIns_().made.filter(function (m) { return m.name === 'Dr. Area'; })[0].pass;
+    /* leaders by Google account: an Area Office leader sees officers and bylaws; a principal sees everything; nobody changes anything */
+    w.g.checkLeaders_();
+    w.g.__ss.getSheetByName('Leaders').getRange(2, 1, 2, 4).setValues([['sed@houstonisd.org', 'Dr. Area', 'Area Office', 'NES Elementary'], ['prin@houstonisd.org', 'Ms. Principal', 'Principal', 'Anderson ES']]);
+    w.g.__user.email = 'sed@houstonisd.org';
     o = await openPage(browser, w); page = o.page;
-    await signIn(page, 'Dr. Area', vp).catch(function () {});
-    await page.waitForFunction(function () { return !document.querySelector('#who').hidden; }, null, { timeout: 10000 });
-    check('a viewer has no Review tab', await page.isHidden('#tab-review'));
-    check('a viewer is shown as View only', /View only/.test(await page.textContent('#whoRole')));
+    check('an Area Office leader is recognized with no sign-in', !(await page.isHidden('#who')) && /Area Office · view only/.test(await page.textContent('#whoRole')) && await page.isHidden('#signoutBtn'));
+    check('a leader has no Review tab', await page.isHidden('#tab-review'));
     await page.click('[data-tab="campuses"]');
     await page.click('[data-chip="all"]');
     await page.fill('#q', 'Anderson');
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     var vb = await page.textContent('#pBody');
-    check('a viewer sees the officers', /Ann Officer/.test(vb) && /ann@example\.org/.test(vb), vb.slice(0, 400));
-    check('a viewer sees the file links', (await page.$$('#pBody a[href^="https://drive.google.com/"]')).length > 0);
-    check('a viewer gets no checklist buttons and no email box', (await page.$$('#panel .seg button')).length === 0 && (await page.$$('#pResend')).length === 0);
+    var links = await page.$$eval('#pBody a[href^="https://drive.google.com/"]', function (as) { return as.map(function (a) { return a.closest('li') ? a.closest('li').textContent : ''; }); });
+    check('an Area Office leader sees the officers', /Ann Officer/.test(vb) && /ann@example\.org/.test(vb), vb.slice(0, 300));
+    check('an Area Office leader sees the bylaws file and no other', links.length > 0 && links.every(function (t) { return /bylaws/i.test(t); }), links.join(' / '));
+    check('a leader gets no checklist buttons and no email box', (await page.$$('#panel .seg button')).length === 0 && (await page.$$('#pResend')).length === 0);
     await page.click('#pClose');
     await page.fill('#q', 'Durham');
     await page.click('.crow[data-c="Durham ES"] .campbtn');
-    check('a viewer sees no officers outside their Area Office', !/Ann Officer/.test(await page.textContent('#pBody')) && (await page.$$('#pBody a[href^="https://drive.google.com/"]')).length === 0);
-    check('no page errors (viewer)', o.errors.length === 0, o.errors.join(' | '));
+    check('an Area Office leader sees no officers outside their office', (await page.$$('#pBody a[href^="https://drive.google.com/"]')).length === 0 && !/Ann Officer/.test(await page.textContent('#pBody')));
+    check('no page errors (Area Office leader)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
+    w.g.__user.email = 'prin@houstonisd.org';
+    o = await openPage(browser, w); page = o.page;
+    check('a principal is recognized', /Principal · view only/.test(await page.textContent('#whoRole')));
+    await page.click('[data-tab="campuses"]');
+    await page.click('[data-chip="all"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    var pl = await page.$$eval('#pBody a[href^="https://drive.google.com/"]', function (as) { return as.length; });
+    check('a principal sees every file of their campus, and cannot change anything', pl >= 2 && (await page.$$('#panel .seg button')).length === 0, String(pl));
+    check('no page errors (principal)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+    w.g.__user.email = '';
 
     /* staff get the links to hand out */
     o = await openPage(browser, w); page = o.page;

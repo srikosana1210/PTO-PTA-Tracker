@@ -125,6 +125,7 @@ function load(opts) {
   ss.getSpreadsheetTimeZone = function () { return this.tz; };
 
   var alerts = [], prompts = (opts.prompts || []).slice(), log = [];
+  var user = { email: opts.user || '' };
   var ui = {
     alert: function (a, b) { alerts.push(b === undefined || typeof b === 'object' ? String(a) : String(a) + '\n' + String(b)); return ui.Button.OK; },
     prompt: function () { var t = prompts.length ? prompts.shift() : ''; return { getSelectedButton: function () { return ui.Button.OK; }, getResponseText: function () { return t; } }; },
@@ -198,13 +199,15 @@ function load(opts) {
     HtmlService: { createHtmlOutputFromFile: function () { var h = fs.readFileSync(path.join(ROOT, 'apps-script', 'Dashboard.html'), 'utf8'); return { getContent: function () { return h; } }; },
       createHtmlOutput: function (h) { var o = { getContent: function () { return h; }, setTitle: function () { return o; }, addMetaTag: function () { return o; } }; return o; } },
     FormApp: { openById: function () { throw new Error('No form in tests'); } },
+    // the Google account opening the web app (tests set g.__user.email)
+    Session: { getActiveUser: function () { return { getEmail: function () { return user.email; } }; } },
     Logger: { log: function (m) { log.push(m); } },
     // records every request; opts.fetchCode sets the answer (default 202, what Power Automate's webhook trigger answers)
     UrlFetchApp: { fetch: function (url, o) { fetched.push({ url: url, opts: o, json: o && o.payload ? JSON.parse(o.payload) : null }); var code = opts.fetchCode || 202; return { getResponseCode: function () { return code; }, getContentText: function () { return ''; } }; } }
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script', 'Code.gs'), 'utf8'), sandbox, { filename: 'Code.gs' });
-  sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__books = books; sandbox.__fetched = fetched; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
+  sandbox.__user = user; sandbox.__ss = ss; sandbox.__triggers = triggers; sandbox.__books = books; sandbox.__fetched = fetched; sandbox.__alerts = alerts; sandbox.__props = props; sandbox.__cache = cache; sandbox.__drive = DriveApp; sandbox.__log = log;
   return sandbox;
 }
 
