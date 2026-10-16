@@ -149,3 +149,60 @@ test('a paste without the headings is refused with a plain message', function ()
   try { g.importTexasPta_(); } catch (e) { msg = e.message; }
   ok(/no "Texas PTA ID" heading/.test(msg), msg);
 });
+
+/* ---------- view only: SEDs, EDs, principals and APs (2026-10-16c) ---------- */
+function withViewers(g) {
+  var p = base.withPeople(g);
+  var si = g.__ss.getSheetByName('Dashboard Sign-ins');
+  g.ensureCanSeeColumn_(si);
+  var head = si.values()[0].map(function (x) { return String(x).trim(); }), last = si.getLastRow();
+  var rows = [['Dr. Area', 'Viewer', 'NES Elementary'], ['Ms. Principal', 'Principal', 'Codwell ES'], ['Nobody Yet', 'Viewer', 'Atlantis ES']];
+  rows.forEach(function (r, i) {
+    si.getRange(last + 1 + i, head.indexOf('Name') + 1).setValue(r[0]);
+    si.getRange(last + 1 + i, head.indexOf('Role') + 1).setValue(r[1]);
+    si.getRange(last + 1 + i, head.indexOf('Can See') + 1).setValue(r[2]);
+  });
+  var res = g.setUpSignIns_(), pass = {};
+  res.made.forEach(function (m) { pass[m.name] = m.pass; });
+  p.area = g.signIn('Dr. Area', pass['Dr. Area']).token;
+  p.principal = g.signIn('Ms. Principal', pass['Ms. Principal']).token;
+  p.res = res;
+  return p;
+}
+
+test('view only: an Area Office leader sees officers and files for their office, nothing else, and changes nothing', function () {
+  var g = tracker();
+  g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'bylaws.pdf')] }));
+  g.processSubmission_(base.sub('Durham ES', { uploads: [base.upload(g, 'Training Certificate', 'cert.pdf')] }));
+  var p = withViewers(g);
+  ok(p.area && p.principal, 'both can sign in');
+  ok(p.res.noCampus.indexOf('Nobody Yet') >= 0, 'a viewer whose Can See matches nothing cannot sign in');
+  var d = g.getDashboard(p.area);
+  eq(d.me.role, 'viewer');
+  var a = d.detail['Anderson ES||2026-27'];
+  ok(a && a.a.some(function (x) { return x[2] === 'bylaws.pdf' && /^https:/.test(x[3]); }), 'the Anderson ES file link (NES Elementary)');
+  var du = d.detail['Durham ES||2026-27'];
+  ok(!du || du.a.every(function (x) { return x.length === 2; }), 'no file names or links for Durham ES (EAS Elementary)');
+  eq(d.c1s, null, 'no C1 contact list');
+  ['saveChecklist', 'reviewItem', 'logResendRequest'].forEach(function (fn) {
+    var msg = '';
+    try {
+      if (fn === 'saveChecklist') g.saveChecklist(p.area, 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Accepted', remark: '' }], null);
+      else if (fn === 'reviewItem') g.reviewItem(p.area, 'Anderson ES', '2026-27', 'Bylaws', 'Accepted', '');
+      else g.logResendRequest(p.area, 'Anderson ES', '2026-27', 'x@example.org');
+    } catch (e) { msg = e.message; }
+    ok(/can see these campuses, but not change anything/.test(msg), fn + ': ' + msg);
+  });
+  eq(regRow(g, 'Anderson ES')['Bylaws'], 'Received', 'nothing changed');
+});
+
+test('view only: a principal sees just their campus', function () {
+  var g = tracker();
+  g.processSubmission_(base.sub('Codwell ES', { uploads: [base.upload(g, 'Bylaws', 'codwell.pdf')] }));
+  g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'anderson.pdf')] }));
+  var p = withViewers(g);
+  var d = g.getDashboard(p.principal);
+  eq(d.mine.join(), 'Codwell ES');
+  ok(d.detail['Codwell ES||2026-27'].a.some(function (x) { return x[2] === 'codwell.pdf'; }));
+  ok(d.detail['Anderson ES||2026-27'].a.every(function (x) { return x.length === 2; }), 'Anderson ES: dates and document types only');
+});

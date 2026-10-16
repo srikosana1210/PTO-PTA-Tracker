@@ -624,7 +624,7 @@ a.btn.primary { color: var(--btn-ink); }
 <dialog id="signin" aria-labelledby="siTitle">
   <form id="siForm" class="dbody" autocomplete="on">
     <h2 id="siTitle">Sign in</h2>
-    <p class="dsub">For C1 coordinators and FACE staff. Leadership does not need to sign in to see campus status.</p>
+    <p class="dsub">For C1 coordinators, FACE staff, and SEDs, EDs, principals and APs who have a view-only passcode to see officers and files. Anyone can see campus status without signing in.</p>
     <label for="siName">Your name</label>
     <select id="siName"></select>
     <label for="siPass">Passcode</label>
@@ -686,7 +686,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-16b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-16c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -719,7 +719,9 @@ state.year = years().slice(-1)[0] || '';
 var mineCache = null, mineFor = null;
 function mineSet() { if (mineFor !== payload) { mineFor = payload; mineCache = {}; (payload.mine || []).forEach(function (c) { mineCache[nk(c)] = 1; }); } return mineCache; }
 function canSee(r) { var m = payload.me; if (!m) return false; if (m.role === 'staff') return true; return !!mineSet()[nk(r.campus)]; }
-function isMine(r) { return !!(payload.me && payload.me.role === 'c1' && mineSet()[nk(r.campus)]); }
+function isMine(r) { return !!(payload.me && (payload.me.role === 'c1' || payload.me.role === 'viewer') && mineSet()[nk(r.campus)]); }
+/** View only (SEDs, EDs, principals, APs): officers and files for their campuses; no checklist, email or Review tab. */
+function isViewer() { return !!(payload.me && payload.me.role === 'viewer'); }
 
 /* Which items count. The live page gets payload.reg and payload.req (one true or false per item, from the Settings tab), so a change
    there changes the dashboard too. A page without them (a loaded CSV, an old copy) uses the defaults in DOCS: the first three register,
@@ -799,9 +801,9 @@ function renderHero() {
   var me = payload.me, live = !!payload.live;
   $('#signinBtn').hidden = !live || !!me || booting || !hasGas();
   $('#who').hidden = !me;
-  if (me) { $('#whoName').textContent = me.name; $('#whoRole').textContent = me.role === 'c1' ? 'C1 coordinator' : 'FACE staff'; }
+  if (me) { $('#whoName').textContent = me.name; $('#whoRole').textContent = me.role === 'c1' ? 'C1 coordinator' : me.role === 'viewer' ? 'View only' : 'FACE staff'; }
   $('#loadBtn').hidden = live; $('#saveBtn').hidden = live;
-  $('#tab-review').hidden = !me;
+  $('#tab-review').hidden = !me || isViewer();
   var w = reviewCount();
   $('#reviewN').hidden = !(me && w); $('#reviewN').textContent = w;
   ['overview', 'campuses', 'campus', 'review'].forEach(function (t) {
@@ -1008,7 +1010,7 @@ function renderChips(base) {
     if (f.opt && !n && !on) return '';
     return '<button type="button" class="chip' + (f.sep ? ' sep' : '') + '" data-chip="' + esc(f.k) + '" aria-pressed="' + on + '">' + esc(f.n) + ' <b>' + num(n) + '</b></button>';
   }).join('');
-  if (payload.me && payload.me.role === 'c1') {
+  if (payload.me && (payload.me.role === 'c1' || isViewer())) {
     html += '<button type="button" class="chip sep" data-mine="1" aria-pressed="' + state.mine + '">My campuses <b>' + num(scoped().filter(isMine).length) + '</b></button>';
   }
   $('#chips').innerHTML = html;
@@ -1083,7 +1085,7 @@ function renderCampusCard() {
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions? This campus\'s C1 coordinator is <b>' + esc(r.c1) + '</b>.' : 'Questions? Email ' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.') + '</p>' +
-    (canSee(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">Open the checklist and files</button></div>' : '') + '</article>';
+    (canSee(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">' + (isViewer() ? 'See officers and files' : 'Open the checklist and files') + '</button></div>' : '') + '</article>';
 }
 
 /** Signed-in FACE staff: a link for each Area Office, for SEDs and EDs. The link opens the page on that office; nobody signs in. */
@@ -1182,7 +1184,7 @@ function remindHtml() {
 }
 
 function render() {
-  if (state.tab === 'review' && !payload.me) state.tab = 'overview';
+  if (state.tab === 'review' && (!payload.me || isViewer())) state.tab = 'overview';
   if (!payload.me) $('#reviewBody').innerHTML = '';
   var views = ['overview', 'campuses', 'campus', 'review'];
   $('#boot').hidden = !($('#boot').dataset.show === '1');
@@ -1266,7 +1268,7 @@ function panelStatus(r, st) {
    saved until Save; then saveChecklist writes every change at once and logs it. The remarks go into the email to the PTO/PTA. */
 var CHOICES = [['A', 'It\'s there'], ['C', 'Needs correction'], ['N', 'Not there'], ['X', 'Not needed']];
 var STATUS_OF = { A: 'Accepted', C: 'Needs Correction', N: 'Not Received', X: 'Not Needed' };
-function canReview(r) { return !!(payload.live && payload.me && canSee(r)); }
+function canReview(r) { return !!(payload.live && payload.me && !isViewer() && canSee(r)); }
 /** Saved remarks for this campus: { items: { key: text }, campus: text }. Older pages wrote only "Needs correction" reasons, read as remarks. */
 function remarksOf(r) {
   var d = detailFor(r), rm = d.rm || { items: {}, campus: '' }, out = { items: {}, campus: rm.campus || '' };
@@ -1355,7 +1357,7 @@ function officerItem(o) {
 function orgLine(sb) { return [sb.g, sb.ty].filter(Boolean).join(' · '); }
 function panelOfficers(r, d) {
   if (!payload.live) return '<section class="psec"><h3>Officers</h3><p class="pnote">Officer details appear when the dashboard is opened from the tracker\'s web link.</p></section>';
-  if (!canSee(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1 and to FACE staff.' : 'Officer names and contact details are shown to C1 coordinators and FACE staff after they sign in.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
+  if (!canSee(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1, to FACE staff, and to the people allowed to view it.' : 'Officer names, contact details and files are shown after signing in: to C1 coordinators, FACE staff, and SEDs, EDs, principals and APs with a view-only passcode.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
   var subs = d.o || [];
   if (!subs.length) return '<section class="psec"><h3>Officers</h3><p class="pnote">No officer update form has been matched to this campus for ' + esc(state.year ? state.year.replace('-', '–') : 'this year') + ' yet.</p></section>';
   var cur = subs[0], older = subs.slice(1);
@@ -1526,9 +1528,14 @@ function mailSource(r) {
     var k = e.toLowerCase();
     if (validEmail(e)) { if (!seen[k]) { seen[k] = 1; to.push(e); } } else if (bad.indexOf(e) < 0) bad.push(e);
   }
+  // one person (FACE, 2026-10-16): the president, else the vice president, else the secretary, else the first officer with an email,
+  // else whoever submitted the newest officer form. Sending to every officer confused people.
+  function rank(o) { var p = String(o.p || '').toLowerCase(); return /vice/.test(p) ? 2 : /president/.test(p) ? 1 : /secretary/.test(p) ? 3 : 9; }
   for (var s = 0; s < subs.length && !to.length; s++) {
-    (subs[s].off || []).forEach(function (o) { add(o.e); });
-    add(subs[s].be);
+    var offs = (subs[s].off || []).map(function (o, i) { return { o: o, i: i }; }).filter(function (x) { return validEmail(String(x.o.e || '').trim()); });
+    offs.sort(function (a, b) { return rank(a.o) - rank(b.o) || a.i - b.i; });
+    if (offs.length) add(offs[0].o.e); else add(subs[s].be);
+    (subs[s].off || []).forEach(function (o) { var e = String(o.e || '').trim(); if (e && !validEmail(e) && bad.indexOf(e) < 0) bad.push(e); });
   }
   return { to: to, bad: bad };
 }

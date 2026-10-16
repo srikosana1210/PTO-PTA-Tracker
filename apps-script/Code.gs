@@ -110,7 +110,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-16b (withdrawn Texas PTA charters are not PTAs; count only campuses that have sent something)';
+var VERSION = 'Script version 2026-10-16c (view-only sign-in for Area Offices and principals; emails go to one officer)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -1073,18 +1073,44 @@ function signInRows_() {
   var ni = head.indexOf('name'), ri = head.indexOf('role');
   if (ni < 0 || ri < 0) throw new Error('The tab "' + CFG.TAB_SIGNINS + '" needs the headings Name and Role in row 1.');
   out.status = head.indexOf('passcode status');
-  var ei = head.indexOf('email');
+  var ei = head.indexOf('email'), ci = head.indexOf('can see');
   out.rows = [];
   for (var i = 1; i < vals.length; i++) {
     var nm = cellText_(vals[i][ni]), r = norm_(vals[i][ri]);
     out.rows.push({ row: i + 1, key: norm_(nm) });
     if (!nm) continue;
-    var role = (r === 'c1' || r === 'c1 coordinator') ? 'c1' : (r === 'staff' || r === 'face staff' || r === 'admin') ? 'staff' : '';
+    var role = (r === 'c1' || r === 'c1 coordinator') ? 'c1' : (r === 'staff' || r === 'face staff' || r === 'admin') ? 'staff' : VIEWER_ROLES.indexOf(r) >= 0 ? 'viewer' : '';
     var k = norm_(nm);
     if (!role || out.byKey[k]) continue;              // an unknown role means no access; the first row for a name wins
-    out.byKey[k] = { name: nm, role: role, email: ei >= 0 ? cellText_(vals[i][ei]) : '' };
+    out.byKey[k] = { name: nm, role: role, email: ei >= 0 ? cellText_(vals[i][ei]) : '', sees: ci >= 0 ? cellText_(vals[i][ci]) : '' };
     out.order.push(k);
   }
+  return out;
+}
+
+/*
+ * View only (FACE, 2026-10-16): SEDs, EDs, principals and APs sign in to see the officers and the filed documents of their own campuses.
+ * Their row on Dashboard Sign-ins has the Role "Viewer" (or Area Office, Principal, AP...) and, in the Can See column, Area Office names
+ * and/or campus names separated by commas. They cannot check anything off, email, or see the Review tab: every write refuses them.
+ */
+var VIEWER_ROLES = ['viewer', 'view only', 'leadership', 'area office', 'sed', 'ed', 'senior ed', 'principal', 'ap', 'assistant principal', 'campus'];
+
+/** The campuses a Can See cell names: { campuses: { normalised campus: register name }, unknown: [text not matched] }. */
+function viewerCampuses_(text) {
+  var out = { campuses: {}, unknown: [] };
+  var parts = String(text || '').split(/[,;\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+  if (!parts.length) return out;
+  var t = table_(CFG.TAB_REGISTER), byArea = {}, map = campusMap_();
+  for (var i = 1; i < t.values.length; i++) {
+    var c = cellText_(t.values[i][t.col['Campus']]), a = norm_(t.values[i][t.col['Area Office']]);
+    if (c && a) (byArea[a] = byArea[a] || {})[norm_(c)] = c;
+  }
+  parts.forEach(function (p) {
+    var area = byArea[norm_(p)];
+    if (area) { Object.keys(area).forEach(function (k) { out.campuses[k] = area[k]; }); return; }
+    var c = lookup_(map, p);
+    if (c) out.campuses[norm_(c)] = c; else out.unknown.push(p);
+  });
   return out;
 }
 
@@ -1113,6 +1139,10 @@ function personFor_(key) {
   var row = signInRows_().byKey[key], acc = accessMap_()[key];
   if (!row || !acc || !acc.hash) return null;
   if (row.role === 'staff') return { key: key, name: row.name, role: 'staff', campuses: null, gen: acc.gen };
+  if (row.role === 'viewer') {
+    var vc = viewerCampuses_(row.sees).campuses;
+    return Object.keys(vc).length ? { key: key, name: row.name, role: 'viewer', campuses: vc, gen: acc.gen } : null;
+  }
   var rec = c1Assignments_().names[key];
   if (!rec || !Object.keys(rec.campuses).length) return null;
   return { key: key, name: row.name, role: 'c1', campuses: rec.campuses, gen: acc.gen };
@@ -1169,7 +1199,7 @@ function signOut(token) {
 /** What the page shows. No token (or a dead one) gets the leadership view. */
 function getDashboard(token) {
   var who = token ? sessionFrom_(token) : null;
-  var p = getPayload_(who ? (who.role === 'staff' ? { staff: true, name: who.name } : { c1: { name: who.name, campuses: who.campuses } }) : null);
+  var p = getPayload_(who ? (who.role === 'staff' ? { staff: true, name: who.name } : { c1: { name: who.name, campuses: who.campuses }, viewer: who.role === 'viewer' }) : null);
   if (token && !who) p.sessionEnded = true;
   p.people = signInNames_();
   p.version = VERSION;
@@ -1189,6 +1219,7 @@ function reviewItem(token, campus, year, itemKey, status, reason) {
   try {
     var who = sessionFrom_(token);
     if (!who) throw new Error('Your sign-in has ended. Sign in again.');
+    if (who.role === 'viewer') throw new Error('You can see these campuses, but not change anything. Ask the campus\'s C1 or FACE.');
     campus = cellText_(campus); year = cellText_(year); status = cellText_(status);
     if (who.role === 'c1' && !who.campuses[norm_(campus)]) throw new Error(campus + ' is not on your list of campuses.');
     var item = itemByKey_(cellText_(itemKey));
@@ -1276,6 +1307,7 @@ function saveChecklist(token, campus, year, changes, campusRemark) {
   try {
     var who = sessionFrom_(token);
     if (!who) throw new Error('Your sign-in has ended. Sign in again.');
+    if (who.role === 'viewer') throw new Error('You can see these campuses, but not change anything. Ask the campus\'s C1 or FACE.');
     campus = cellText_(campus); year = cellText_(year);
     if (who.role === 'c1' && !who.campuses[norm_(campus)]) throw new Error(campus + ' is not on your list of campuses.');
     var t = table_(CFG.TAB_REGISTER);
@@ -1372,6 +1404,7 @@ function logResendRequest(token, campus, year, sentTo) {
   try {
     var who = sessionFrom_(token);
     if (!who) throw new Error('Your sign-in has ended. Sign in again.');
+    if (who.role === 'viewer') throw new Error('You can see these campuses, but not change anything. Ask the campus\'s C1 or FACE.');
     campus = cellText_(campus); year = cellText_(year);
     if (who.role === 'c1' && !who.campuses[norm_(campus)]) throw new Error(campus + ' is not on your list of campuses.');
     var t = table_(CFG.TAB_REGISTER);
@@ -1417,17 +1450,18 @@ function setUpSignIns() {
   var L = [];
   if (r.createdTab) L.push('The ' + CFG.TAB_SIGNINS + ' tab was missing, so it has been added with one row, FACE Staff.');
   if (r.createdC1Tab) L.push('The ' + CFG.TAB_C1 + ' tab was missing, so it has been added. Put each campus in column A and its C1 Coordinator in column B (one row per campus), then run this again to give each C1 a passcode.');
-  L.push(plural_(r.people, 'person can', 'people can') + ' sign in (' + plural_(r.c1Total, 'C1', 'C1s') + ' and ' + plural_(r.staffTotal, 'FACE staff member', 'FACE staff members') + ').');
+  L.push(plural_(r.people, 'person can', 'people can') + ' sign in (' + plural_(r.c1Total, 'C1', 'C1s') + ', ' + plural_(r.staffTotal, 'FACE staff member', 'FACE staff members') + ' and ' + plural_(r.viewerTotal, 'view-only person', 'view-only people') + ').');
+  L.push('View only: for an SED, ED, principal or AP, add a row with the Role Viewer and, in Can See, their Area Office or campus (several separated by commas). They see officers and files for those campuses and cannot change anything.');
   if (r.made.length) L.push('', plural_(r.made.length, 'new passcode was', 'new passcodes were') + ' made. They are on the ' + CFG.TAB_PASS + ' tab. Send each person only their own, then delete that tab. The passcodes are not stored anywhere else and cannot be shown again; use "new passcode for one person" if one is lost.');
   else L.push('', 'Nobody needed a new passcode.');
-  if (r.noCampus.length) L.push('', plural_(r.noCampus.length, 'person is', 'people are') + ' on the ' + CFG.TAB_SIGNINS + ' tab as a C1 but ' + (r.noCampus.length === 1 ? 'has' : 'have') + ' no campuses on the ' + CFG.TAB_C1 + ' tab, so they cannot sign in yet: ' + r.noCampus.slice(0, 6).join(', ') + (r.noCampus.length > 6 ? ', and ' + (r.noCampus.length - 6) + ' more' : '') + '.');
+  if (r.noCampus.length) L.push('', plural_(r.noCampus.length, 'person is', 'people are') + ' on the ' + CFG.TAB_SIGNINS + ' tab as a C1 or viewer but ' + (r.noCampus.length === 1 ? 'has' : 'have') + ' no campuses yet (for a C1, the ' + CFG.TAB_C1 + ' tab; for a viewer, the Can See column), so they cannot sign in yet: ' + r.noCampus.slice(0, 6).join(', ') + (r.noCampus.length > 6 ? ', and ' + (r.noCampus.length - 6) + ' more' : '') + '.');
   if (r.unknown.length) L.push('', plural_(r.unknown.length, 'campus on the ' + CFG.TAB_C1 + ' tab is', 'campuses on the ' + CFG.TAB_C1 + ' tab are') + ' not in the Campus Register and ' + (r.unknown.length === 1 ? 'was' : 'were') + ' skipped: ' + r.unknown.slice(0, 6).join(', ') + (r.unknown.length > 6 ? ', and ' + (r.unknown.length - 6) + ' more' : '') + '.');
   if (!dashboardUrl_()) L.push('', 'The dashboard is not deployed yet. Deploy it (Deploy > New deployment > Web app) so there is an address to sign in on.');
   ui.alert('Dashboard sign-ins', L.join('\n'), ui.ButtonSet.OK);
 }
 
 function setUpSignIns_() {
-  var ss = SpreadsheetApp.getActive(), res = { createdTab: false, createdC1Tab: false, made: [], people: 0, c1Total: 0, staffTotal: 0, noCampus: [], unknown: [] };
+  var ss = SpreadsheetApp.getActive(), res = { createdTab: false, createdC1Tab: false, made: [], people: 0, c1Total: 0, staffTotal: 0, viewerTotal: 0, noCampus: [], unknown: [] };
   var sh = ss.getSheetByName(CFG.TAB_SIGNINS);
   if (!sh) { sh = ensureTab_(CFG.TAB_SIGNINS, ['Name', 'Role', 'Passcode status']); sh.getRange(2, 1, 1, 2).setValues([['FACE Staff', 'Staff']]); res.createdTab = true; }
   if (!ss.getSheetByName(CFG.TAB_C1)) { ensureTab_(CFG.TAB_C1, ['Campus', 'C1 Coordinator']); res.createdC1Tab = true; }
@@ -1447,29 +1481,47 @@ function setUpSignIns_() {
   var statusCol = rows.status;
   if (statusCol < 0) { var lc = Math.max(sh.getLastColumn(), 1) + 1; sh.getRange(1, lc).setValue('Passcode status'); statusCol = lc - 1; }
   ensureEmailColumn_(sh);
+  ensureCanSeeColumn_(sh);
   var made = [];
   rows.order.forEach(function (k) {
     var p = rows.byKey[k];
-    var eligible = p.role === 'staff' || (a.names[k] && Object.keys(a.names[k].campuses).length > 0);
+    var eligible = canSignIn_(p, a);
     if (!eligible) { res.noCampus.push(p.name); return; }
-    if (!map[k] || !map[k].hash) { var pass = makePasscode_(); setPass_(map, k, pass); made.push({ name: p.name, role: p.role === 'staff' ? 'FACE staff' : 'C1', pass: pass }); }
+    if (!map[k] || !map[k].hash) { var pass = makePasscode_(); setPass_(map, k, pass); made.push({ name: p.name, role: p.role === 'staff' ? 'FACE staff' : p.role === 'viewer' ? 'View only' : 'C1', pass: pass }); }
   });
   saveAccess_(map);
   // status column
   var statusById = {};
   rows.order.forEach(function (k) {
     var p = rows.byKey[k], acc = map[k];
-    var eligible = p.role === 'staff' || (a.names[k] && Object.keys(a.names[k].campuses).length > 0);
-    statusById[k] = !eligible ? 'Cannot sign in: no campuses on ' + CFG.TAB_C1 : (acc && acc.hash ? 'Passcode set ' + acc.set : '');
-    if (eligible) { res.people++; if (p.role === 'staff') res.staffTotal++; else res.c1Total++; }
+    var eligible = canSignIn_(p, a);
+    statusById[k] = !eligible ? (p.role === 'viewer' ? 'Cannot sign in: type Area Offices or campuses in Can See' : 'Cannot sign in: no campuses on ' + CFG.TAB_C1) : (acc && acc.hash ? 'Passcode set ' + acc.set : '');
+    if (eligible) { res.people++; if (p.role === 'staff') res.staffTotal++; else if (p.role === 'viewer') res.viewerTotal++; else res.c1Total++; }
   });
   rows.rows.forEach(function (r) {
-    var txt = r.key && statusById[r.key] !== undefined ? statusById[r.key] : (r.key ? 'Not used: check the Role (C1 or Staff)' : '');
+    var txt = r.key && statusById[r.key] !== undefined ? statusById[r.key] : (r.key ? 'Not used: check the Role (C1, Staff or Viewer)' : '');
     sh.getRange(r.row, statusCol + 1).setValue(txt);
   });
   if (made.length) writePasscodeTab_(made);
   res.made = made;
   return res;
+}
+
+/** Whether a row of Dashboard Sign-ins can sign in: staff always, a C1 with campuses, a viewer whose Can See names something. */
+function canSignIn_(p, a) {
+  if (p.role === 'staff') return true;
+  if (p.role === 'viewer') return Object.keys(viewerCampuses_(p.sees).campuses).length > 0;
+  return !!(a.names[norm_(p.name)] && Object.keys(a.names[norm_(p.name)].campuses).length > 0);
+}
+
+/** Adds a Can See heading to the Dashboard Sign-ins tab if it has none: Area Offices or campuses a view-only person may see. */
+function ensureCanSeeColumn_(sh) {
+  var head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(function (h) { return norm_(h); });
+  if (head.indexOf('can see') >= 0) return false;
+  var c = Math.max(sh.getLastColumn(), 1) + 1;
+  sh.getRange(1, c).setValue('Can See');
+  try { sh.getRange(1, c).setNote('For the Role Viewer (SEDs, EDs, principals, APs): the Area Offices and/or campuses this person may see, separated by commas. For example: NES Elementary, or Anderson ES.'); } catch (e) { /* a note is a nicety */ }
+  return true;
 }
 
 /** Adds an Email heading to the Dashboard Sign-ins tab if it has none. A C1's email there is used for the review reminder emails. */
@@ -1666,7 +1718,7 @@ function getPayload_(access) {
   var detail = buildDetail_(false, tz, null);
   if (staff) detail = buildDetail_(true, tz, null);
   else if (c1) { var priv = buildDetail_(true, tz, c1.campuses); Object.keys(priv).forEach(function (k) { detail[k] = priv[k]; }); }
-  return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: 'c1', name: c1.name } : null,
+  return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: access.viewer ? 'viewer' : 'c1', name: c1.name } : null,
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
     itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
     reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),

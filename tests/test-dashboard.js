@@ -29,8 +29,10 @@ function world() {
   // a Texas PTA: its officer form (counts at once) and its training certificate (waits for review); bylaws are filed only
   g.processSubmission_(base.sub('Oak Forest ES', { officer: true, uploads: [base.upload(g, 'Training Certificate'), base.upload(g, 'Bylaws')] }));
   var paste = g.__ss.getSheetByName('Officer Form Paste');
-  paste.getRange(1, 1, 2, 8).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email', 'Your email address'],
-    ['11', new Date(Date.UTC(2026, 8, 1)), 'Anderson ES', 'Anderson PTO', 'Ann Officer', 'President', 'ann@example.org', 'ann@example.org']]);
+  // three officers: the email goes to the president only (FACE, 2026-10-16)
+  paste.getRange(1, 1, 2, 14).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email',
+    'Officer #2: Name', 'Officer #2: Position', 'Officer #2: Email', 'Officer #3: Name', 'Officer #3: Position', 'Officer #3: Email', 'Your email address'],
+    ['11', new Date(Date.UTC(2026, 8, 1)), 'Anderson ES', 'Anderson PTO', 'Tom Treasurer', 'Treasurer', 'tom@example.org', 'Vic Vice', 'Vice President', 'vic@example.org', 'Ann Officer', 'President', 'ann@example.org', 'tom@example.org']]);
   g.importOfficers_();
   // this week's Texas PTA spreadsheet
   var tx = require('./fixtures/texas-pta-2026-10-15').rows(), tp = g.__ss.insertSheet('Texas PTA Paste');
@@ -131,7 +133,7 @@ async function signIn(page, name, pass) {
     check('saved to the register', row['Bylaws'] === 'Needs Correction' && row['Training Certificate'] === 'Accepted' && row['Bank Verification Letter'] === 'Not Needed', JSON.stringify(row));
     var href = await page.getAttribute('#pResend a[data-mail]', 'href');
     var body = decodeURIComponent(href.split('body=')[1] || '');
-    check('email goes to the officer, copies the inbox', /^mailto:ann@example\.org\?cc=ParentOrgDocs@houstonisd\.org/.test(href), href.slice(0, 120));
+    check('email goes to the president only, copies the inbox', /^mailto:ann@example\.org\?cc=ParentOrgDocs@houstonisd\.org/.test(href), href.slice(0, 120));
     check('email lists the correction with its remark', /The organization's bylaws: Please send the signed copy\./.test(body), body);
     check('email lists what is still needed, with the remark', /We also still need these documents:[\s\S]*Annual budget report or meeting minutes showing budget approval \(The approved budget, not the draft\.\)/.test(body), body);
     check('email does not ask for the not-needed document', !/Bank account verification/i.test(body) && !/Articles of incorporation|insurance/i.test(body), body);
@@ -212,6 +214,32 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w, 1280, { live: true, boot: true, campus: 'Oak Forest ES' }); page = o.page;
     check('a campus link opens My campus on that campus', !(await page.isHidden('#v-campus')) && (await page.inputValue('#pickCampus')) === 'Oak Forest ES');
     await page.close();
+    /* view only: an Area Office leader sees officers and files, and changes nothing */
+    var si = w.g.__ss.getSheetByName('Dashboard Sign-ins');
+    w.g.ensureCanSeeColumn_(si);
+    var sh = si.values()[0].map(function (x) { return String(x).trim(); }), sl = si.getLastRow() + 1;
+    si.getRange(sl, sh.indexOf('Name') + 1).setValue('Dr. Area'); si.getRange(sl, sh.indexOf('Role') + 1).setValue('Viewer'); si.getRange(sl, sh.indexOf('Can See') + 1).setValue('NES Elementary');
+    var vp = w.g.setUpSignIns_().made.filter(function (m) { return m.name === 'Dr. Area'; })[0].pass;
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Dr. Area', vp).catch(function () {});
+    await page.waitForFunction(function () { return !document.querySelector('#who').hidden; }, null, { timeout: 10000 });
+    check('a viewer has no Review tab', await page.isHidden('#tab-review'));
+    check('a viewer is shown as View only', /View only/.test(await page.textContent('#whoRole')));
+    await page.click('[data-tab="campuses"]');
+    await page.click('[data-chip="all"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    var vb = await page.textContent('#pBody');
+    check('a viewer sees the officers', /Ann Officer/.test(vb) && /ann@example\.org/.test(vb), vb.slice(0, 400));
+    check('a viewer sees the file links', (await page.$$('#pBody a[href^="https://drive.google.com/"]')).length > 0);
+    check('a viewer gets no checklist buttons and no email box', (await page.$$('#panel .seg button')).length === 0 && (await page.$$('#pResend')).length === 0);
+    await page.click('#pClose');
+    await page.fill('#q', 'Durham');
+    await page.click('.crow[data-c="Durham ES"] .campbtn');
+    check('a viewer sees no officers outside their Area Office', !/Ann Officer/.test(await page.textContent('#pBody')) && (await page.$$('#pBody a[href^="https://drive.google.com/"]')).length === 0);
+    check('no page errors (viewer)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
     /* staff get the links to hand out */
     o = await openPage(browser, w); page = o.page;
     await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
