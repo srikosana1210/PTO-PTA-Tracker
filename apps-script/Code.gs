@@ -39,6 +39,13 @@ var CFG = {
   // each is one word: Power Automate's Google Sheets connector returns a blank value for a column whose heading has a space.
   // Body is the email as HTML (what the flow sends); Text is the same email as plain text, for people reading the tab.
   TAB_REMINDERS: 'C1 Reminders',
+  // Texas PTA's own spreadsheet, pasted in each week (Texas PTA Paste), and what the tracker keeps of it (Texas PTA): one row per PTA
+  TAB_TXPTA_PASTE: 'Texas PTA Paste',
+  TAB_TXPTA: 'Texas PTA',
+  TXPTA_HEADERS: ['Campus', 'Texas PTA Name', 'Texas PTA ID', 'PTA Status', 'Good Standing Date', 'SOA Officers', 'SOA Membership', 'SOA Bylaws',
+    'SOA Standing Rules', 'SOA 990', 'Current Members', 'Membership Goal', 'Active Status Date', 'Bylaws Approved', 'Note', 'Texas PTA Updated', 'Imported'],
+  // Texas PTA names the tracker cannot work out by itself (lower case, spacing ignored) -> the Campus Register's name
+  TXPTA_ALIASES: { 'south early community': 'South EC HS' },
   REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Body', 'Text', 'Note', 'Updated'],
   REMINDER_HOUR: 8,
   // A small separate spreadsheet holding only the reminder list. Power Automate reads this one, not the tracker: far fewer Google
@@ -103,7 +110,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-15c (officer form needs no review, PTAs track two documents, files keep their names, leadership views)';
+var VERSION = 'Script version 2026-10-16a (Texas PTA spreadsheet: weekly paste and import, standing on the dashboard)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -118,6 +125,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
+    .addItem('Import the Texas PTA spreadsheet from the Texas PTA Paste tab', 'importTexasPta')
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
@@ -869,6 +877,146 @@ function ensureTab_(name, headers) {
   return sh;
 }
 
+/* ================================================================== Texas PTA spreadsheet */
+
+/*
+ * Each week FACE copies Texas PTA's spreadsheet (every cell, headings included) into cell A1 of the Texas PTA Paste tab and runs the menu.
+ * The tracker keeps one row per PTA on the Texas PTA tab: its status and the five Standards of Continuing Affiliation (SOA). PTAs with a
+ * charter withdrawal are left out. The Campus column is matched from Texas PTA's name; if it is wrong or blank, type the register's name
+ * there: it is kept on every later import (rows are matched by Texas PTA ID). A matched campus becomes a PTA on the Campus Register when
+ * its Org Type is blank. Contact details in that spreadsheet (council president, field service representative) are never copied.
+ */
+function importTexasPta() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = importTexasPta_();
+    if (r.empty) { ui.alert('Paste the Texas PTA spreadsheet first', 'The Texas PTA Paste tab is empty. In the Texas PTA spreadsheet select everything (Ctrl+A), copy it, click cell A1 of the Texas PTA Paste tab and paste (Ctrl+V). Then choose this menu item again.', ui.ButtonSet.OK); return; }
+    ui.alert('Texas PTA spreadsheet imported', texasPtaSummary_(r), ui.ButtonSet.OK);
+  } catch (err) {
+    ui.alert('Nothing was imported', err.message, ui.ButtonSet.OK);
+  }
+}
+
+function texasPtaSummary_(r) {
+  var L = [plural_(r.listed, 'PTA is', 'PTAs are') + ' now on the Texas PTA tab' + (r.asOf ? ' (Texas PTA updated it ' + r.asOf + ')' : '') + '.'];
+  if (r.withdrawn.length) L.push('Left out, charter withdrawn: ' + r.withdrawn.join(', ') + '.');
+  if (r.madePta.length) L.push('Marked as PTAs on the Campus Register: ' + r.madePta.join(', ') + '.');
+  if (r.otherType.length) L.push('Check the Org Type on the Campus Register: ' + r.otherType.join(', ') + '. Texas PTA lists them, but the register says something else, so nothing was changed.');
+  if (r.shorter.length) L.push('Matched by a shorter name, please check the Campus column: ' + r.shorter.join(', ') + '.');
+  if (r.unmatched.length) L.push('No campus found for: ' + r.unmatched.join(', ') + '. On the Texas PTA tab, type the campus name as it is in the Campus Register; it is kept next time.');
+  if (r.goneWithdrawn.length) L.push('Now charter withdrawn, and still marked PTA on the Campus Register: ' + r.goneWithdrawn.join(', ') + '. Change their Org Type if they no longer have a PTA.');
+  L.push('', 'Next week, paste the new spreadsheet over this one (select all on the Texas PTA Paste tab first) and run this again.');
+  return L.join('\n');
+}
+
+function importTexasPta_() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try { return importTexasPtaLocked_(); } finally { lock.releaseLock(); }
+}
+
+function importTexasPtaLocked_() {
+  var ss = SpreadsheetApp.getActive(), tz = ss.getSpreadsheetTimeZone();
+  var res = { listed: 0, withdrawn: [], unmatched: [], shorter: [], madePta: [], otherType: [], goneWithdrawn: [], asOf: '', empty: false };
+  var paste = ss.getSheetByName(CFG.TAB_TXPTA_PASTE) || ss.insertSheet(CFG.TAB_TXPTA_PASTE);
+  var vals = paste.getDataRange().getValues();
+  if (vals.length < 2) { res.empty = true; return res; }
+  // "Updated on THU, October 15, 2026 at 8:48 AM" sits above the headings
+  for (var a = 0; a < Math.min(vals.length, 5) && !res.asOf; a++) vals[a].forEach(function (x) { var m = cellText_(x).match(/^updated on\s+(.+)$/i); if (m && !res.asOf) res.asOf = m[1].trim(); });
+  var hr = -1;
+  for (var i = 0; i < Math.min(vals.length, 10) && hr < 0; i++) if (vals[i].some(function (x) { return norm_(x) === 'texas pta id'; })) hr = i;
+  if (hr < 0) throw new Error('The Texas PTA Paste tab has no "Texas PTA ID" heading. Copy the whole Texas PTA spreadsheet, headings included, and paste it into cell A1 of the Texas PTA Paste tab.');
+  var head = vals[hr].map(function (x) { return norm_(x); });
+  function at(test) { for (var j = 0; j < head.length; j++) if (test(head[j])) return j; return -1; }
+  function is(name) { return function (x) { return x === name; }; }
+  var c = {
+    name: at(is('pta')), id: at(is('texas pta id')), status: at(is('pta status')), gs: at(is('good standing date')),
+    off: at(is('soa officers')), mem: at(is('soa membership')), byl: at(is('soa bylaws')), rules: at(is('soa standing rules')), f990: at(is('soa 990')),
+    count: at(function (x) { return /current membership count$/.test(x); }), goal: at(is('membership goal')),
+    active: at(function (x) { return x.indexOf('active status date') === 0; }), approved: at(is('bylaws approved'))
+  };
+  ['name', 'id', 'status'].forEach(function (k) { if (c[k] < 0) throw new Error('The Texas PTA Paste tab has no "' + { name: 'PTA', id: 'Texas PTA ID', status: 'PTA Status' }[k] + '" heading. Paste the whole Texas PTA spreadsheet into cell A1.'); });
+  function get(v, k) { if (c[k] < 0) return ''; var x = v[c[k]]; return isDate_(x) ? Utilities.formatDate(x, tz, 'M/d/yyyy') : cellText_(x); }
+  function tick(v, k) { var x = get(v, k); return x === '√' || x === '✓' || /^yes$/i.test(x) ? 'Yes' : x ? 'No' : ''; }
+
+  // what was typed by hand on the Texas PTA tab is kept, by Texas PTA ID
+  var out = ensureTab_(CFG.TAB_TXPTA, CFG.TXPTA_HEADERS), prev = {}, prevCampus = {};
+  var ov = out.getDataRange().getValues(), oh = ov[0].map(function (x) { return cellText_(x); });
+  var oCampus = oh.indexOf('Campus'), oId = oh.indexOf('Texas PTA ID');
+  for (var p = 1; p < ov.length; p++) { var pid = cellText_(ov[p][oId]); if (pid) { prev[pid] = cellText_(ov[p][oCampus]); if (prev[pid]) prevCampus[pid] = prev[pid]; } }
+
+  var map = campusMap_(), rows = [], now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm'), ptaCampuses = [];
+  for (var r = hr + 1; r < vals.length; r++) {
+    var v = vals[r], id = get(v, 'id'), name = get(v, 'name'), st = get(v, 'status');
+    if (!id && !name) continue;
+    if (/withdraw/i.test(st)) { res.withdrawn.push(name || id); if (prevCampus[id]) res.goneWithdrawn.push(prevCampus[id]); continue; }
+    var campus = prev[id] ? lookup_(map, prev[id]) || prev[id] : '', note = '';
+    if (!campus) {
+      var m = txPtaCampus_(name, map);
+      campus = m.campus;
+      if (m.shorter) { note = 'Matched by a shorter name. Check the campus.'; res.shorter.push(name + ' = ' + campus); }
+      if (!campus) { note = 'No campus found. Type the campus name as it is in the Campus Register.'; res.unmatched.push(name); }
+    }
+    rows.push([campus, name, id, st, get(v, 'gs'), tick(v, 'off'), tick(v, 'mem'), tick(v, 'byl'), tick(v, 'rules'), tick(v, 'f990'),
+      get(v, 'count'), get(v, 'goal'), get(v, 'active'), get(v, 'approved'), note, res.asOf, now]);
+    if (campus) ptaCampuses.push(campus);
+  }
+  out.clearContents();
+  out.getRange(1, 1, 1, CFG.TXPTA_HEADERS.length).setValues([CFG.TXPTA_HEADERS]);
+  if (rows.length) out.getRange(2, 1, rows.length, CFG.TXPTA_HEADERS.length).setValues(rows);
+  res.listed = rows.length;
+
+  // a campus Texas PTA lists is a PTA (when the register has no other org type), and has a parent organization
+  var t = table_(CFG.TAB_REGISTER), year = currentYear_();
+  ptaCampuses.forEach(function (campus) {
+    var row = findRow_(t, year, campus);
+    if (!row) return;
+    var v = t.values[row - 1], ot = cellText_(v[t.col['Org Type']]), has = cellText_(v[t.col['Has PTO or PTA']]);
+    if (!ot) { setCell_(t, row, 'Org Type', 'PTA'); res.madePta.push(campus); }
+    else if (orgTypeFrom_(ot) !== 'PTA') res.otherType.push(campus + ' (' + ot + ')');
+    if (has !== 'Yes' && has !== 'No' && (!ot || orgTypeFrom_(ot) === 'PTA')) setCell_(t, row, 'Has PTO or PTA', 'Yes');
+  });
+  return res;
+}
+
+/** Texas PTA's name for a school -> the Campus Register's name. { campus, shorter: true when found only after dropping leading words }. */
+function txPtaCampus_(name, map) {
+  var alias = CFG.TXPTA_ALIASES[campusKey_(name)];
+  if (alias && lookup_(map, alias)) return { campus: lookup_(map, alias), shorter: false };
+  var hit = lookup_(map, name);
+  if (hit) return { campus: hit, shorter: false };
+  var words = String(name).replace(/\s+/g, ' ').trim().split(' ');
+  // "Ketelsen" -> Ketelsen ES / MS / HS, when exactly one of them is a campus
+  if (words.length === 1) {
+    var found = ['ES', 'MS', 'HS'].map(function (sfx) { return lookup_(map, name + ' ' + sfx); }).filter(Boolean);
+    if (found.length === 1) return { campus: found[0], shorter: false };
+  }
+  // "William B. Travis Elementary" -> "Travis Elementary"; "Alexander Hamilton Middle School" -> "Hamilton Middle School"
+  for (var k = 1; k < words.length - 1; k++) {
+    var h = lookup_(map, words.slice(k).join(' '));
+    if (h) return { campus: h, shorter: true };
+  }
+  return { campus: '', shorter: false };
+}
+
+/** The Texas PTA tab as { normalised campus: { s: status, g: good standing date, a: [officers, membership, bylaws, standing rules, 990], m, goal } }. */
+function txPtaByCampus_() {
+  var out = { by: {}, asOf: '' }, sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_TXPTA);
+  if (!sh) return out;
+  var t = table_(CFG.TAB_TXPTA);
+  if (t.col['Campus'] === undefined || t.col['PTA Status'] === undefined) return out;
+  function cv(v, hd) { var j = t.col[hd]; return j === undefined ? '' : cellText_(v[j]); }
+  for (var i = 1; i < t.values.length; i++) {
+    var v = t.values[i], campus = cellText_(v[t.col['Campus']]);
+    if (!campus) continue;
+    out.by[norm_(campus)] = { s: cv(v, 'PTA Status'), g: cv(v, 'Good Standing Date'),
+      a: ['SOA Officers', 'SOA Membership', 'SOA Bylaws', 'SOA Standing Rules', 'SOA 990'].map(function (hd) { var x = cv(v, hd); return x === 'Yes' ? 1 : x === 'No' ? 0 : -1; }),
+      m: cv(v, 'Current Members'), goal: cv(v, 'Membership Goal') };
+    if (!out.asOf) out.asOf = cv(v, 'Texas PTA Updated');
+  }
+  return out;
+}
+
 /* ================================================================== sign-in and review */
 
 /*
@@ -1477,6 +1625,9 @@ function getPayload_(access) {
   var c1 = access && access.c1 ? access.c1 : null;      // a C1 sees details of, and may review, only the campuses on their list
   var t = table_(CFG.TAB_REGISTER);
   var rows = [], act = activeItems_();
+  // Texas PTA standing (status and the five standards) for the PTAs on the Texas PTA tab; no contact details are kept there
+  var tx = { by: {}, asOf: '' };
+  try { tx = txPtaByCampus_(); } catch (err) { tx = { by: {}, asOf: '' }; }
   // each campus's C1 coordinator by name (no email or phone), so a principal knows whom to ask
   var c1Of = {};
   try { var asg = c1Assignments_(); asg.order.forEach(function (k) { var rec = asg.names[k]; Object.keys(rec.campuses).forEach(function (c) { c1Of[c] = rec.name; }); }); } catch (err) { c1Of = {}; }
@@ -1492,7 +1643,8 @@ function getPayload_(access) {
       ot: String(v[t.col['Org Type']] || '').trim(),
       on: String(v[t.col['Org Name']] || '').trim(),
       d: act.map(function (it) { return CFG.STATUS_CODE[String(v[t.col[it.key]] || '').trim()] || 'N'; }).join(''),
-      c1: c1Of[norm_(campus)] || ''
+      c1: c1Of[norm_(campus)] || '',
+      tx: tx.by[norm_(campus)] || null
     });
   }
   var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
@@ -1508,7 +1660,7 @@ function getPayload_(access) {
     itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
     reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
     c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
-    asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), rows: rows, detail: detail };
+    asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, rows: rows, detail: detail };
 }
 
 function safeTrigger_() { try { return reminderTrigger_(); } catch (err) { return false; } }

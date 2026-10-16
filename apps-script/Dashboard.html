@@ -236,6 +236,9 @@ details.defs p { margin-top: 8px; }
 .cdocs { list-style: none; margin: 6px 0 0; padding: 0; }
 .cdocs li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); }
 .cdocs .cst { color: var(--ink2); font-size: 13.5px; text-align: right; }
+.ctx { margin-top: 6px; color: var(--ink2); }
+.ntab.tx td { text-align: center; }
+.ntab.tx td:nth-child(2), .ntab.tx td:last-child { text-align: left; }
 .ccontact { margin-top: 16px; color: var(--ink2); font-size: 14px; }
 .ccard .campbtn { margin-top: 14px; }
 details.links { margin-top: 14px; color: var(--ink2); font-size: 13.5px; }
@@ -554,6 +557,11 @@ a.btn.primary { color: var(--btn-ink); }
         <p class="hint">Whole numbers for each Area Office. Select an Area Office to see its campuses.</p>
         <div id="areas"></div>
       </div>
+      <div class="sec" id="txSec" hidden>
+        <h2>Texas PTA standing</h2>
+        <p class="hint" id="txHint"></p>
+        <div id="txpta"></div>
+      </div>
       <div class="sec">
         <h2>Documents</h2>
         <p class="hint">For the campuses with a PTO/PTA: how many have each document accepted, waiting for review, sent back for correction, or not needed.</p>
@@ -678,7 +686,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-15c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-16a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -922,7 +930,36 @@ function renderOverview(s) {
   var sc = $('#scope');
   sc.hidden = !state.area;
   if (state.area) sc.innerHTML = 'Showing <b>' + esc(state.area) + '</b> only. <button type="button" class="linkbtn" data-clear="area">Show all Area Offices</button>';
-  renderKpis(s); renderStack(s); renderAreas(); renderDocs(s); renderDefs();
+  renderKpis(s); renderStack(s); renderAreas(); renderTx(); renderDocs(s); renderDefs();
+}
+
+/* Texas PTA standing, from the Texas PTA spreadsheet FACE pastes in each week. Charter withdrawals are not imported. */
+var SOA = ['Officers', 'Membership', 'Bylaws', 'Standing rules', '990'];
+function txCls(st) { return /good standing/i.test(st) ? 'Legalized' : /^active/i.test(st) ? 'Registered' : 'In-progress'; }
+function txTick(x) { return x === 1 ? '<span class="ic A" role="img" aria-label="Yes">' + ICON.A + '</span>' : x === 0 ? '<span class="ic C" role="img" aria-label="No">' + ICON.C + '</span>' : '<span class="zero">—</span>'; }
+function txPta(r) { return r.tx && r.tx.s ? r.tx : null; }
+function renderTx() {
+  var rows = scoped().filter(txPta).sort(function (a, b) { return cmp(a.campus, b.campus); });
+  $('#txSec').hidden = !rows.length;
+  if (!rows.length) return;
+  var good = rows.filter(function (r) { return /good standing/i.test(r.tx.s); }).length;
+  $('#txHint').textContent = 'From the Texas PTA spreadsheet' + (payload.txAsOf ? ', updated ' + payload.txAsOf : '') + '. ' + plural(good, 'PTA is', 'PTAs are') + ' in Good Standing, out of ' + num(rows.length) +
+    '. Texas PTA asks every PTA to be in Good Standing by November 1: all five standards checked. PTAs whose charter was withdrawn are not shown.';
+  $('#txpta').innerHTML = '<div class="tscroll"><table class="ntab tx"><thead><tr><th scope="col">PTA</th><th scope="col">Texas PTA status</th>' +
+    SOA.map(function (n) { return '<th scope="col">' + esc(n) + '</th>'; }).join('') + '<th scope="col">Members</th><th scope="col">Good Standing since</th></tr></thead><tbody>' +
+    rows.map(function (r) {
+      var x = r.tx;
+      return '<tr><th scope="row" data-c="' + esc(r.campus) + '"><button type="button" class="linkbtn campbtn">' + esc(r.campus) + '</button></th><td><span class="pill ' + txCls(x.s) + '">' + esc(x.s) + '</span></td>' +
+        x.a.map(function (v) { return '<td>' + txTick(v) + '</td>'; }).join('') +
+        '<td>' + (x.m !== '' ? '<b>' + esc(x.m) + '</b>' + (x.goal ? ' of ' + esc(x.goal) : '') : '—') + '</td><td>' + esc(x.g || '—') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+}
+function txLine(r) {
+  var x = txPta(r);
+  if (!x) return '';
+  var miss = SOA.filter(function (_, i) { return x.a[i] === 0; });
+  return 'Texas PTA: ' + x.s + (x.g ? ' since ' + x.g : '') + '. ' + (miss.length ? 'Standards still open: ' + miss.join(', ').toLowerCase() + '.' : 'All five standards are checked.') +
+    (x.m !== '' ? ' Members: ' + x.m + (x.goal ? ' (goal ' + x.goal + ')' : '') + '.' : '');
 }
 
 /* campuses */
@@ -1044,6 +1081,7 @@ function renderCampusCard() {
   var org = [r.ot, r.area].filter(Boolean).join(' · ');
   $('#campusCard').innerHTML = '<article class="ccard"><div class="ctop"><h3>' + esc(r.campus) + '</h3><span class="pill ' + st.replace(/[^A-Za-z]+/g, '-') + '">' + esc(st) + '</span>' +
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
+    (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions? This campus\'s C1 coordinator is <b>' + esc(r.c1) + '</b>.' : 'Questions? Email ' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.') + '</p>' +
     (canSee(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">Open the checklist and files</button></div>' : '') + '</article>';
 }
@@ -1218,7 +1256,8 @@ function panelStatus(r, st) {
   return '<section class="psec"><div class="pline"><span class="pill ' + cls + '">' + esc(st) + '</span><span>' + esc(headline(r, st, hasAny)) + '</span></div>' +
     (r.pto === 'Yes' ? meter + '<div class="pcount">' + counts.join('') + '</div>' : '') +
     (pend.length ? '<div class="pcount" style="margin-top:6px"><span>Pending:</span>' + pend.join('') + '</div>' : '') +
-    (org ? '<div class="pcount" style="margin-top:6px"><span>Organization: ' + esc(org) + '</span></div>' : '') + '</section>';
+    (org ? '<div class="pcount" style="margin-top:6px"><span>Organization: ' + esc(org) + '</span></div>' : '') +
+    (txLine(r) ? '<div class="pcount" style="margin-top:6px"><span>' + esc(txLine(r)) + '</span></div>' : '') + '</section>';
 }
 
 /* ---------- the checklist ----------

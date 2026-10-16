@@ -32,6 +32,10 @@ function world() {
   paste.getRange(1, 1, 2, 8).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email', 'Your email address'],
     ['11', new Date(Date.UTC(2026, 8, 1)), 'Anderson ES', 'Anderson PTO', 'Ann Officer', 'President', 'ann@example.org', 'ann@example.org']]);
   g.importOfficers_();
+  // this week's Texas PTA spreadsheet
+  var tx = require('./fixtures/texas-pta-2026-10-15').rows(), tp = g.__ss.insertSheet('Texas PTA Paste');
+  tp.getRange(1, 1, tx.length, tx[0].length).setValues(tx);
+  g.importTexasPta_();
   return { g: g, p: p };
 }
 
@@ -88,6 +92,9 @@ async function signIn(page, name, pass) {
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
     check('Legalization list has the bank letter wording and no Articles', /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && /PTAs: FACE tracks two documents/.test(defs), defs);
+    var txr = await page.$$eval('#txpta tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
+    check('Texas PTA standing lists the 11 PTAs, no withdrawn charters', txr.length === 11 && !txr.some(function (x) { return /Bonham|Northside|Wainwright/.test(x); }), txr.join(' / '));
+    check('Texas PTA standing says how many are in Good Standing and when Texas PTA updated it', /5 PTAs are in Good Standing, out of 11/.test(await page.textContent('#txHint')) && /October 15, 2026/.test(await page.textContent('#txHint')), await page.textContent('#txHint'));
     await page.screenshot({ path: path.join(SHOTS, 'overview.png'), fullPage: true });
     // campus panel without sign-in: no checklist, no remarks
     await page.click('[data-st="review"]');
@@ -189,6 +196,7 @@ async function signIn(page, name, pass) {
     await page.selectOption('#pickCampus', 'Oak Forest ES');
     var card = await page.textContent('#campusCard');
     check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /What FACE tracks for a PTA/.test(card) && /Received from the form/.test(card), card);
+    check('My campus shows the PTA\'s Texas PTA standing', /Texas PTA: Good Standing since 9\/9\/2026\. All five standards are checked\./.test(card), card);
     check('My campus offers no checklist without sign-in', (await page.$$('#campusCard .campbtn')).length === 0);
     await page.selectOption('#pickCampus', 'Anderson ES');
     card = await page.textContent('#campusCard');

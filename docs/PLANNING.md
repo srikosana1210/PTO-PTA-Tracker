@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-15c`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-16a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -52,6 +52,8 @@ The script finds everything by tab name and column header. **Renaming either bre
 | C1 Assignments | Campus, C1 Coordinator (one row per campus; a campus can have several C1s) | Staff |
 | Dashboard Sign-ins | Name, Role (C1 / Staff), Passcode status, Email (a C1's email, for reminders) | Staff + script |
 | C1 Reminders | Send, C1, Email, Campuses, Waiting, Subject, Body, Text, Note, Updated. Rewritten by the script each weekday morning before it posts the reminders to Power Automate | Script only |
+| Texas PTA Paste | Texas PTA's spreadsheet for Houston ISD, pasted in whole each week (headings included) | Staff (weekly) |
+| Texas PTA | One row per PTA: Campus (editable, kept by Texas PTA ID), status, Good Standing date, the five SOA standards, members, goal. Charter withdrawals left out; no contact details | Script (`importTexasPta`) |
 | Area Office Campuses | Campus, Area Office, Unit, Name in the register, Texas PTA, Texas PTA status (from `sheet/Area Office Campuses.csv`) | Staff (imported once a year) |
 | New Passcodes | Shown once after passcodes are made; delete after sending | Script |
 | Settings | Current school year, start month (7), the Registered and Legalized flags for each item, dropdown lists, Area Offices | Staff |
@@ -105,6 +107,7 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 15. No Tax ID (EIN) letter (FACE, 2026-10-09). *Bank and EIN Letter* is renamed *Bank Verification Letter*; `updateOctober2026` renames the column, the Settings column and the Summary row. Old form questions, log lines and pages that use the old name still work (`headerAliases`, `formAliases`, `itemByKey_`, `itemNote_`).
 16. Programs/Charters stays on the campus list, all 19 entries, including programs that are not schools (FACE, 2026-10-09).
 17. Uploaded files keep the name they were sent with; they are still moved into the campus folder (FACE, 2026-10-15: the renamed files confused people).
+20. Texas PTA spreadsheet (FACE, 2026-10-16): pasted weekly; PTAs with *Charter Withdrawal* are not shown. Names are matched to the register (aliases in `CFG.TXPTA_ALIASES`, then dropping leading words, flagged for checking); a Campus typed by hand on the Texas PTA tab wins. A listed campus with a blank Org Type becomes PTA. Texas PTA's contact columns are never read.
 18. Leadership never signs in (FACE, 2026-10-15). SEDs and EDs get a link per Area Office (`?ao=`), listed for signed-in staff under By Area Office. Principals and APs use **My campus**. A campus link (`?campus=`) also works. Each campus's C1 is shown by name only.
 19. Colors: option A (FACE, 2026-10-15): dark green header, dark green buttons, teal accents, light green for accepted documents. The mockup with the three options is `mock/pto-pta-mock.html`.
 
@@ -136,11 +139,10 @@ Nothing below is committed to. Add items and order them with FACE.
 - [x] **R3. Remind C1s automatically (2026-10-15).** Every weekday at 8 AM the script rewrites the **C1 Reminders** tab and POSTs the Send = Yes rows to a Power Automate flow that starts with *When a Teams webhook request is received* (Script Property `REMINDER_HOOK`); the flow emails each from the ParentOrgDocs shared mailbox. The first design (flow reads the sheet with the Google Sheets connector, then a small separate sheet, `REMINDER_SHEET_ID`) failed: Google kept answering 429 Too many requests. Setup: [`power-automate-c1-reminders.md`](power-automate-c1-reminders.md). The Review tab's Outlook buttons stay as a manual fallback only while automatic reminders are off; when they are on, the tab shows one status line instead (2026-10-15b).
 - [x] **Campus list filters and Org type column (2026-10-15b).** FACE's chip order: All campuses, All PTO/PTAs, PTOs, PTAs, Not started, In progress, Legalized, Registered, Waiting for review, Sent back for correction, Nothing received yet. PTOs and PTAs go by the register's Org Type. The No PTO/PTA chip is gone; those campuses show under All campuses.
 - [x] **Officer form, PTAs, documents, leadership views (2026-10-15c).** Officer form needs no review; PTAs track two documents; Articles and Insurance retired; files keep their names; option A colors; *Waiting on* column; *My campus* tab; Area Office links. One-time menu step: **Update the tracker: officer form, PTAs and documents** (`updateOctober15`).
-- [~] **R7. Texas PTA roster:** PTAs marked from a snapshot (decision 13). _Waiting on FACE: whether to import the roster regularly._
+- [x] **R7. Texas PTA spreadsheet, weekly (2026-10-16a).** Paste into **Texas PTA Paste**, then **Import the Texas PTA spreadsheet**. Charter withdrawals are left out (FACE). The Overview shows *Texas PTA standing* (status, the five SOA standards, members, Good Standing date); My campus and the campus panel show it for each PTA. It does not change Registered: a PTA is still tracked on its training certificate and officer form.
 
 ## 8. Open questions
 
-- Texas PTA roster: which other columns matter, and should it be imported regularly (paste-and-import like the officer form)?
 
 ## 9. Notes from the "PTO Registration system" conversation
 
