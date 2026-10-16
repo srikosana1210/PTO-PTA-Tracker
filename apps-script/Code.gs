@@ -110,7 +110,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-16a (Texas PTA spreadsheet: weekly paste and import, standing on the dashboard)';
+var VERSION = 'Script version 2026-10-16b (withdrawn Texas PTA charters are not PTAs; count only campuses that have sent something)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -126,6 +126,7 @@ function onOpen() {
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
     .addItem('Import the Texas PTA spreadsheet from the Texas PTA Paste tab', 'importTexasPta')
+    .addItem('PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed', 'resetUnstarted')
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
@@ -904,7 +905,7 @@ function texasPtaSummary_(r) {
   if (r.otherType.length) L.push('Check the Org Type on the Campus Register: ' + r.otherType.join(', ') + '. Texas PTA lists them, but the register says something else, so nothing was changed.');
   if (r.shorter.length) L.push('Matched by a shorter name, please check the Campus column: ' + r.shorter.join(', ') + '.');
   if (r.unmatched.length) L.push('No campus found for: ' + r.unmatched.join(', ') + '. On the Texas PTA tab, type the campus name as it is in the Campus Register; it is kept next time.');
-  if (r.goneWithdrawn.length) L.push('Now charter withdrawn, and still marked PTA on the Campus Register: ' + r.goneWithdrawn.join(', ') + '. Change their Org Type if they no longer have a PTA.');
+  if (r.unPta.length) L.push('No longer marked as PTAs, because their charter is withdrawn: ' + r.unPta.join(', ') + '. Those that have sent nothing this year are back to Not Yet Confirmed.');
   L.push('', 'Next week, paste the new spreadsheet over this one (select all on the Texas PTA Paste tab first) and run this again.');
   return L.join('\n');
 }
@@ -917,7 +918,7 @@ function importTexasPta_() {
 
 function importTexasPtaLocked_() {
   var ss = SpreadsheetApp.getActive(), tz = ss.getSpreadsheetTimeZone();
-  var res = { listed: 0, withdrawn: [], unmatched: [], shorter: [], madePta: [], otherType: [], goneWithdrawn: [], asOf: '', empty: false };
+  var res = { listed: 0, withdrawn: [], unmatched: [], shorter: [], madePta: [], otherType: [], goneWithdrawn: [], unPta: [], asOf: '', empty: false };
   var paste = ss.getSheetByName(CFG.TAB_TXPTA_PASTE) || ss.insertSheet(CFG.TAB_TXPTA_PASTE);
   var vals = paste.getDataRange().getValues();
   if (vals.length < 2) { res.empty = true; return res; }
@@ -945,11 +946,11 @@ function importTexasPtaLocked_() {
   var oCampus = oh.indexOf('Campus'), oId = oh.indexOf('Texas PTA ID');
   for (var p = 1; p < ov.length; p++) { var pid = cellText_(ov[p][oId]); if (pid) { prev[pid] = cellText_(ov[p][oCampus]); if (prev[pid]) prevCampus[pid] = prev[pid]; } }
 
-  var map = campusMap_(), rows = [], now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm'), ptaCampuses = [];
+  var map = campusMap_(), rows = [], now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm'), ptaCampuses = [], wd = [];
   for (var r = hr + 1; r < vals.length; r++) {
     var v = vals[r], id = get(v, 'id'), name = get(v, 'name'), st = get(v, 'status');
     if (!id && !name) continue;
-    if (/withdraw/i.test(st)) { res.withdrawn.push(name || id); if (prevCampus[id]) res.goneWithdrawn.push(prevCampus[id]); continue; }
+    if (/withdraw/i.test(st)) { res.withdrawn.push(name || id); wd.push(prevCampus[id] || txPtaCampus_(name, map).campus); continue; }
     var campus = prev[id] ? lookup_(map, prev[id]) || prev[id] : '', note = '';
     if (!campus) {
       var m = txPtaCampus_(name, map);
@@ -975,6 +976,16 @@ function importTexasPtaLocked_() {
     if (!ot) { setCell_(t, row, 'Org Type', 'PTA'); res.madePta.push(campus); }
     else if (orgTypeFrom_(ot) !== 'PTA') res.otherType.push(campus + ' (' + ot + ')');
     if (has !== 'Yes' && has !== 'No' && (!ot || orgTypeFrom_(ot) === 'PTA')) setCell_(t, row, 'Has PTO or PTA', 'Yes');
+  });
+  // a withdrawn charter is not a PTA (FACE, 2026-10-16): its Org Type is cleared, and if it has sent nothing it no longer counts as a PTO/PTA
+  var sent = sentThisYear_(year);
+  wd.forEach(function (campus) {
+    if (!campus || ptaCampuses.indexOf(campus) >= 0) return;
+    var row = findRow_(t, year, campus);
+    if (!row || orgTypeFrom_(t.values[row - 1][t.col['Org Type']]) !== 'PTA') return;
+    setCell_(t, row, 'Org Type', '');
+    if (cellText_(t.values[row - 1][t.col['Has PTO or PTA']]) === 'Yes' && !sent[norm_(campus)]) setCell_(t, row, 'Has PTO or PTA', 'Not Yet Confirmed');
+    res.unPta.push(campus);
   });
   return res;
 }
@@ -2630,7 +2641,7 @@ function updateOctober2026() {
     'A backup copy of this spreadsheet is saved in your Drive first. Running this again is safe.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
   if (go !== ui.Button.OK) return;
   var reset = false, n = 0;
-  try { n = unstartedYes_(currentYear_(), false); } catch (err) { n = 0; }
+  try { n = unstartedYes_(currentYear_(), false).length; } catch (err) { n = 0; }
   if (n) {
     reset = ui.alert('Campuses that have sent nothing',
       plural_(n, 'campus is', 'campuses are') + ' marked Yes for Has PTO or PTA but ' + (n === 1 ? 'has' : 'have') + ' sent nothing this school year (no documents, no officer form, nothing in the log).\n\n' +
@@ -2679,7 +2690,7 @@ function applyOctober2026_(opts) {
 
   // 5. campuses marked Yes that have sent nothing
   if (opts.reset) {
-    var nr = unstartedYes_(currentYear_(), true);
+    var nr = unstartedYes_(currentYear_(), true).length;
     lines.push(nr ? plural_(nr, 'campus that had sent nothing was', 'campuses that had sent nothing were') + ' set to Not Yet Confirmed (the dashboard shows "Nothing received yet").' : 'No campus needed to be set to Not Yet Confirmed.');
   }
 
@@ -2881,8 +2892,9 @@ function setItemValidation_() {
  * Campuses of the school year marked Yes that have sent nothing: every document Not Received, no officer form on the Officers tab and no
  * line in the Submission Log. apply = true sets them to Not Yet Confirmed. Returns how many.
  */
-function unstartedYes_(year, apply) {
-  var ss = SpreadsheetApp.getActive(), t = table_(CFG.TAB_REGISTER), active = {};
+/** Campuses (normalised) with anything in the Submission Log or on the Officers tab for this school year. */
+function sentThisYear_(year) {
+  var ss = SpreadsheetApp.getActive(), active = {};
   if (ss.getSheetByName(CFG.TAB_LOG)) {
     var lt = table_(CFG.TAB_LOG);
     for (var i = 1; i < lt.values.length; i++) if (cellText_(lt.values[i][lt.col['School Year']]) === year) active[norm_(lt.values[i][lt.col['Campus']])] = 1;
@@ -2891,15 +2903,45 @@ function unstartedYes_(year, apply) {
     var ot = table_(CFG.TAB_OFFICERS);
     for (var o = 1; o < ot.values.length; o++) if (cellText_(ot.values[o][ot.col['School Year']]) === year) active[norm_(ot.values[o][ot.col['Campus']])] = 1;
   }
-  var n = 0;
+  return active;
+}
+
+/**
+ * Campuses marked Yes for Has PTO or PTA that have sent nothing this school year: no document, no officer form, nothing in the log, and
+ * not a PTA on the Texas PTA tab. With apply, they are set to Not Yet Confirmed. Returns their names.
+ */
+function unstartedYes_(year, apply) {
+  var t = table_(CFG.TAB_REGISTER), active = sentThisYear_(year), tx = {};
+  try { tx = txPtaByCampus_().by; } catch (err) { tx = {}; }
+  var names = [];
   for (var r = 1; r < t.values.length; r++) {
     var v = t.values[r], campus = cellText_(v[t.col['Campus']]);
-    if (!campus || cellText_(v[t.col['School Year']]) !== year || cellText_(v[t.col['Has PTO or PTA']]) !== 'Yes' || active[norm_(campus)]) continue;
+    if (!campus || cellText_(v[t.col['School Year']]) !== year || cellText_(v[t.col['Has PTO or PTA']]) !== 'Yes' || active[norm_(campus)] || tx[norm_(campus)]) continue;
     if (CFG.ITEMS.some(function (it) { var x = cellText_(v[t.col[it.key]]); return x && x !== 'Not Received'; })) continue;
-    n++;
+    names.push(campus);
     if (apply) setCell_(t, r + 1, 'Has PTO or PTA', 'Not Yet Confirmed');
   }
-  return n;
+  return names;
+}
+
+/** Menu: the PTO/PTA count shows only campuses that have sent something, plus the PTAs on the Texas PTA tab. Asks first; saves a backup. */
+function resetUnstarted() {
+  var ui = SpreadsheetApp.getUi(), year = currentYear_(), list = unstartedYes_(year, false);
+  if (!list.length) { ui.alert('Nothing to change', 'Every campus marked Yes for Has PTO or PTA has sent something this school year, or is a PTA on the Texas PTA tab.', ui.ButtonSet.OK); return; }
+  var go = ui.alert('Count only campuses that have sent something',
+    plural_(list.length, 'campus is', 'campuses are') + ' marked Yes for Has PTO or PTA but ' + (list.length === 1 ? 'has' : 'have') + ' sent nothing in ' + year + ' (no documents, no officer form) and ' + (list.length === 1 ? 'is not a PTA' : 'are not PTAs') + ' on the Texas PTA tab:\n\n' +
+    list.slice(0, 40).join(', ') + (list.length > 40 ? ' and ' + (list.length - 40) + ' more' : '') + '.\n\n' +
+    'Set ' + (list.length === 1 ? 'it' : 'them') + ' to Not Yet Confirmed? The dashboard then shows ' + (list.length === 1 ? 'it' : 'them') + ' under "Nothing received yet", not as PTO/PTAs. ' +
+    'A campus becomes Yes again by itself as soon as it sends something. A backup copy of this spreadsheet is saved in your Drive first.', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    var ss = SpreadsheetApp.getActive();
+    var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before resetting campuses that sent nothing ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm:ss'));
+    var done = unstartedYes_(year, true);
+    ui.alert('Done', plural_(done.length, 'campus was', 'campuses were') + ' set to Not Yet Confirmed.\n\nBackup saved in your Drive: ' + copy.getName(), ui.ButtonSet.OK);
+  } finally { lock.releaseLock(); }
 }
 
 /** The Start Here tab in FACE's wording (October 2026). Returns how many cells changed. */

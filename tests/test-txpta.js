@@ -88,8 +88,43 @@ test('a PTA whose charter is withdrawn later drops off, and FACE is told', funct
   paste(g, rows);
   var r = g.importTexasPta_();
   eq(r.listed, 10);
-  ok(r.goneWithdrawn.indexOf('Durham ES') >= 0, r.goneWithdrawn.join());
-  ok(/Now charter withdrawn/.test(g.texasPtaSummary_(r)));
+  ok(r.unPta.indexOf('Durham ES') >= 0, r.unPta.join());
+  eq(regRow(g, 'Durham ES')['Org Type'], '');
+  eq(regRow(g, 'Durham ES')['Has PTO or PTA'], 'Not Yet Confirmed', 'it has sent nothing, so it no longer counts');
+  ok(/charter is withdrawn: Durham ES/.test(g.texasPtaSummary_(r)));
+});
+
+test('a campus still marked PTA from the old tracker but withdrawn on the roster is no longer a PTA', function () {
+  var g = tracker();
+  setCell(g, 'Bonham ES', 'Org Type', 'PTA'); setCell(g, 'Bonham ES', 'Has PTO or PTA', 'Yes');
+  setCell(g, 'Wainwright ES', 'Org Type', 'PTA'); setCell(g, 'Wainwright ES', 'Has PTO or PTA', 'Yes');
+  g.processSubmission_(base.sub('Wainwright ES', { uploads: [base.upload(g, 'Bylaws')] }));
+  paste(g, roster.rows());
+  var r = g.importTexasPta_();
+  eq(regRow(g, 'Bonham ES')['Org Type'], '');
+  eq(regRow(g, 'Bonham ES')['Has PTO or PTA'], 'Not Yet Confirmed');
+  eq(regRow(g, 'Wainwright ES')['Org Type'], '');
+  eq(regRow(g, 'Wainwright ES')['Has PTO or PTA'], 'Yes', 'it sent documents, so it still has a parent organization');
+  var ptas = g.getPayload_(null).rows.filter(function (x) { return x.ot === 'PTA' && x.pto === 'Yes'; });
+  eq(ptas.length, 11, ptas.map(function (x) { return x.campus; }).join());
+});
+
+test('the PTO/PTA count: campuses that sent nothing go back to Not Yet Confirmed, Texas PTAs and senders stay', function () {
+  var g = tracker();
+  paste(g, roster.rows());
+  g.importTexasPta_();
+  ['Anderson ES', 'Ashford ES', 'Codwell ES'].forEach(function (c) { setCell(g, c, 'Has PTO or PTA', 'Yes'); });
+  g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws')] }));
+  var list = g.unstartedYes_(g.currentYear_(), false);
+  ok(list.indexOf('Ashford ES') >= 0 && list.indexOf('Codwell ES') >= 0, 'sent nothing: listed');
+  ok(list.indexOf('Anderson ES') < 0 && list.indexOf('Durham ES') < 0, 'a sender and a Texas PTA are not listed');
+  g.resetUnstarted();
+  var yes = g.getPayload_(null).rows.filter(function (x) { return x.pto === 'Yes'; }).map(function (x) { return x.campus; });
+  eq(yes.length, 12, 'Anderson ES and the 11 Texas PTAs: ' + yes.join());
+  eq(regRow(g, 'Ashford ES')['Has PTO or PTA'], 'Not Yet Confirmed');
+  eq(regRow(g, 'Anderson ES')['Has PTO or PTA'], 'Yes');
+  eq(regRow(g, 'Durham ES')['Has PTO or PTA'], 'Yes', 'a Texas PTA stays');
+  ok(/Backup saved/.test(g.__alerts.slice(-1)[0]), g.__alerts.slice(-1)[0]);
 });
 
 test('the dashboard gets each PTA\'s standing and the date, for everyone, with no contacts', function () {

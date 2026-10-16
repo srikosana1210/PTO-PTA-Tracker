@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-16a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-16b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -107,7 +107,7 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 15. No Tax ID (EIN) letter (FACE, 2026-10-09). *Bank and EIN Letter* is renamed *Bank Verification Letter*; `updateOctober2026` renames the column, the Settings column and the Summary row. Old form questions, log lines and pages that use the old name still work (`headerAliases`, `formAliases`, `itemByKey_`, `itemNote_`).
 16. Programs/Charters stays on the campus list, all 19 entries, including programs that are not schools (FACE, 2026-10-09).
 17. Uploaded files keep the name they were sent with; they are still moved into the campus folder (FACE, 2026-10-15: the renamed files confused people).
-20. Texas PTA spreadsheet (FACE, 2026-10-16): pasted weekly; PTAs with *Charter Withdrawal* are not shown. Names are matched to the register (aliases in `CFG.TXPTA_ALIASES`, then dropping leading words, flagged for checking); a Campus typed by hand on the Texas PTA tab wins. A listed campus with a blank Org Type becomes PTA. Texas PTA's contact columns are never read.
+20. Texas PTA spreadsheet (FACE, 2026-10-16): pasted weekly; PTAs with *Charter Withdrawal* are not shown. Names are matched to the register (aliases in `CFG.TXPTA_ALIASES`, then dropping leading words, flagged for checking); a Campus typed by hand on the Texas PTA tab wins. A listed campus with a blank Org Type becomes PTA. Texas PTA's contact columns are never read. A campus whose charter is withdrawn loses Org Type PTA on import, and goes back to Not Yet Confirmed if it has sent nothing (2026-10-16b). Menu **PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed** (`resetUnstarted`) does the same for the old tracker's Yes campuses, keeping senders and Texas PTAs; it asks first and saves a backup.
 18. Leadership never signs in (FACE, 2026-10-15). SEDs and EDs get a link per Area Office (`?ao=`), listed for signed-in staff under By Area Office. Principals and APs use **My campus**. A campus link (`?campus=`) also works. Each campus's C1 is shown by name only.
 19. Colors: option A (FACE, 2026-10-15): dark green header, dark green buttons, teal accents, light green for accepted documents. The mockup with the three options is `mock/pto-pta-mock.html`.
 

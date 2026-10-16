@@ -75,7 +75,7 @@ test('the October update: Articles no longer needed, Not Needed added, Email col
 test('the October update can set campuses that sent nothing back to Not Yet Confirmed, keeping ones that sent something', function () {
   var g = h.load();
   g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws')] }));
-  var before = g.unstartedYes_('2026-27', false);
+  var before = g.unstartedYes_('2026-27', false).length;
   ok(before > 100, 'many template campuses are Yes with nothing sent: ' + before);
   withAreaTab(g);
   g.applyOctober2026_({ reset: true });
