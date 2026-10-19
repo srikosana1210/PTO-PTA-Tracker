@@ -172,6 +172,7 @@ function withViewers(g) {
 
 test('view only: an Area Office leader sees officers and files for their office, nothing else, and changes nothing', function () {
   var g = tracker();
+  g.__props.OPEN_DETAILS = '0';   // the sign-in-only mode
   g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'bylaws.pdf')] }));
   g.processSubmission_(base.sub('Durham ES', { uploads: [base.upload(g, 'Training Certificate', 'cert.pdf')] }));
   var p = withViewers(g);
@@ -198,6 +199,7 @@ test('view only: an Area Office leader sees officers and files for their office,
 
 test('view only: a principal sees just their campus', function () {
   var g = tracker();
+  g.__props.OPEN_DETAILS = '0';   // the sign-in-only mode
   g.processSubmission_(base.sub('Codwell ES', { uploads: [base.upload(g, 'Bylaws', 'codwell.pdf')] }));
   g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'anderson.pdf')] }));
   var p = withViewers(g);
@@ -233,6 +235,7 @@ test('leaders: the Leaders tab says who will be recognized and why a row is not 
 
 test('leaders: an Area Office leader is recognized by Google account and sees officers and bylaws only', function () {
   var g = tracker();
+  g.__props.OPEN_DETAILS = '0';   // the sign-in-only mode
   g.processSubmission_(base.sub('Anderson ES', { notes: 'call the treasurer', uploads: [base.upload(g, 'Bylaws', 'bylaws.pdf'), base.upload(g, 'Training Certificate', 'cert.pdf')] }));
   withLeaders(g);
   g.__user.email = 'SED.One@houstonisd.org';
@@ -249,6 +252,7 @@ test('leaders: an Area Office leader is recognized by Google account and sees of
 
 test('leaders: a principal sees everything for their campus only; an unknown account sees what everyone sees', function () {
   var g = tracker();
+  g.__props.OPEN_DETAILS = '0';   // the sign-in-only mode
   g.processSubmission_(base.sub('Codwell ES', { uploads: [base.upload(g, 'Training Certificate', 'codwell-cert.pdf')] }));
   g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'anderson.pdf')] }));
   withLeaders(g);
@@ -272,4 +276,39 @@ test('leaders: a passcode session still wins over the Google account', function 
   withLeaders(g);
   g.__user.email = 'sed.one@houstonisd.org';
   eq(g.getDashboard(p.staff).me.role, 'staff');
+});
+
+/* ---------- officers and documents for everyone in the district (FACE, 2026-10-19) ---------- */
+test('open: without signing in, everyone sees officers and documents, but no notes, remarks or submitter', function () {
+  var g = tracker();
+  g.processSubmission_(base.sub('Anderson ES', { notes: 'call the treasurer', uploads: [base.upload(g, 'Bylaws', 'bylaws.pdf')] }));
+  var paste = g.__ss.getSheetByName('Officer Form Paste');
+  paste.getRange(1, 1, 2, 11).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email', 'Officer #1: Phone', 'Your name', 'Your email address', 'Your phone number'],
+    ['21', new Date(Date.UTC(2026, 8, 1)), 'Anderson ES', 'Anderson PTO', 'Ann Officer', 'President', 'ann@example.org', '7135550101', 'Sam Sender', 'sam.sender@example.org', '7135550199']]);
+  g.importOfficers_();
+  var p = base.withPeople(g);
+  g.saveChecklist(p.c1, 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Needs Correction', remark: 'unsigned copy' }], 'thanks for the quick reply');
+  var d = g.getDashboard('');
+  ok(d.open, 'the page is told');
+  var a = d.detail['Anderson ES||2026-27'];
+  ok(a.a.some(function (x) { return x[2] === 'bylaws.pdf' && /^https:/.test(x[3]); }), 'the document link');
+  var off = a.o[0].off[0];
+  eq(off.n + '|' + off.p + '|' + off.e + '|' + off.t, 'Ann Officer|President|ann@example.org|7135550101');
+  var js = JSON.stringify(d);
+  ok(js.indexOf('call the treasurer') < 0 && js.indexOf('unsigned copy') < 0 && js.indexOf('thanks for the quick reply') < 0, 'no notes or remarks');
+  ok(js.indexOf('sam.sender@example.org') < 0 && js.indexOf('Sam Sender') < 0, 'not who submitted the form');
+  ok(js.indexOf('Ms. Lee') < 0 || d.rows.some(function (r) { return r.c1 === 'Ms. Lee'; }), 'reviewer names appear only as the campus C1');
+  var msg = '';
+  try { g.saveChecklist('', 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Accepted', remark: '' }], null); } catch (e) { msg = e.message; }
+  ok(/sign-in has ended/.test(msg), 'nobody changes anything without a passcode');
+});
+
+test('open: the menu turns it off and on', function () {
+  var g = tracker();
+  g.processSubmission_(base.sub('Anderson ES', { uploads: [base.upload(g, 'Bylaws', 'bylaws.pdf')] }));
+  g.openDetailsOff();
+  var d = g.getDashboard('');
+  ok(!d.open && d.detail['Anderson ES||2026-27'].a.every(function (x) { return x.length === 2; }), 'off: dates and types only');
+  g.openDetailsOn();
+  ok(g.getDashboard('').open);
 });

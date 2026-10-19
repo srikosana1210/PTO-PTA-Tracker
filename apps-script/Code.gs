@@ -113,7 +113,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-16d (Area Office leaders and principals recognized by their district Google account; emails go to one officer)';
+var VERSION = 'Script version 2026-10-19a (officers and documents shown to everyone in the district, view only, no sign-in; emails go to one officer)';
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -133,7 +133,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
-    .addItem('Dashboard leaders: set up and check the Leaders tab', 'checkLeaders')
+    .addItem('Officers and documents: show to everyone in the district (no sign-in)', 'openDetailsOn')
+    .addItem('Officers and documents: show only after a C1 or staff sign-in', 'openDetailsOff')
     .addItem('Dashboard: check that it works', 'checkDashboard')
     .addItem('C1 reminders: connect to Power Automate', 'connectPowerAutomate')
     .addItem('C1 reminders: send now (test)', 'sendC1RemindersNow')
@@ -1727,11 +1728,12 @@ function getPayload_(access) {
   function only(list) { return list.filter(function (_, k) { return on[k]; }); }
   // Every campus's status is in the page for everyone. Officer names, contact details, file links and notes are added only for
   // the campuses the signed-in person may see: all of them for FACE staff, a C1's own list for a C1, none for leadership.
-  var detail = buildDetail_(false, tz, null);
+  var open = openDetails_();
+  var detail = open ? openDetail_(buildDetail_(true, tz, null)) : buildDetail_(false, tz, null);
   if (staff) detail = buildDetail_(true, tz, null);
   else if (c1) {
     var priv = buildDetail_(true, tz, c1.campuses);
-    if (access.level === 'area') priv = limitToBylaws_(priv);       // Area Office leaders: officers and bylaws only
+    if (access.level === 'area') priv = open ? openDetail_(priv) : limitToBylaws_(priv);   // Area Office leaders: never more than everyone sees when open
     Object.keys(priv).forEach(function (k) { detail[k] = priv[k]; });
   }
   return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: access.viewer ? 'viewer' : 'c1', name: c1.name, level: access.level || '' } : null,
@@ -1739,7 +1741,7 @@ function getPayload_(access) {
     itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
     reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
     c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
-    asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, rows: rows, detail: detail };
+    asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, open: open, rows: rows, detail: detail };
 }
 
 function safeTrigger_() { try { return reminderTrigger_(); } catch (err) { return false; } }
@@ -2960,6 +2962,39 @@ function setItemValidation_() {
  * Campuses of the school year marked Yes that have sent nothing: every document Not Received, no officer form on the Officers tab and no
  * line in the Submission Log. apply = true sets them to Not Yet Confirmed. Returns how many.
  */
+/* ================================================================== officers and documents for everyone in the district */
+
+/*
+ * FACE, 2026-10-19: Area Offices and principals see each PTO/PTA's officers (name, position, email, phone) and its filed documents without
+ * signing in, view only. The web app is deployed for "Anyone within Houston ISD", so that means anyone in the district who has the link.
+ * Notes, remarks, who sent or reviewed what, and the submitter's contact details stay private (signed-in C1s and staff only).
+ * The Script Property OPEN_DETAILS turns this off ('0') from the menu, for example if IT asks; on by default.
+ */
+function openDetails_() { return PropertiesService.getScriptProperties().getProperty('OPEN_DETAILS') !== '0'; }
+
+function openDetailsOn() {
+  var ui = SpreadsheetApp.getUi();
+  PropertiesService.getScriptProperties().setProperty('OPEN_DETAILS', '1');
+  ui.alert('Officers and documents: shown to everyone in the district', 'Anyone in Houston ISD who opens the dashboard now sees each PTO/PTA\'s officers (name, position, email, phone) and the links to its documents, view only. Nobody signs in for this. Notes and remarks stay private.\n\nTo open a file, people also need view access to the Parent Org Documents folder in Drive (Share > General access > Houston ISD > Viewer).', ui.ButtonSet.OK);
+}
+
+function openDetailsOff() {
+  var ui = SpreadsheetApp.getUi();
+  PropertiesService.getScriptProperties().setProperty('OPEN_DETAILS', '0');
+  ui.alert('Officers and documents: only after sign-in', 'Officers and document links are now shown only to signed-in C1s (their own campuses) and FACE staff. Everyone else sees campus status only.', ui.ButtonSet.OK);
+}
+
+/** The private detail made fit for everyone: officers and documents only; no notes, remarks, submitter or reviewer. */
+function openDetail_(detail) {
+  Object.keys(detail).forEach(function (k) {
+    var d = detail[k];
+    d.a = (d.a || []).map(function (e) { return e.length > 2 ? [e[0], e[1], e[2], e[3]] : e; });
+    d.o = (d.o || []).map(function (sb) { return { d: sb.d, id: sb.id, g: sb.g, ty: sb.ty, off: (sb.off || []).map(function (o) { return { s: o.s, n: o.n, p: o.p, e: o.e, t: o.t, r: o.r }; }) }; });
+    delete d.rm;
+  });
+  return detail;
+}
+
 /* ================================================================== leaders: Area Offices and principals, by Google account */
 
 /*

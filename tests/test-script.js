@@ -75,6 +75,7 @@ test('a wrong passcode is refused, and five wrong tries lock the name', function
 
 test('leadership gets no private detail; staff get officers and notes', function () {
   var g = h.load();
+  g.__props.OPEN_DETAILS = '0';   // the sign-in-only mode
   var p = withPeople(g);
   g.processSubmission_(sub('Anderson ES', { uploads: [upload(g, 'Bylaws')] }));
   var lead = g.getDashboard('');

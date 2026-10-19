@@ -19,7 +19,7 @@ It runs on Google: one Google Sheet, one Google Form, and one Apps Script web-ap
 | [`mock/pto-pta-mock.html`](mock/pto-pta-mock.html) | The clickable mockup FACE used to pick the colors (option A) and the leadership views. Sample data | Any browser |
 | [`docs/PLANNING.md`](docs/PLANNING.md) | How the system fits together, the rules it enforces, decisions made so far, and the backlog. **Start here before you change anything** | — |
 
-Current script version: `2026-10-16d` (the `VERSION` constant in `Code.gs`).
+Current script version: `2026-10-19a` (the `VERSION` constant in `Code.gs`).
 
 ## Setup in short
 
@@ -29,7 +29,7 @@ The **Start Here** tab in the sheet has the full steps:
 2. Use **PTO/PTA Tracker > 1. Create the form**. Then add the file-upload questions by hand (Google does not let a script add them): the five uploaded documents (the bank one is **Bank Verification Letter**), plus **Other documents** for an email whose documents are all in one file. Then run **2. Check setup**.
 3. Deploy as a web app: Execute as *Me*, access *Anyone within Houston ISD*.
 4. Each week, paste Texas PTA's spreadsheet into the **Texas PTA Paste** tab and choose **PTO/PTA Tracker > Import the Texas PTA spreadsheet from the Texas PTA Paste tab**.
-5. Paste the SEDs, EDs, principals and APs on the **Leaders** tab (Email, Name, Role, Area Office or Campus) and choose **PTO/PTA Tracker > Dashboard leaders: set up and check the Leaders tab**. They need no passcode.
+5. Officers and document links are shown to everyone in the district, view only (menu **Officers and documents** turns this off). Share the **Parent Org Documents** Drive folder with Houston ISD as Viewer so the files open.
 6. Fill in **C1 Assignments**, then use **Dashboard sign-ins: set up and make passcodes**. Type each C1's email in the **Email** column of Dashboard Sign-ins, then set up the reminder emails: [docs/power-automate-c1-reminders.md](docs/power-automate-c1-reminders.md).
 
 ## Updating the live tracker from this repo

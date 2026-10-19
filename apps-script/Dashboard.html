@@ -686,7 +686,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-16d';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-19a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -719,6 +719,8 @@ state.year = years().slice(-1)[0] || '';
 var mineCache = null, mineFor = null;
 function mineSet() { if (mineFor !== payload) { mineFor = payload; mineCache = {}; (payload.mine || []).forEach(function (c) { mineCache[nk(c)] = 1; }); } return mineCache; }
 function canSee(r) { var m = payload.me; if (!m) return false; if (m.role === 'staff') return true; return !!mineSet()[nk(r.campus)]; }
+/* Officers and document links: for whoever may see the campus, or for everyone when FACE shows them to the whole district (payload.open). */
+function seesDetail(r) { return canSee(r) || !!payload.open; }
 function isMine(r) { return !!(payload.me && (payload.me.role === 'c1' || payload.me.role === 'viewer') && mineSet()[nk(r.campus)]); }
 /** View only (SEDs, EDs, principals, APs): officers and files for their campuses; no checklist, email or Review tab. */
 function isViewer() { return !!(payload.me && payload.me.role === 'viewer'); }
@@ -1086,7 +1088,7 @@ function renderCampusCard() {
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions? This campus\'s C1 coordinator is <b>' + esc(r.c1) + '</b>.' : 'Questions? Email ' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.') + '</p>' +
-    (canSee(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">' + (payload.me && payload.me.level === 'area' ? 'See officers and bylaws' : isViewer() ? 'See officers and files' : 'Open the checklist and files') + '</button></div>' : '') + '</article>';
+    (seesDetail(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">' + (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
 }
 
 /** Signed-in FACE staff: a link for each Area Office, for SEDs and EDs. The link opens the page on that office; nobody signs in. */
@@ -1286,7 +1288,7 @@ function campusDraft(r) { return panel.cr !== null ? panel.cr : remarksOf(r).cam
 function anyEdits(r) { return DOCS.some(function (_, i) { return isEdited(r, i); }) || campusDraft(r) !== remarksOf(r).campus; }
 
 function panelDocs(r, d) {
-  var last = {}, files = {}, other = [], vis = canSee(r), rev = canReview(r);
+  var last = {}, files = {}, other = [], vis = seesDetail(r), rev = canReview(r);
   d.a.forEach(function (a) {
     var i = docIndex(a[1]);
     if (i >= 0) {
@@ -1358,7 +1360,7 @@ function officerItem(o) {
 function orgLine(sb) { return [sb.g, sb.ty].filter(Boolean).join(' · '); }
 function panelOfficers(r, d) {
   if (!payload.live) return '<section class="psec"><h3>Officers</h3><p class="pnote">Officer details appear when the dashboard is opened from the tracker\'s web link.</p></section>';
-  if (!canSee(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1, to FACE staff, and to the people allowed to view it.' : 'Officer names, contact details and files are shown to C1 coordinators and FACE staff after they sign in, and to the campus\'s principal and Area Office, recognized by their district Google account.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
+  if (!seesDetail(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1, to FACE staff, and to the people allowed to view it.' : 'Officer names, contact details and files are shown to C1 coordinators and FACE staff after they sign in, and to the campus\'s principal and Area Office, recognized by their district Google account.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
   var subs = d.o || [];
   if (!subs.length) return '<section class="psec"><h3>Officers</h3><p class="pnote">No officer update form has been matched to this campus for ' + esc(state.year ? state.year.replace('-', '–') : 'this year') + ' yet.</p></section>';
   var cur = subs[0], older = subs.slice(1);
@@ -1386,7 +1388,7 @@ function panelActivity(r, d, all) {
   var li = show.map(function (a) {
     var i = docIndex(a[1]), nm = a[1] ? (i >= 0 ? DOCS[i].nm : a[1]) : '';
     var text = nm ? esc(nm) + ' received' : '';
-    if (canSee(r)) {
+    if (seesDetail(r)) {
       var f = a[2] ? link(a[3], a[2]) : '';
       if (f && nm) text += ': ' + f; else if (f) text += f;
       if (a[4]) text += (text ? ' ' : '') + '<span class="nt">' + esc(a[4]) + '</span>';
@@ -1407,7 +1409,7 @@ function renderPanel(all) {
   $('#pTitle').textContent = r.campus;
   $('#pSub').textContent = r.area + (state.year ? ' · ' + state.year.replace('-', '–') : '');
   // staff come for the people to contact, so officers go above the checklist for them
-  var mid = payload.live && canSee(r) ? panelOfficers(r, d) + panelDocs(r, d) : panelDocs(r, d) + panelOfficers(r, d);
+  var mid = payload.live && seesDetail(r) ? panelOfficers(r, d) + panelDocs(r, d) : panelDocs(r, d) + panelOfficers(r, d);
   $('#pBody').innerHTML = panelStatus(r, st) + panelResend(r, d) + mid + panelActivity(r, d, all);
   return true;
 }

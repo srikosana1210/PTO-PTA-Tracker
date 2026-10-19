@@ -102,6 +102,8 @@ async function signIn(page, name, pass) {
     await page.click('[data-st="review"]');
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     check('leadership sees no checklist buttons', (await page.$$('#panel .seg button')).length === 0);
+    var lb = await page.textContent('#pBody');
+    check('without signing in, everyone in the district sees the officers and document links (FACE, 2026-10-19)', /Ann Officer/.test(lb) && /ann@example\.org/.test(lb) && (await page.$$('#pBody a[href^="https://drive.google.com/"]')).length > 0, lb.slice(0, 300));
     check('leadership sees no email box', (await page.$$('#pResend')).length === 0);
     check('no page errors (leadership)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
@@ -199,7 +201,7 @@ async function signIn(page, name, pass) {
     var card = await page.textContent('#campusCard');
     check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /What FACE tracks for a PTA/.test(card) && /Received from the form/.test(card), card);
     check('My campus shows the PTA\'s Texas PTA standing', /Texas PTA: Good Standing since 9\/9\/2026\. All five standards are checked\./.test(card), card);
-    check('My campus offers no checklist without sign-in', (await page.$$('#campusCard .campbtn')).length === 0);
+    check('My campus offers the officers and documents, not the checklist, without sign-in', /See officers and documents/.test(await page.textContent('#campusCard')) && !/Open the checklist/.test(await page.textContent('#campusCard')));
     await page.selectOption('#pickCampus', 'Anderson ES');
     card = await page.textContent('#campusCard');
     check('My campus names the C1, without contact details', /C1 coordinator is Ms\. Lee/.test(card) && !/@/.test(card), card);
@@ -215,6 +217,7 @@ async function signIn(page, name, pass) {
     check('a campus link opens My campus on that campus', !(await page.isHidden('#v-campus')) && (await page.inputValue('#pickCampus')) === 'Oak Forest ES');
     await page.close();
     /* leaders by Google account: an Area Office leader sees officers and bylaws; a principal sees everything; nobody changes anything */
+    w.g.__props.OPEN_DETAILS = '0';   // the Leaders tab matters only in the sign-in-only mode
     w.g.checkLeaders_();
     w.g.__ss.getSheetByName('Leaders').getRange(2, 1, 2, 4).setValues([['sed@houstonisd.org', 'Dr. Area', 'Area Office', 'NES Elementary'], ['prin@houstonisd.org', 'Ms. Principal', 'Principal', 'Anderson ES']]);
     w.g.__user.email = 'sed@houstonisd.org';
@@ -248,6 +251,7 @@ async function signIn(page, name, pass) {
     check('no page errors (principal)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
     w.g.__user.email = '';
+    w.g.__props.OPEN_DETAILS = '1';
 
     /* staff get the links to hand out */
     o = await openPage(browser, w); page = o.page;
