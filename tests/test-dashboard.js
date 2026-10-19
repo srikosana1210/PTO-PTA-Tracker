@@ -29,7 +29,7 @@ function world() {
   // a Texas PTA: its officer form (counts at once) and its training certificate (waits for review); bylaws are filed only
   g.processSubmission_(base.sub('Oak Forest ES', { officer: true, uploads: [base.upload(g, 'Training Certificate'), base.upload(g, 'Bylaws')] }));
   var paste = g.__ss.getSheetByName('Officer Form Paste');
-  // three officers: the email goes to the president only (FACE, 2026-10-16)
+  // three officers: the email goes to two of them, president first (FACE, 2026-10-19)
   paste.getRange(1, 1, 2, 14).setValues([['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'Officer #1: Name', 'Officer #1: Position', 'Officer #1: Email',
     'Officer #2: Name', 'Officer #2: Position', 'Officer #2: Email', 'Officer #3: Name', 'Officer #3: Position', 'Officer #3: Email', 'Your email address'],
     ['11', new Date(Date.UTC(2026, 8, 1)), 'Anderson ES', 'Anderson PTO', 'Tom Treasurer', 'Treasurer', 'tom@example.org', 'Vic Vice', 'Vice President', 'vic@example.org', 'Ann Officer', 'President', 'ann@example.org', 'tom@example.org']]);
@@ -135,7 +135,7 @@ async function signIn(page, name, pass) {
     check('saved to the register', row['Bylaws'] === 'Needs Correction' && row['Training Certificate'] === 'Accepted' && row['Bank Verification Letter'] === 'Not Needed', JSON.stringify(row));
     var href = await page.getAttribute('#pResend a[data-mail]', 'href');
     var body = decodeURIComponent(href.split('body=')[1] || '');
-    check('email goes to the president only, copies the inbox', /^mailto:ann@example\.org\?cc=ParentOrgDocs@houstonisd\.org/.test(href), href.slice(0, 120));
+    check('email goes to two officers: the president, then (no secretary on file) the vice president; not the treasurer', /^mailto:ann@example\.org,vic@example\.org\?cc=ParentOrgDocs@houstonisd\.org/.test(href), href.slice(0, 120));
     check('email lists the correction with its remark', /The organization's bylaws: Please send the signed copy\./.test(body), body);
     check('email lists what is still needed, with the remark', /We also still need these documents:[\s\S]*Annual budget report or meeting minutes showing budget approval \(The approved budget, not the draft\.\)/.test(body), body);
     check('email does not ask for the not-needed document', !/Bank account verification/i.test(body) && !/Articles of incorporation|insurance/i.test(body), body);

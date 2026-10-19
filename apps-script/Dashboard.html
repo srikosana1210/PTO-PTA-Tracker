@@ -686,7 +686,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-19a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-19b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1531,13 +1531,15 @@ function mailSource(r) {
     var k = e.toLowerCase();
     if (validEmail(e)) { if (!seen[k]) { seen[k] = 1; to.push(e); } } else if (bad.indexOf(e) < 0) bad.push(e);
   }
-  // one person (FACE, 2026-10-16): the president, else the vice president, else the secretary, else the first officer with an email,
-  // else whoever submitted the newest officer form. Sending to every officer confused people.
-  function rank(o) { var p = String(o.p || '').toLowerCase(); return /vice/.test(p) ? 2 : /president/.test(p) ? 1 : /secretary/.test(p) ? 3 : 9; }
+  // two people (FACE, 2026-10-19): the president and the secretary. When one is missing, the next in line fills the place: vice president,
+  // then treasurer, then any other officer with an email. With no officer email, whoever submitted the newest officer form.
+  // Sending to every officer confused people.
+  function rank(o) { var p = String(o.p || '').toLowerCase(); return /vice/.test(p) ? 3 : /president/.test(p) ? 1 : /secretary/.test(p) ? 2 : /treasurer/.test(p) ? 4 : 9; }
   for (var s = 0; s < subs.length && !to.length; s++) {
     var offs = (subs[s].off || []).map(function (o, i) { return { o: o, i: i }; }).filter(function (x) { return validEmail(String(x.o.e || '').trim()); });
     offs.sort(function (a, b) { return rank(a.o) - rank(b.o) || a.i - b.i; });
-    if (offs.length) add(offs[0].o.e); else add(subs[s].be);
+    offs.forEach(function (x) { if (to.length < 2) add(x.o.e); });
+    if (!to.length) add(subs[s].be);
     (subs[s].off || []).forEach(function (o) { var e = String(o.e || '').trim(); if (e && !validEmail(e) && bad.indexOf(e) < 0) bad.push(e); });
   }
   return { to: to, bad: bad };

@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-19a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-19b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -111,7 +111,7 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 18. Leadership needs no sign-in (FACE, 2026-10-15). **Since 2026-10-19a** everyone who opens the dashboard (Area Offices, principals, anyone in Houston ISD with the link) sees each PTO/PTA's officers (name, position, email, phone) and its document links, view only (`openDetail_`, Script Property `OPEN_DETAILS`, menu *Officers and documents: show to everyone / only after sign-in*). Notes, remarks, submitter and reviewer stay private. FACE will check with IT before anything finer (per-person access by Google account: the *Leaders* tab code from 16d is kept but off the menu; it only matters when `OPEN_DETAILS` is off). To open files people need view access to the Drive folder.
 19. Colors: option A (FACE, 2026-10-15): dark green header, dark green buttons, teal accents, light green for accepted documents. The mockup with the three options is `mock/pto-pta-mock.html`.
 20. Texas PTA spreadsheet (FACE, 2026-10-16): pasted weekly; PTAs with *Charter Withdrawal* are not shown. Names are matched to the register (aliases in `CFG.TXPTA_ALIASES`, then dropping leading words, flagged for checking); a Campus typed by hand on the Texas PTA tab wins. A listed campus with a blank Org Type becomes PTA. Texas PTA's contact columns are never read. A campus whose charter is withdrawn loses Org Type PTA on import, and goes back to Not Yet Confirmed if it has sent nothing (2026-10-16b). Menu **PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed** (`resetUnstarted`) does the same for the old tracker's Yes campuses, keeping senders and Texas PTAs; it asks first and saves a backup.
-21. The email to a PTO/PTA goes to one officer: the president, else the vice president, else the secretary, else the first officer with an email, else the newest form's submitter (FACE, 2026-10-16).
+21. The email to a PTO/PTA goes to two officers: the president and the secretary. When one is missing, the next in line fills the place: vice president, then treasurer, then any other officer with an email; with no officer email, the newest form's submitter (FACE, 2026-10-19; one officer from 2026-10-16).
 
 ## 6. Known gaps and risks
 
