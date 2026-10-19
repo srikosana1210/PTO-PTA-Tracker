@@ -240,7 +240,8 @@ details.defs p { margin-top: 8px; }
 .ntab.tx td { text-align: center; }
 .ntab.tx td:nth-child(2), .ntab.tx td:last-child { text-align: left; }
 .ccontact { margin-top: 16px; color: var(--ink2); font-size: 14px; }
-.ccard .campbtn { margin-top: 14px; }
+.ccard .cmore { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--grid); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.ccard .cmore p { color: var(--ink2); font-size: 14px; flex: 1 1 260px; min-width: 0; }
 details.links { margin-top: 14px; color: var(--ink2); font-size: 13.5px; }
 details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .linkrow { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; margin-top: 8px; }
@@ -290,6 +291,10 @@ details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .rcard.fix { border-left-color: var(--fix); }
 .rcard:hover { border-color: var(--teal); box-shadow: 0 6px 16px -10px var(--shadow); }
 .rcard .campbtn { font-size: 16px; }
+/* the My campus card's way into the officers and documents: a real button, so nobody has to be told it is there */
+.ccard .btn.campbtn { display: inline-flex; gap: 8px; align-items: center; background: var(--btn-bg); border: 1px solid var(--btn-bg); color: var(--btn-ink); padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 15px; min-height: 44px; }
+.ccard .btn.campbtn:hover { filter: brightness(1.12); color: var(--btn-ink); text-decoration: none; }
+.ccard .btn.campbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .rcard:hover .campbtn { color: var(--link); text-decoration: underline; }
 .dchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .dchip { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--prog-bg); color: var(--prog-ink); }
@@ -686,7 +691,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-19b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-19c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1088,7 +1093,9 @@ function renderCampusCard() {
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions? This campus\'s C1 coordinator is <b>' + esc(r.c1) + '</b>.' : 'Questions? Email ' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.') + '</p>' +
-    (seesDetail(r) ? '<div data-c="' + esc(r.campus) + '"><button type="button" class="btn campbtn" aria-haspopup="dialog">' + (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
+    (seesDetail(r) ? '<div class="cmore" data-c="' + esc(r.campus) + '"><p>' + (canReview(r) ? 'Check off documents, see the files and email the PTO/PTA.' : 'Officer names, emails and phone numbers, and the documents this ' + esc(r.ot || 'PTO/PTA') + ' has sent in.') + '</p>' +
+      '<button type="button" class="btn campbtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>' +
+      (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
 }
 
 /** Signed-in FACE staff: a link for each Area Office, for SEDs and EDs. The link opens the page on that office; nobody signs in. */
