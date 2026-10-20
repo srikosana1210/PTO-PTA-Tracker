@@ -19,7 +19,7 @@ It runs on Google: one Google Sheet, one Google Form, and one Apps Script web-ap
 | [`mock/pto-pta-mock.html`](mock/pto-pta-mock.html) | The clickable mockup FACE used to pick the colors (option A) and the leadership views. Sample data | Any browser |
 | [`docs/PLANNING.md`](docs/PLANNING.md) | How the system fits together, the rules it enforces, decisions made so far, and the backlog. **Start here before you change anything** | — |
 
-Current script version: `2026-10-19c` (the `VERSION` constant in `Code.gs`).
+Current script version: `2026-10-20a` (the `VERSION` constant in `Code.gs`).
 
 ## Setup in short
 

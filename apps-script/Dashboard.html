@@ -691,7 +691,7 @@ var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Seco
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-19c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-20a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -948,8 +948,11 @@ var SOA = ['Officers', 'Membership', 'Bylaws', 'Standing rules', '990'];
 function txCls(st) { return /good standing/i.test(st) ? 'Legalized' : /^active/i.test(st) ? 'Registered' : 'In-progress'; }
 function txTick(x) { return x === 1 ? '<span class="ic A" role="img" aria-label="Yes">' + ICON.A + '</span>' : x === 0 ? '<span class="ic C" role="img" aria-label="No">' + ICON.C + '</span>' : '<span class="zero">—</span>'; }
 function txPta(r) { return r.tx && r.tx.s ? r.tx : null; }
+/* FACE, 2026-10-20: the Texas PTA standing table is hidden on the Overview. Set this to true to bring it back; each PTA's standing still
+   shows on My campus and in the campus panel. */
+var SHOW_TX_OVERVIEW = false;
 function renderTx() {
-  var rows = scoped().filter(txPta).sort(function (a, b) { return cmp(a.campus, b.campus); });
+  var rows = SHOW_TX_OVERVIEW ? scoped().filter(txPta).sort(function (a, b) { return cmp(a.campus, b.campus); }) : [];
   $('#txSec').hidden = !rows.length;
   if (!rows.length) return;
   var good = rows.filter(function (r) { return /good standing/i.test(r.tx.s); }).length;

@@ -94,9 +94,7 @@ async function signIn(page, name, pass) {
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
     check('Legalization list has the bank letter wording and no Articles', /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && /PTAs: FACE tracks two documents/.test(defs), defs);
-    var txr = await page.$$eval('#txpta tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
-    check('Texas PTA standing lists the 11 PTAs, no withdrawn charters', txr.length === 11 && !txr.some(function (x) { return /Bonham|Northside|Wainwright/.test(x); }), txr.join(' / '));
-    check('Texas PTA standing says how many are in Good Standing and when Texas PTA updated it', /5 PTAs are in Good Standing, out of 11/.test(await page.textContent('#txHint')) && /October 15, 2026/.test(await page.textContent('#txHint')), await page.textContent('#txHint'));
+    check('Texas PTA standing is hidden on the Overview (FACE, 2026-10-20)', await page.isHidden('#txSec'));
     await page.screenshot({ path: path.join(SHOTS, 'overview.png'), fullPage: true });
     // campus panel without sign-in: no checklist, no remarks
     await page.click('[data-st="review"]');
