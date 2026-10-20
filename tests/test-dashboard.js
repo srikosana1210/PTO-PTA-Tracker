@@ -83,9 +83,11 @@ async function signIn(page, name, pass) {
     var page = o.page;
     var kpiText = await page.textContent('#kpis');
     check('no percentages on the overview', !/%/.test(await page.textContent('#v-overview')), kpiText);
-    check('tiles: PTO/PTAs, Registered, Legalized, Waiting for review', /PTO\/PTAs/.test(kpiText) && /Registered/.test(kpiText) && /Legalized/.test(kpiText) && /Waiting for review/.test(kpiText));
+    check('tiles: PTO/PTAs (the total), then what needs doing by campus', /PTO\/PTAs/.test(kpiText) && /Waiting for review/.test(kpiText) && /Sent back for correction/.test(kpiText) && /Waiting on the PTO\/PTA/.test(kpiText) && !/^Registered$/m.test(kpiText), kpiText);
+    var sum = await page.textContent('.stagesum');
+    check('the stages add up to the PTO/PTA total (tester feedback)', /= 13 PTO\/PTAs\./.test(sum), sum);
     var pto = await page.textContent('.kpi.k1 .kval');
-    check('PTO/PTAs counts campuses that sent something plus Texas PTAs', pto.trim() === '13', pto);
+    check('PTO/PTAs counts campuses that sent something plus Texas PTAs, marked active', /^13\s*active$/.test(pto.trim()), pto);
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
     check('one row per Area Office (five, plus the two campuses with no Area Office yet)', areas.length === 6, areas.join(' / '));
@@ -129,6 +131,11 @@ async function signIn(page, name, pass) {
     await page.screenshot({ path: path.join(SHOTS, 'checklist-editing.png'), fullPage: false });
     await page.click('#panel [data-act="save"]');
     await page.waitForSelector('#panel .rask', { timeout: 10000 });
+    check('the panel stays open after saving (tester feedback)', !(await page.isHidden('#panel')));
+    var ph = await page.textContent('#pBody');
+    check('each document says when it was decided and by whom', /accepted \w{3} \d+, \d{4} by Ms\. Lee/.test(ph), ph.slice(0, 600));
+    check('the panel names the C1 and when the PTO/PTA was last heard from', /C1 coordinator: Ms\. Lee/.test(ph) && /Last heard from:/.test(ph));
+    check('the organization name is at the top of the panel', /Anderson PTO/.test(await page.textContent('#pSub')), await page.textContent('#pSub'));
     var row = base.regRow(w.g, 'Anderson ES');
     check('saved to the register', row['Bylaws'] === 'Needs Correction' && row['Training Certificate'] === 'Accepted' && row['Bank Verification Letter'] === 'Not Needed', JSON.stringify(row));
     var href = await page.getAttribute('#pResend a[data-mail]', 'href');
@@ -175,8 +182,8 @@ async function signIn(page, name, pass) {
     /* ---------- campus list: FACE's filters and the Org type column ---------- */
     o = await openPage(browser, w); page = o.page;
     await page.click('[data-tab="campuses"]');
-    var chips = await page.$$eval('#chips [data-chip]', function (b) { return b.map(function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }); });
-    check('filters in FACE\'s order', JSON.stringify(chips) === JSON.stringify(['All campuses', 'All PTO/PTAs', 'PTOs', 'PTAs', 'Not started', 'In progress', 'Legalized', 'Registered', 'Waiting for review', 'Sent back for correction', 'Nothing received yet']), JSON.stringify(chips));
+    var chips = await page.$$eval('#chips .chiprow', function (rows) { return rows.map(function (row) { return [].map.call(row.querySelectorAll('[data-chip]'), function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }).join(','); }); });
+    check('three rows of filters that combine: show, status, waiting on', chips[0] === 'All campuses,All PTO/PTAs,PTOs,PTAs,Nothing received yet' && chips[1] === 'Any status,Not started,In progress,Registered,Legalized' && chips[2] === 'Anyone,Waiting for review,Sent back for correction,Waiting on the PTO/PTA,Nothing needed', JSON.stringify(chips));
     check('the table has Org type and Waiting on columns', /Campus\s*Org type\s*Status\s*Documents\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');
     var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
@@ -202,7 +209,7 @@ async function signIn(page, name, pass) {
     check('My campus offers the officers and documents, not the checklist, without sign-in', /See officers and documents/.test(await page.textContent('#campusCard')) && !/Open the checklist/.test(await page.textContent('#campusCard')));
     await page.selectOption('#pickCampus', 'Anderson ES');
     card = await page.textContent('#campusCard');
-    check('My campus names the C1, without contact details', /C1 coordinator is Ms\. Lee/.test(card) && !/@/.test(card), card);
+    check('My campus names the C1 and how to report a problem', /C1 coordinator, Ms\. Lee/.test(card) && /something wrong or out of date/.test(card) && !/lee@houstonisd/.test(card), card);
     await page.screenshot({ path: path.join(SHOTS, 'my-campus.png'), fullPage: false });
     check('no page errors (campus views)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
@@ -258,6 +265,41 @@ async function signIn(page, name, pass) {
     await page.click('details.links summary');
     var links = await page.$$eval('details.links input', function (xs) { return xs.map(function (x) { return x.value; }); });
     check('staff see a link for each Area Office', links.length === 6 && links.some(function (l) { return /\?ao=NES%20Elementary$/.test(l); }), links.join(' '));
+    await page.close();
+
+    /* ---------- tester feedback (2026-10-20): combined filters, sorting, tooltips, C1 table, progress by month, find a campus ---------- */
+    w.g.saveSnapshot_(new Date());
+    o = await openPage(browser, w); page = o.page;
+    check('progress by month shows the snapshot', !(await page.isHidden('#histSec')) && (await page.$$('#hist tbody tr')).length === 1);
+    check('the C1 table is for FACE staff only', await page.isHidden('#c1Sec'));
+    await page.click('#areas thead [data-sort="area|roster"]');
+    var firstArea = await page.$eval('#areas tbody tr th', function (x) { return x.textContent; });
+    check('a column heading sorts the Area Office table, largest first', firstArea === 'NES Elementary', firstArea);
+    await page.click('[data-tab="campuses"]');
+    await page.click('[data-dim="ty"][data-chip="pta"]');
+    await page.click('[data-dim="w"][data-chip="review"]');
+    var combo = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
+    check('filters combine: PTAs + Waiting for review', combo.join() === 'Oak Forest ES', combo.join());
+    await page.click('[data-dim="w"][data-chip="review"]');
+    check('pressing a chosen filter again clears it', (await page.$$('#clist .crow')).length === 11);
+    await page.hover('.crow[data-c="Oak Forest ES"] .strip .ic.R');
+    await page.waitForSelector('#tip:not([hidden])', { timeout: 1000 });
+    check('a document icon explains itself at once', /Training certificate/.test(await page.textContent('#tip')) && /waiting for review/i.test(await page.textContent('#tip')), await page.textContent('#tip'));
+    check('the icon legend is shown', /Waiting for review \(not late\)/.test(await page.textContent('#legend')));
+    await page.click('[data-tab="campus"]');
+    await page.fill('#pickFind', 'oak for');
+    check('My campus: type to find a campus', (await page.inputValue('#pickCampus')) === 'Oak Forest ES' && /Oak Forest ES/.test(await page.textContent('#campusCard')));
+    check('no page errors (feedback views)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
+    await page.click('[data-tab="overview"]');
+    var c1t = await page.textContent('#c1tab');
+    check('FACE staff see each C1 with their campuses and what waits for them', !(await page.isHidden('#c1Sec')) && /Ms\. Lee/.test(c1t) && /No C1 assigned/.test(c1t), c1t.slice(0, 300));
+    await page.click('[data-tab="review"]');
+    var rq = await page.$('#rq');
+    check('the review list has a search box and says whose queue it is', !!rq && /whole team's review queue/.test(await page.textContent('#reviewBody')));
+    if (rq) { await page.fill('#rq', 'ash'); check('review search narrows the list', (await page.$$eval('#rlist li', function (l) { return l.map(function (x) { return x.getAttribute('data-c'); }); })).join() === 'Ashford ES'); }
     await page.close();
 
     /* ---------- automatic reminders on: the Remind C1s buttons give way to one line ---------- */

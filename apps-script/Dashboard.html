@@ -143,6 +143,7 @@ select, input[type=search], input[type=password], input[type=text] { background:
 /* KPI cards */
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding-top: 20px; }
 .kpi { --kc: var(--k1); position: relative; display: flex; flex-direction: column; text-align: left; background: var(--surface); border: 1px solid var(--grid); border-top: 7px solid var(--kc); border-radius: 12px; padding: 16px 18px 16px; cursor: pointer; box-shadow: 0 1px 2px var(--ring), 0 8px 20px -10px var(--shadow); transition: transform .12s ease, box-shadow .12s ease; }
+.kval small { font-size: 16px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .kpi:hover { transform: translateY(-2px); box-shadow: 0 1px 2px var(--ring), 0 14px 26px -10px var(--shadow); }
 .kpi.k2 { --kc: var(--k2); } .kpi.k3 { --kc: var(--k3); } .kpi.k4 { --kc: var(--k4); }
 .khead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -168,7 +169,13 @@ select, input[type=search], input[type=password], input[type=text] { background:
 .c-prog { background: var(--b-prog); color: var(--on-b-prog); } .c-ns { background: var(--b-ns); color: var(--on-b-ns); }
 .stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .stage { --sc: var(--b-ns); display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; text-align: left; background: var(--surface); border: 1px solid var(--grid); border-left: 7px solid var(--sc); border-radius: 10px; padding: 10px 14px 11px; cursor: pointer; }
-.stage:hover { background: var(--hover); }
+.stage { transition: transform .12s ease, box-shadow .12s ease, background .12s ease; }
+.stage:hover { background: var(--hover); transform: translateY(-2px); box-shadow: 0 1px 2px var(--ring), 0 12px 22px -12px var(--shadow); }
+.stagesum { margin-top: 10px; color: var(--muted); font-size: 13px; }
+.ntab th .sortbtn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: inherit; }
+.ntab th .sortbtn:hover { color: var(--link); text-decoration: underline; }
+.ntab th .sortbtn[aria-sort] { color: var(--ink); }
+.ntab tbody th.ind { padding-left: 28px; font-weight: 400; }
 .stage.leg { --sc: var(--b-leg); } .stage.reg { --sc: var(--b-reg); } .stage.prog { --sc: var(--b-prog); } .stage.ns { --sc: var(--b-ns); }
 .stage b { display: block; font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stage .nm { display: block; margin-top: 2px; font-weight: 600; }
@@ -214,6 +221,11 @@ details.defs p { margin-top: 8px; }
 .chip[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); border-color: var(--chip-on); }
 .chip[aria-pressed="true"] b { color: var(--chip-on-n); }
 .chip.sep { margin-left: 8px; }
+.chiprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+.chiplab { min-width: 78px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
+.legend > span { display: inline-flex; gap: 6px; align-items: center; }
+.legend .ic { width: 20px; height: 20px; border-radius: 5px; }
 .ccount { margin: 12px 0 6px; color: var(--muted); font-size: 13px; }
 .chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 72px 140px 180px 130px 66px; gap: 6px 16px; align-items: center; }
 .cw { font-size: 13px; color: var(--ink2); line-height: 1.3; }
@@ -223,6 +235,7 @@ details.defs p { margin-top: 8px; }
 .pick { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-top: 22px; }
 .pick label { display: inline-flex; gap: 8px; align-items: center; color: var(--ink2); }
 .pick select { max-width: 100%; }
+.pick input[type=search] { min-width: 0; width: 260px; max-width: 100%; }
 .ccard { background: var(--surface); border: 1px solid var(--grid); border-top: 6px solid var(--teal-dk); border-radius: 12px; padding: 20px 22px; margin-top: 16px; max-width: 760px; box-shadow: 0 1px 3px var(--ring); }
 .ccard .ctop { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
 .ccard h3 { font-size: 24px; line-height: 1.2; }
@@ -291,6 +304,8 @@ details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .rcard.fix { border-left-color: var(--fix); }
 .rcard:hover { border-color: var(--teal); box-shadow: 0 6px 16px -10px var(--shadow); }
 .rcard .campbtn { font-size: 16px; }
+.rdays { font-size: 12px; color: var(--muted); align-self: center; }
+.rtools { margin: 10px 0 4px; }
 /* the My campus card's way into the officers and documents: a real button, so nobody has to be told it is there */
 .ccard .btn.campbtn { display: inline-flex; gap: 8px; align-items: center; background: var(--btn-bg); border: 1px solid var(--btn-bg); color: var(--btn-ink); padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 15px; min-height: 44px; }
 .ccard .btn.campbtn:hover { filter: brightness(1.12); color: var(--btn-ink); text-decoration: none; }
@@ -559,8 +574,18 @@ a.btn.primary { color: var(--btn-ink); }
       </div>
       <div class="sec">
         <h2>By Area Office</h2>
-        <p class="hint">Whole numbers for each Area Office. Select an Area Office to see its campuses.</p>
+        <p class="hint">Whole numbers for each Area Office. Select an Area Office to see its campuses, or a column heading to sort.</p>
         <div id="areas"></div>
+      </div>
+      <div class="sec" id="c1Sec" hidden>
+        <h2>By C1 coordinator</h2>
+        <p class="hint">For FACE staff. Each C1's campuses, what is waiting for them, and how long reviews take. Select a column heading to sort.</p>
+        <div id="c1tab"></div>
+      </div>
+      <div class="sec" id="histSec" hidden>
+        <h2>Progress by month</h2>
+        <p class="hint">Saved on the 1st of each month (PTO/PTA Tracker &gt; Progress over time). Whole numbers.</p>
+        <div id="hist"></div>
       </div>
       <div class="sec" id="txSec" hidden>
         <h2>Texas PTA standing</h2>
@@ -569,7 +594,7 @@ a.btn.primary { color: var(--btn-ink); }
       </div>
       <div class="sec">
         <h2>Documents</h2>
-        <p class="hint">For the campuses with a PTO/PTA: how many have each document accepted, waiting for review, sent back for correction, or not needed.</p>
+        <p class="hint">For the campuses with a PTO/PTA: how many have each document accepted, waiting for review, sent back for correction, or not needed. "Times sent back" counts every correction this school year, to show where mistakes are most common.</p>
         <div id="docs"></div>
       </div>
       <details class="defs" id="defs">
@@ -589,16 +614,19 @@ a.btn.primary { color: var(--btn-ink); }
           <option value="area">Area Office</option>
           <option value="least">Least complete first</option>
           <option value="most">Most complete first</option>
+          <option value="wait">Waiting longest for review</option>
+          <option value="heard">Not heard from the longest</option>
         </select></label>
       </div>
-      <div class="chips" id="chips" role="group" aria-label="Show campuses"></div>
+      <div class="chips" id="chips"></div>
+      <p class="legend" id="legend" aria-label="What the document icons mean"></p>
       <p class="ccount" id="ccount" aria-live="polite"></p>
       <div class="chead" aria-hidden="true"><span>Campus</span><span>Org type</span><span>Status</span><span>Documents</span><span>Waiting on</span><span style="text-align:right">Done</span></div>
       <ul class="clist" id="clist"></ul>
     </section>
 
     <section id="v-campus" role="tabpanel" aria-labelledby="tab-campus" tabindex="-1" hidden>
-      <div class="pick"><label for="pickCampus">Campus</label><select id="pickCampus"></select></div>
+      <div class="pick"><label for="pickFind">Find</label><input type="search" id="pickFind" placeholder="Type part of a name, for example HSPVA" autocomplete="off"><label for="pickCampus">Campus</label><select id="pickCampus"></select></div>
       <p class="hint">For principals and assistant principals: pick your campus to see what is done, what is still needed, and whether it is waiting on your PTO/PTA or on FACE.</p>
       <div id="campusCard"></div>
     </section>
@@ -674,7 +702,7 @@ var DOCS = [
 /* FACE lists the training certificate first; DOCS stays in the register's column order, so the page shows them in this order */
 var SHOW = [2, 0, 1, 3, 4, 5];
 function shown() { return SHOW.filter(function (i) { return i < DOCS.length; }); }
-var TXT = { A: 'Accepted', R: 'Received, awaiting review', C: 'Needs correction', N: 'Not received', X: 'Not needed for this PTO/PTA' };
+var TXT = { A: 'Accepted', R: 'Received, waiting for review', C: 'Needs correction', N: 'Not received', X: 'Not needed for this PTO/PTA' };
 var ICON = {
   A: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.5l2.6 2.6L11 4.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   R: '<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 4.6V7l1.7 1.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -688,10 +716,11 @@ function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '
 function count(str, ch) { var n = 0; for (var i = 0; i < str.length; i++) if (str[i] === ch) n++; return n; }
 function num(n) { return Number(n).toLocaleString('en-US'); }
 var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Secondary', 'Programs/Charters'];
+var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on the Campus Register
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-20a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-20b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -708,7 +737,7 @@ function applyLink() {
   if (LINK.campus) { var c = nk(LINK.campus); yearRows().some(function (r) { if (nk(r.campus) === c) { state.pick = r.campus; state.tab = 'campus'; return true; } return false; }); }
   LINK = { ao: '', campus: '' };
 }                      // live page: the numbers have not arrived yet
-var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', mine: false, pick: '' };
+var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', w: '', ty: '', mine: false, pick: '', sorts: {}, rq: '', rsort: 'name' };
 var session = { token: '' };
 var memTok = '';
 
@@ -784,6 +813,7 @@ function stats(rows) {
   s.nycWithDocs = rows.filter(function (r) { return r.pto === 'NYC' && anyIn(r); }).length;
   s.waitDocs = 0; s.waitCampuses = 0; s.fixDocs = 0; s.fixCampuses = 0;
   rows.forEach(function (r) { var w = count(r.d, 'R'), f = count(r.d, 'C'); if (w) { s.waitDocs += w; s.waitCampuses++; } if (f) { s.fixDocs += f; s.fixCampuses++; } });
+  s.onPto = yes.filter(function (r) { var w = waitOn(r).who; return w === 'pto' || w === 'both'; }).length;
   return s;
 }
 function plural(n, one, many) { return num(n) + ' ' + (n === 1 ? one : many); }
@@ -875,13 +905,14 @@ function kpi(cls, ico, label, val, tag, sub, frac, st, goText) {
 /* whole numbers only: no percentages and no "how complete" bars (FACE, October 2026) */
 function renderKpis(s) {
   if (!s.roster) { $('#kpis').innerHTML = '<p class="empty">No campuses match this view.</p>'; return; }
-  var wsub = s.waitDocs ? (s.waitDocs === 1 ? 'document at ' : 'documents at ') + plural(s.waitCampuses, 'campus', 'campuses') + (s.fixDocs ? '. ' + num(s.fixDocs) + ' sent back for correction.' : '.')
-    : 'Nothing is waiting' + (s.fixDocs ? '. ' + num(s.fixDocs) + ' sent back for correction.' : '.');
+  var wsub = s.waitDocs ? plural(s.waitDocs, 'document is', 'documents are') + ' waiting for FACE to check.' : 'nothing is waiting.';
+  /* tester feedback (2026-10-20): the PTO/PTAs tile is the total, the stages below add up to it, and the other tiles are what needs doing
+     now, by campus. Registered and Legalized are counted once, in "Where PTO/PTAs stand", so the tiles no longer repeat them. */
   $('#kpis').innerHTML =
-    kpi('k1', 'pto', 'PTO/PTAs', s.yes, '', num(s.roster) + ' campuses on the list' + (s.nyc ? '. ' + num(s.nyc) + ' with nothing received yet.' : '.'), null, '', 'See the campuses') +
-    kpi('k2', 'reg', 'Registered', s.registered, '', 'Includes the ' + num(s.legalized) + ' that ' + (s.legalized === 1 ? 'is' : 'are') + ' also legalized.', null, 'regall', 'See the campuses') +
-    kpi('k3', 'leg', 'Legalized', s.legalized, '', 'All ' + words(nReq()) + ' documents done.', null, 'Legalized', 'See the campuses') +
-    kpi('k4', 'wait', 'Waiting for review', s.waitDocs, '', wsub, null, 'review', 'See the campuses');
+    kpi('k1', 'pto', 'PTO/PTAs', s.yes, 'active', 'Campuses whose PTO/PTA has sent something, or that Texas PTA lists. Not the number registered: see the stages below. ' + num(s.roster) + ' campuses on the list.', null, '', 'See the campuses') +
+    kpi('k4', 'wait', 'Waiting for review', s.waitCampuses, s.waitCampuses === 1 ? 'campus' : 'campuses', wsub.charAt(0).toUpperCase() + wsub.slice(1), null, 'review', 'See the campuses') +
+    kpi('k2', 'reg', 'Sent back for correction', s.fixCampuses, s.fixCampuses === 1 ? 'campus' : 'campuses', s.fixDocs ? plural(s.fixDocs, 'document is', 'documents are') + ' waiting for the PTO/PTA to fix.' : 'Nothing is waiting to be fixed.', null, 'fix', 'See the campuses') +
+    kpi('k3', 'leg', 'Waiting on the PTO/PTA', s.onPto, s.onPto === 1 ? 'campus' : 'campuses', 'Documents still needed, or sent back to fix.', null, 'w:pto', 'See the campuses');
 }
 
 function renderStack(s) {
@@ -895,7 +926,8 @@ function renderStack(s) {
   var tiles = seg.map(function (x) {
     return '<button type="button" class="stage ' + x.c + '" data-st="' + esc(x.k) + '"><b>' + num(x.v) + '</b><span class="nm">' + esc(x.n) + '</span><span class="ds">' + esc(x.d) + '</span></button>';
   }).join('');
-  $('#stack').innerHTML = '<div class="stages" role="group" aria-label="PTO/PTAs by stage">' + tiles + '</div>';
+  $('#stack').innerHTML = '<div class="stages" role="group" aria-label="PTO/PTAs by stage">' + tiles + '</div>' +
+    '<p class="stagesum">' + num(s.legalized) + ' legalized + ' + num(s.regOnly) + ' registered + ' + num(s.inprog) + ' in progress + ' + num(s.notStarted) + ' not started = ' + plural(s.yes, 'PTO/PTA', 'PTO/PTAs') + '.</p>';
 }
 
 function renderAreas() {
@@ -905,24 +937,24 @@ function renderAreas() {
   if (!names.length) { $('#areas').innerHTML = '<p class="empty">No data.</p>'; return; }
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
   var all = stats(rows);
-  $('#areas').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Area Office</th><th scope="col">Campuses</th><th scope="col">PTO/PTAs</th><th scope="col">Registered</th><th scope="col">Legalized</th><th scope="col">Not started</th><th scope="col">Waiting for review</th></tr></thead><tbody>' +
-    names.map(function (a) {
-      var x = stats(map[a]);
-      return '<tr><th scope="row"><button type="button" class="linkbtn" data-area="' + esc(a) + '">' + esc(a) + '</button></th>' + cell(x.roster) + cell(x.yes) + cell(x.registered) + cell(x.legalized) + cell(x.notStarted) + cell(x.waitDocs) + '</tr>';
-    }).join('') +
-    '</tbody><tfoot><tr><th scope="row">All Area Offices</th>' + cell(all.roster) + cell(all.yes) + cell(all.registered) + cell(all.legalized) + cell(all.notStarted) + cell(all.waitDocs) + '</tr></tfoot></table></div>' + areaLinks(names);
+  var cols = [{ k: 'name', n: 'Area Office' }, { k: 'roster', n: 'Campuses' }, { k: 'yes', n: 'PTO/PTAs' }, { k: 'registered', n: 'Registered' }, { k: 'legalized', n: 'Legalized' }, { k: 'notStarted', n: 'Not started' }, { k: 'waitDocs', n: 'Waiting for review' }];
+  var list = names.map(function (a, i) { var x = stats(map[a]); x.name = a; x.order = i; return x; });
+  $('#areas').innerHTML = sortTable('area', cols, list, function (x) {
+    return '<tr><th scope="row"><button type="button" class="linkbtn" data-area="' + esc(x.name) + '">' + esc(x.name) + '</button></th>' + cell(x.roster) + cell(x.yes) + cell(x.registered) + cell(x.legalized) + cell(x.notStarted) + cell(x.waitDocs) + '</tr>';
+  }, '<tr><th scope="row">All Area Offices</th>' + cell(all.roster) + cell(all.yes) + cell(all.registered) + cell(all.legalized) + cell(all.notStarted) + cell(all.waitDocs) + '</tr>') +
+    (map[NO_AREA] ? '<p class="hint" style="margin-top:8px">"' + NO_AREA + '": campuses whose Area Office is empty on the Campus Register. Fill it in there.</p>' : '') + areaLinks(names);
 }
 
 function renderDocs(s) {
   var box = $('#docs');
   if (!s.yes) { box.innerHTML = '<p class="empty">No campuses with a PTO/PTA in this view.</p>'; return; }
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
-  var last = -1;
-  box.innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Document</th><th scope="col">Accepted</th><th scope="col">Waiting for review</th><th scope="col">Needs correction</th><th scope="col">Not needed</th><th scope="col">Not received</th></tr></thead><tbody>' +
+  var last = -1, sb = (payload.sentBack || {})[state.year] || {};
+  box.innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Document</th><th scope="col">Accepted</th><th scope="col">Waiting for review</th><th scope="col">Needs correction</th><th scope="col">Not needed</th><th scope="col">Not received</th><th scope="col">Times sent back</th></tr></thead><tbody>' +
     shown().map(function (i) {
       var o = s.docs[i], g = grpOf(i), head = '';
-      if (g !== last) { head = '<tr class="grprow"><td colspan="6">' + ['Registration', 'Legalization', 'Other documents (not required)'][g] + '</td></tr>'; last = g; }
-      return head + '<tr><th scope="row">' + esc(DOCS[i].label) + '</th>' + cell(o.A) + cell(o.R) + cell(o.C) + cell(o.X || 0) + cell(o.N) + '</tr>';
+      if (g !== last) { head = '<tr class="grprow"><td colspan="7">' + ['Registration', 'Legalization', 'Other documents (not required)'][g] + '</td></tr>'; last = g; }
+      return head + '<tr><th scope="row" class="ind">' + esc(DOCS[i].label) + '</th>' + cell(o.A) + cell(o.R) + cell(o.C) + cell(o.X || 0) + cell(o.N) + cell(sb[(payload.itemKeys || [])[i] || DOCS[i].key] || 0) + '</tr>';
     }).join('') + '</tbody></table></div>';
 }
 
@@ -940,7 +972,64 @@ function renderOverview(s) {
   var sc = $('#scope');
   sc.hidden = !state.area;
   if (state.area) sc.innerHTML = 'Showing <b>' + esc(state.area) + '</b> only. <button type="button" class="linkbtn" data-clear="area">Show all Area Offices</button>';
-  renderKpis(s); renderStack(s); renderAreas(); renderTx(); renderDocs(s); renderDefs();
+  renderKpis(s); renderStack(s); renderAreas(); renderC1s(); renderHist(); renderTx(); renderDocs(s); renderDefs();
+}
+
+/* a table whose column headings sort it: cols [{ k, n }], rows [{ k: value }], first column is the name; sorts kept in state.sorts */
+function sortTable(key, cols, rows, cell, foot) {
+  var so = state.sorts[key] || { k: cols[0].k, dir: 1 };
+  rows = rows.slice().sort(function (a, b) {
+    var x = a[so.k], y = b[so.k];
+    var d = typeof x === 'number' && typeof y === 'number' ? x - y : (so.k === cols[0].k && a.order !== undefined ? a.order - b.order : cmp(x, y));
+    return d * so.dir || cmp(a[cols[0].k], b[cols[0].k]);
+  });
+  var head = cols.map(function (c) {
+    var on = so.k === c.k, arrow = on ? (so.dir > 0 ? ' ▲' : ' ▼') : '';
+    return '<th scope="col"' + (on ? ' aria-sort="' + (so.dir > 0 ? 'ascending' : 'descending') + '"' : '') + '><button type="button" class="sortbtn" data-sort="' + key + '|' + c.k + '"' + (on ? ' aria-sort="1"' : '') + '>' + esc(c.n) + arrow + '</button></th>';
+  }).join('');
+  return '<div class="tscroll"><table class="ntab"><thead><tr>' + head + '</tr></thead><tbody>' + rows.map(cell).join('') + '</tbody>' + (foot ? '<tfoot>' + foot + '</tfoot>' : '') + '</table></div>';
+}
+function sortBy(spec) {
+  var p = spec.split('|'), cur = state.sorts[p[0]];
+  // a number column sorts large to small first; the name column A to Z first
+  state.sorts[p[0]] = { k: p[1], dir: cur && cur.k === p[1] ? -cur.dir : (p[1] === 'name' ? 1 : -1) };
+  render();
+}
+
+/* For signed-in FACE staff: each C1's campuses, what waits on them, and how long their reviews take (from the Submission Log). */
+function renderC1s() {
+  var me = payload.me;
+  $('#c1Sec').hidden = !(me && me.role === 'staff');
+  if ($('#c1Sec').hidden) return;
+  var by = {}, turn = (payload.turn || {})[state.year] || {};
+  scoped().forEach(function (r) {
+    var k = r.c1 || 'No C1 assigned', x = by[k] || (by[k] = { name: k, campuses: 0, yes: 0, leg: 0, reg: 0, wait: 0, oldest: 0, fix: 0, avg: -1, n: 0, order: k === 'No C1 assigned' ? 1 : 0 });
+    x.campuses++;
+    if (r.pto === 'Yes') { x.yes++; if (legDone(r)) x.leg++; else if (regDone(r)) x.reg++; }
+    x.wait += count(r.d, 'R'); x.fix += count(r.d, 'C') ? 1 : 0;
+    var dw = waitDays(r); if (dw > x.oldest) x.oldest = dw;
+  });
+  Object.keys(by).forEach(function (k) { var t = turn[k]; if (t && t.n) { by[k].avg = Math.round(t.days / t.n); by[k].n = t.n; } });
+  var others = Object.keys(turn).filter(function (k) { return !by[k]; }).map(function (k) { var t = turn[k]; return esc(k) + ': ' + plural(t.n, 'review', 'reviews') + ', ' + plural(Math.round(t.days / t.n), 'day', 'days') + ' on average'; });
+  function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
+  var cols = [{ k: 'name', n: 'C1 coordinator' }, { k: 'campuses', n: 'Campuses' }, { k: 'yes', n: 'PTO/PTAs' }, { k: 'leg', n: 'Legalized' }, { k: 'reg', n: 'Registered' },
+    { k: 'wait', n: 'Documents to review' }, { k: 'oldest', n: 'Oldest waiting (days)' }, { k: 'fix', n: 'Sent back (campuses)' }, { k: 'avg', n: 'Average days to review' }];
+  $('#c1tab').innerHTML = sortTable('c1', cols, Object.keys(by).map(function (k) { return by[k]; }), function (x) {
+    return '<tr><th scope="row">' + esc(x.name) + '</th>' + cell(x.campuses) + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.wait) + cell(x.oldest) + cell(x.fix) +
+      '<td>' + (x.avg >= 0 ? '<b>' + num(x.avg) + '</b><small> (' + plural(x.n, 'review', 'reviews') + ')</small>' : '<span class="zero">—</span>') + '</td></tr>';
+  }) + (others.length ? '<p class="hint" style="margin-top:8px">Reviews by FACE staff: ' + others.join('; ') + '.</p>' : '');
+}
+
+/* Progress by month, from the Progress History tab (one row per month, saved on the 1st) */
+var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function renderHist() {
+  var h = payload.hist || [];
+  $('#histSec').hidden = !h.length;
+  if (!h.length) return;
+  function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
+  $('#hist').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Month</th><th scope="col">PTO/PTAs</th><th scope="col">Legalized</th><th scope="col">Registered, not yet legalized</th><th scope="col">In progress</th><th scope="col">Not started</th><th scope="col">Documents waiting for review</th></tr></thead><tbody>' +
+    h.map(function (x) { var p = x.m.split('-'); return '<tr><th scope="row">' + esc((MONTHS[Number(p[1]) - 1] || p[1]) + ' ' + p[0]) + '</th>' + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.prog) + cell(x.ns) + cell(x.docs) + '</tr>'; }).join('') +
+    '</tbody></table></div>';
 }
 
 /* Texas PTA standing, from the Texas PTA spreadsheet FACE pastes in each week. Charter withdrawals are not imported. */
@@ -976,27 +1065,57 @@ function txLine(r) {
 }
 
 /* campuses */
-/* FACE's order (October 2026). Every chip always shows, with its count, so the list reads the same every time. "Registered" is a campus whose
-   status is Registered (registered, not yet legalized), like the Status column; the Registered tile on the Overview also counts the legalized. */
-var FILTERS = [
-  { k: 'all', n: 'All campuses' }, { k: '', n: 'All PTO/PTAs' }, { k: 'pto', n: 'PTOs' }, { k: 'pta', n: 'PTAs' },
-  { k: 'Not started', n: 'Not started', sep: true }, { k: 'In progress', n: 'In progress' }, { k: 'Legalized', n: 'Legalized' }, { k: 'Registered', n: 'Registered' },
-  { k: 'review', n: 'Waiting for review', sep: true }, { k: 'fix', n: 'Sent back for correction' }, { k: 'nyc', n: 'Nothing received yet' }
-];
-function inFilter(r, k) {
+/* Three rows of filters that combine (tester feedback, 2026-10-20): who to show, their status, and who the next step is waiting on.
+   For example: PTOs + Not started, or All PTO/PTAs + Waiting on FACE. The Show row keeps FACE's order from October 2026. */
+var FILTERS = {
+  ty: [{ k: 'all', n: 'All campuses' }, { k: '', n: 'All PTO/PTAs' }, { k: 'pto', n: 'PTOs' }, { k: 'pta', n: 'PTAs' }, { k: 'nyc', n: 'Nothing received yet' }],
+  st: [{ k: '', n: 'Any status' }, { k: 'Not started', n: 'Not started' }, { k: 'In progress', n: 'In progress' }, { k: 'Registered', n: 'Registered' }, { k: 'Legalized', n: 'Legalized' }],
+  w: [{ k: '', n: 'Anyone' }, { k: 'review', n: 'Waiting for review' }, { k: 'fix', n: 'Sent back for correction' }, { k: 'wpto', n: 'Waiting on the PTO/PTA' }, { k: 'done', n: 'Nothing needed' }]
+};
+var FILTER_LABEL = { ty: 'Show', st: 'Status', w: 'Waiting on' };
+function passTy(r, k) {
   switch (k) {
-    case '': return r.pto === 'Yes';
     case 'all': return true;
     case 'pto': return r.pto === 'Yes' && r.ot === 'PTO';
     case 'pta': return r.pto === 'Yes' && r.ot === 'PTA';
-    case 'regall': return r.pto === 'Yes' && regDone(r);
-    case 'review': return r.d.indexOf('R') >= 0;
-    case 'fix': return r.d.indexOf('C') >= 0;
     case 'nyc': return r.pto === 'NYC';
-    case 'no': return r.pto === 'No';
-    default: return r.pto === 'Yes' && statusOf(r) === k;
+    default: return r.pto === 'Yes';
   }
 }
+function passSt(r, k) { return !k || (k === 'regall' ? r.pto === 'Yes' && regDone(r) : r.pto === 'Yes' && statusOf(r) === k); }
+function passW(r, k) {
+  if (!k) return true;
+  if (k === 'review') return docsOf(r).some(function (i) { return r.d[i] === 'R'; });
+  if (k === 'fix') return docsOf(r).some(function (i) { return r.d[i] === 'C'; });
+  var w = waitOn(r).who;
+  return k === 'wpto' ? w === 'pto' || w === 'both' : k === 'done' ? w === 'done' : true;
+}
+function inFilter(r, f) { f = f || state; return passTy(r, f.ty) && passSt(r, f.st) && passW(r, f.w); }
+/** A key from a tile, a stage or an old link, turned into the three filters. */
+function setFilter(k) {
+  if (k === 'review' || k === 'fix') { state.ty = 'all'; state.st = ''; state.w = k; }
+  else if (k === 'w:pto') { state.ty = ''; state.st = ''; state.w = 'wpto'; }
+  else if (['all', '', 'pto', 'pta', 'nyc'].indexOf(k) >= 0) { state.ty = k; state.st = ''; state.w = ''; }
+  else { state.ty = ''; state.st = k; state.w = ''; }
+}
+/* days, from the Submission Log dates the page already has (detail.a: newest first) */
+function dayNum(s) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; }
+function todayNum() { var t = dayNum(payload.today); if (!isNaN(t)) return t; var n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 864e5; }
+/** Days since document i last arrived for this campus, or -1. */
+function arrivedDays(r, i) {
+  var a = detailFor(r).a || [];
+  for (var k = 0; k < a.length; k++) if (a[k][1] && docIndex(a[k][1]) === i) { var d = dayNum(a[k][0]); return isNaN(d) ? -1 : Math.max(0, todayNum() - d); }
+  return -1;
+}
+/** How long the oldest document waiting for review has waited, in days (0 when nothing waits). */
+function waitDays(r) { var n = 0; docsOf(r).forEach(function (i) { if (r.d[i] === 'R') n = Math.max(n, arrivedDays(r, i)); }); return n; }
+/** Days since the PTO/PTA last sent anything (a document or an officer form), or -1 when nothing is on file. */
+function heardDays(r) {
+  var a = detailFor(r).a || [];
+  for (var k = 0; k < a.length; k++) if (a[k][1]) { var d = dayNum(a[k][0]); if (!isNaN(d)) return Math.max(0, todayNum() - d); }
+  return -1;
+}
+function heardText(r) { var d = heardDays(r); return d < 0 ? 'never' : d === 0 ? 'today' : d === 1 ? 'yesterday' : num(d) + ' days ago'; }
 /** Who the next step is on: the PTO/PTA (documents still needed or sent back), FACE (documents waiting for review), both, or nobody. */
 function waitOn(r) {
   var org = r.ot === 'PTA' || r.ot === 'PTO' ? 'the ' + r.ot : 'the PTO/PTA';
@@ -1014,17 +1133,17 @@ function waitOn(r) {
 function campusBase() { var rows = scoped(); if (state.mine) rows = rows.filter(isMine); return rows; }
 
 function renderChips(base) {
-  var list = FILTERS.slice();
-  if (state.st === 'regall') list.splice(1, 0, { k: 'regall', n: 'Registered or legalized' });
-  var html = list.map(function (f) {
-    var n = base.filter(function (r) { return inFilter(r, f.k); }).length, on = state.st === f.k;
-    if (f.opt && !n && !on) return '';
-    return '<button type="button" class="chip' + (f.sep ? ' sep' : '') + '" data-chip="' + esc(f.k) + '" aria-pressed="' + on + '">' + esc(f.n) + ' <b>' + num(n) + '</b></button>';
+  var html = ['ty', 'st', 'w'].map(function (dim) {
+    var list = FILTERS[dim].slice();
+    if (dim === 'st' && state.st === 'regall') list.push({ k: 'regall', n: 'Registered or legalized' });
+    return '<div class="chiprow" role="group" aria-label="' + FILTER_LABEL[dim] + '"><span class="chiplab">' + FILTER_LABEL[dim] + '</span>' + list.map(function (f) {
+      var other = { ty: state.ty, st: state.st, w: state.w }; other[dim] = f.k;
+      var n = base.filter(function (r) { return inFilter(r, other); }).length, on = state[dim] === f.k;
+      return '<button type="button" class="chip" data-dim="' + dim + '" data-chip="' + esc(f.k) + '" aria-pressed="' + on + '">' + esc(f.n) + ' <b>' + num(n) + '</b></button>';
+    }).join('') + (dim === 'ty' && payload.me && (payload.me.role === 'c1' || isViewer()) ? '<button type="button" class="chip sep" data-mine="1" aria-pressed="' + state.mine + '">My campuses <b>' + num(scoped().filter(isMine).length) + '</b></button>' : '') + '</div>';
   }).join('');
-  if (payload.me && (payload.me.role === 'c1' || isViewer())) {
-    html += '<button type="button" class="chip sep" data-mine="1" aria-pressed="' + state.mine + '">My campuses <b>' + num(scoped().filter(isMine).length) + '</b></button>';
-  }
   $('#chips').innerHTML = html;
+  $('#legend').innerHTML = '<span><span class="ic A">' + ICON.A + '</span>Accepted</span><span><span class="ic R">' + ICON.R + '</span>Waiting for review (not late)</span><span><span class="ic C">' + ICON.C + '</span>Sent back to fix</span><span><span class="ic N">' + ICON.N + '</span>Not received</span><span><span class="ic X">' + ICON.X + '</span>Not needed</span>';
 }
 
 function stripOf(r) {
@@ -1032,7 +1151,7 @@ function stripOf(r) {
   var label = a + ' of ' + nReqOf(r) + ' required documents done' + (o ? ', ' + o + ' other documents done' : '') + (w ? ', ' + w + ' waiting for review' : '') + (c ? ', ' + c + ' need correction' : '');
   return '<span class="strip" role="img" aria-label="' + esc(label) + '">' + docsOf(r).map(function (i) {
     var d = DOCS[i], ch = r.d[i];
-    return '<span class="ic ' + ch + (isReq(i) ? '' : ' opt') + '" title="' + esc(d.label + (isReq(i) ? '' : ' (optional)') + ': ' + TXT[ch]) + '">' + ICON[ch] + '</span>';
+    return '<span class="ic ' + ch + (isReq(i) ? '' : ' opt') + '" data-tip="' + esc(d.label + '|' + TXT[ch] + (ch === 'R' && arrivedDays(r, i) >= 0 ? ', ' + plural(arrivedDays(r, i), 'day', 'days') : '')) + '">' + ICON[ch] + '</span>';
   }).join('') + '</span>';
 }
 
@@ -1040,25 +1159,28 @@ function renderCampuses() {
   var base = campusBase();
   renderChips(base);
   var q = state.q.trim().toLowerCase();
-  var rows = base.filter(function (r) { return inFilter(r, state.st) && (!q || r.campus.toLowerCase().indexOf(q) >= 0); });
+  var rows = base.filter(function (r) { return inFilter(r) && (!q || r.campus.toLowerCase().indexOf(q) >= 0); });
   var acc = accReq;
   rows.sort(function (a, b) {
     if (state.sort === 'area') return areaCmp(a.area, b.area) || cmp(a.campus, b.campus);
     if (state.sort === 'least' || state.sort === 'most') { var d = acc(a) - acc(b); if (state.sort === 'most') d = -d; return d || cmp(a.campus, b.campus); }
+    if (state.sort === 'wait') return waitDays(b) - waitDays(a) || cmp(a.campus, b.campus);
+    if (state.sort === 'heard') return heardDays(b) - heardDays(a) || cmp(a.campus, b.campus);
     return cmp(a.campus, b.campus);
   });
-  var total = base.filter(function (r) { return inFilter(r, state.st); }).length;
+  var total = base.filter(function (r) { return inFilter(r); }).length;
   $('#ccount').textContent = (q ? plural(rows.length, 'campus matches', 'campuses match') + ' your search' : 'Showing ' + plural(rows.length, 'campus', 'campuses')) + (state.mine ? ', yours only' : '') + (q ? '. ' + num(total) + ' in this list' : '') + '.';
   $('.chead').hidden = !rows.length;
   if (!rows.length) {
-    var more = q && state.st !== 'all' ? ' <button type="button" class="linkbtn" data-chip="all" data-keepq="1">Search all ' + num(base.length) + ' campuses</button>' : '';
+    var more = q && (state.ty !== 'all' || state.st || state.w) ? ' <button type="button" class="linkbtn" data-dim="ty" data-chip="all" data-keepq="1">Search all ' + num(base.length) + ' campuses</button>' : '';
     $('#clist').innerHTML = '<li class="empty">' + (q ? 'No campus in this list matches "' + esc(state.q.trim()) + '".' + more : 'No campuses to show here.') + '</li>';
     return;
   }
   $('#clist').innerHTML = rows.map(function (r) {
     var st = statusOf(r), cls = st.replace(/[^A-Za-z]+/g, '-'), w = count(r.d, 'R'), f = count(r.d, 'C');
     return '<li class="crow" data-c="' + esc(r.campus) + '"><div class="cn"><button type="button" class="campbtn" aria-haspopup="dialog">' + esc(r.campus) + '</button>' +
-      (w ? '<span class="flag R">' + w + ' waiting</span>' : '') + (f ? '<span class="flag C">' + f + ' sent back</span>' : '') + '<span class="ao">' + esc(r.area) + '</span></div>' +
+      (w ? '<span class="flag R">' + w + ' waiting' + (waitDays(r) > 0 ? ' · ' + plural(waitDays(r), 'day', 'days') : '') + '</span>' : '') + (f ? '<span class="flag C">' + f + ' sent back</span>' : '') +
+      '<span class="ao">' + esc(r.area) + (r.pto === 'Yes' && heardDays(r) >= 0 ? ' · last heard from ' + heardText(r) : '') + '</span></div>' +
       '<div class="co' + (r.ot ? '' : ' none') + '" title="Org type">' + esc(r.ot || '—') + '</div>' +
       '<div class="cs"><span class="pill ' + cls + '">' + esc(st) + '</span></div><div class="cd">' + stripOf(r) + '</div>' +
       cwCell(r) + '<div class="cc"><b>' + acc(r) + '</b> of ' + nReqOf(r) + '</div></li>';
@@ -1075,6 +1197,11 @@ var CTXT = { A: 'Accepted', R: 'With FACE for review', C: 'Sent back to fix', N:
 function renderCampusCard() {
   var rows = yearRows().slice().sort(function (a, b) { return cmp(a.campus, b.campus); });
   if (state.area) rows = rows.filter(function (r) { return r.area === state.area; });
+  var pq = String(state.pickq || '').trim().toLowerCase();
+  if (pq) {
+    var hit = rows.filter(function (r) { return r.campus.toLowerCase().indexOf(pq) >= 0; });
+    if (hit.length) { rows = hit; if (!hit.some(function (r) { return r.campus === state.pick; })) state.pick = hit[0].campus; }
+  }
   var sel = $('#pickCampus');
   if (!rows.length) { sel.innerHTML = ''; $('#campusCard').innerHTML = '<p class="empty">No campuses to show here.</p>'; return; }
   if (!rows.some(function (r) { return r.campus === state.pick; })) {
@@ -1095,7 +1222,8 @@ function renderCampusCard() {
   $('#campusCard').innerHTML = '<article class="ccard"><div class="ctop"><h3>' + esc(r.campus) + '</h3><span class="pill ' + st.replace(/[^A-Za-z]+/g, '-') + '">' + esc(st) + '</span>' +
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
-    '<p class="ccontact">' + (r.c1 ? 'Questions? This campus\'s C1 coordinator is <b>' + esc(r.c1) + '</b>.' : 'Questions? Email ' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.') + '</p>' +
+    '<p class="ccontact">' + (r.c1 ? 'Questions, or something wrong or out of date? Contact this campus\'s C1 coordinator, <b>' + esc(r.c1) + '</b>, or email ' : 'Questions, or something wrong or out of date? Email ') +
+      '<a href="mailto:' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '?subject=' + encodeURIComponent('PTO/PTA dashboard: ' + r.campus) + '">' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '</a>.</p>' +
     (seesDetail(r) ? '<div class="cmore" data-c="' + esc(r.campus) + '"><p>' + (canReview(r) ? 'Check off documents, see the files and email the PTO/PTA.' : 'Officer names, emails and phone numbers, and the documents this ' + esc(r.ot || 'PTO/PTA') + ' has sent in.') + '</p>' +
       '<button type="button" class="btn campbtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>' +
       (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
@@ -1107,7 +1235,7 @@ function areaLinks(names) {
   var base = payload.url, i = 0;
   function row(label, url) { i++; return '<div class="linkrow"><span>' + esc(label) + '</span><input type="text" readonly id="lnk' + i + '" value="' + esc(url) + '" aria-label="' + esc('Link for ' + label) + '"><button type="button" class="btn sm" data-copy="lnk' + i + '">Copy</button></div>'; }
   return '<details class="links"><summary>Links for SEDs, EDs and principals</summary><p>Each Area Office link opens the dashboard on that office. Principals and APs use the main link and pick their campus on <b>My campus</b>. Nobody needs to sign in.</p>' +
-    row('Main link', base) + names.filter(function (a) { return a !== 'No Area Office'; }).map(function (a) { return row(a, base + (base.indexOf('?') >= 0 ? '&' : '?') + 'ao=' + encodeURIComponent(a)); }).join('') + '</details>';
+    row('Main link', base) + names.filter(function (a) { return a !== NO_AREA; }).map(function (a) { return row(a, base + (base.indexOf('?') >= 0 ? '&' : '?') + 'ao=' + encodeURIComponent(a)); }).join('') + '</details>';
 }
 function copyField(btn) {
   var f = document.getElementById(btn.getAttribute('data-copy')); if (!f) return;
@@ -1117,26 +1245,40 @@ function copyField(btn) {
 }
 
 /* review (signed in only) */
+function reviewList(wait) {
+  var q = String(state.rq || '').trim().toLowerCase();
+  var list = wait.filter(function (r) { return !q || r.campus.toLowerCase().indexOf(q) >= 0; }).sort(function (a, b) {
+    if (state.rsort === 'wait') return waitDays(b) - waitDays(a) || cmp(a.campus, b.campus);
+    if (state.rsort === 'most') return count(b.d, 'R') - count(a.d, 'R') || cmp(a.campus, b.campus);
+    return cmp(a.campus, b.campus);
+  });
+  return list.length ? list.map(function (r) { return reviewCard(r, 'R', ''); }).join('') : '<li class="empty">No campus in the review list matches "' + esc(q) + '".</li>';
+}
+function refreshReviewList() { var ul = $('#rlist'); if (ul) ul.innerHTML = reviewList(yearRows().filter(canSee).filter(waiting)); }
 function reviewCard(r, ch, cls) {
   var chips = docsOf(r).map(function (i) { return r.d[i] === ch ? '<span class="dchip ' + ch + '">' + esc(DOCS[i].short) + '</span>' : ''; }).join('') +
     (ch === 'R' && newFiles(r) ? '<span class="dchip R">Other files</span>' : '');
   return '<li data-c="' + esc(r.campus) + '"><button type="button" class="rcard campbtn ' + cls + '" aria-haspopup="dialog"><span><b>' + esc(r.campus) + '</b><span class="ao">' + esc(r.area) + '</span></span>' +
-    '<span class="dchips">' + chips + '</span><span class="rgo">Open</span></button></li>';
+    '<span class="dchips">' + chips + (ch === 'R' && waitDays(r) > 0 ? '<span class="rdays">' + plural(waitDays(r), 'day', 'days') + '</span>' : '') + '</span><span class="rgo">Open</span></button></li>';
 }
 function renderReview() {
   var me = payload.me, box = $('#reviewBody');
   if (!me) { box.innerHTML = ''; return; }
   var rows = yearRows().filter(canSee);
-  var wait = rows.filter(waiting).sort(function (a, b) { return count(b.d, 'R') - count(a.d, 'R') || cmp(a.campus, b.campus); });
+  var wait = rows.filter(waiting);
   var fix = rows.filter(function (r) { return r.d.indexOf('C') >= 0; }).sort(function (a, b) { return cmp(a.campus, b.campus); });
   var docs = wait.reduce(function (n, r) { return n + count(r.d, 'R') + (newFiles(r) ? 1 : 0); }, 0);
-  var scope = me.role === 'c1' ? 'Your ' + plural(rows.length, 'campus', 'campuses') + (docs ? ', ' + num(wait.length) + ' with something to review.' : '.') : (docs ? 'At ' + plural(wait.length, 'campus', 'campuses') + '.' : 'All campuses.');
+  var scope = me.role === 'c1' ? 'Your review queue: only your ' + plural(rows.length, 'campus', 'campuses') + (docs ? ', ' + num(wait.length) + ' with something to review.' : '.')
+    : 'The whole team\'s review queue: every campus' + (docs ? ', ' + num(wait.length) + ' with something to review.' : '.');
   var out = '<div class="rsum"><h2>' + (docs ? plural(docs, 'document is', 'documents are') + ' waiting for review' : 'Nothing is waiting for review') + '</h2><p>' + esc(scope) + '</p></div>';
   var unmailed = fix.filter(function (r) { return !mailStatus(r); }).length;
   if (unmailed) out += '<div class="mailnudge" role="status"><b>' + plural(unmailed, 'campus', 'campuses') + '</b> ' + (unmailed === 1 ? 'was' : 'were') + ' sent back for correction and ' + (unmailed === 1 ? 'has' : 'have') + ' not been emailed yet. <button type="button" class="linkbtn" data-jump="fixlist">Go to the list</button></div>';
   if (!docs && !unmailed) out += '<div class="caught"><b>You are all caught up.</b>New documents show up here after they are filed from the form.</div>';
   else if (!docs) out += '<p class="hint" style="margin-top:6px">New documents show up here after they are filed from the form.</p>';
-  else out += '<p class="hint" style="margin-top:6px">Open a campus, look at each file, then check off each document and save.</p><ul class="rgrid">' + wait.map(function (r) { return reviewCard(r, 'R', ''); }).join('') + '</ul>';
+  else out += '<p class="hint" style="margin-top:6px">Open a campus, look at each file, then check off each document and save. The list keeps its order while you work.</p>' +
+    '<div class="tools2 rtools"><div class="search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg><input type="search" id="rq" placeholder="Find a campus" aria-label="Find a campus in the review list" autocomplete="off" value="' + esc(state.rq) + '"></div>' +
+    '<label>Sort <select id="rsort"><option value="name"' + (state.rsort === 'name' ? ' selected' : '') + '>Campus name</option><option value="wait"' + (state.rsort === 'wait' ? ' selected' : '') + '>Waiting longest first</option><option value="most"' + (state.rsort === 'most' ? ' selected' : '') + '>Most documents first</option></select></label></div>' +
+    '<ul class="rgrid" id="rlist">' + reviewList(wait) + '</ul>';
   if (fix.length) {
     fix.sort(function (a, b) { return (mailStatus(a) ? 1 : 0) - (mailStatus(b) ? 1 : 0) || cmp(a.campus, b.campus); });   // not yet emailed first
     out += '<h3 class="rhead" id="fixlist" tabindex="-1">Sent back for correction: email them<small>' + plural(fix.length, 'campus', 'campuses') + (unmailed ? ', ' + num(unmailed) + ' not emailed yet' : ', all emailed') + '</small></h3>' +
@@ -1178,13 +1320,13 @@ function remindHtml() {
   if (payload.remindAuto && payload.remindHook) {
     // automatic reminders are working: no buttons, just what tomorrow's email will cover and who cannot get one
     var noMail = due.filter(function (c) { return !c.e; });
-    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">Every weekday at 8 AM each C1 with something waiting gets an email from ParentOrgDocs. ' +
+    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. Every weekday at 8 AM each C1 with something waiting gets one from ParentOrgDocs. ' +
       (due.length ? 'Right now that is ' + plural(due.length - noMail.length, 'C1', 'C1s') + '.' : 'Right now no C1 has anything waiting.') + '</p>' +
       (noMail.length ? '<p class="rerr">No email on the Dashboard Sign-ins tab, so no reminder: ' + esc(noMail.map(function (c) { return c.n; }).join(', ')) + '.</p>' : '');
   }
   var out = '<h3 class="rhead" id="remind" tabindex="-1">Remind C1s<small>' + (list.length ? plural(due.length, 'C1 has', 'C1s have') + ' campuses waiting' : 'no C1s set up yet') + '</small></h3>';
   if (!list.length) return out + '<p class="hint">C1s appear here once the C1 Assignments tab and Dashboard sign-ins are set up.</p>';
-  out += '<p class="hint">' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ParentOrgDocs. You only need these buttons to send one sooner.'
+  out += '<p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. ' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ParentOrgDocs. You only need these buttons to send one sooner.'
     : '<b>Automatic reminders are off.</b> To send them every weekday morning, set up the Power Automate flow and choose "C1 reminders: send every weekday at 8 AM (turn on)" in the sheet menu. Until then, use these buttons.') +
     ' Each button writes the reminder in Outlook; read it, then press Send there.</p>' + mailPrefHtml('data-mailact');
   if (!due.length) return out + '<div class="caught"><b>No C1 has anything waiting.</b>Nothing to remind them about.</div>';
@@ -1245,14 +1387,12 @@ function detailFor(r) { var d = (payload.detail || {})[r.campus + '||' + (r.year
 function ensureDetail(r) { payload.detail = payload.detail || {}; var k = r.campus + '||' + (r.year || ''); return payload.detail[k] || (payload.detail[k] = { a: [], o: [] }); }
 
 function headline(r, st, hasAny) {
-  var reg = accReg(r), rest = accReq(r) - reg;
   if (r.pto === 'No') return 'This campus reported that it has no PTO/PTA.';
   if (r.pto !== 'Yes') return 'Nothing has been received from this campus yet. It counts as a PTO/PTA once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
-  if (isPta(r)) return st === 'Registered' ? 'Registered. FACE tracks two documents for a PTA, the training certificate and the officer information form, and both are done.'
-    : 'Not registered yet. ' + reg + ' of the ' + nRegOf(r) + ' documents FACE tracks for a PTA ' + (reg === 1 ? 'is' : 'are') + ' done' + (hasAny ? '.' : ', and nothing has been received.');
+  if (isPta(r)) return st === 'Registered' ? 'Registered. A PTA needs the training certificate and the officer information form, and both are done.' : 'Not registered yet.' + (hasAny ? '' : ' Nothing has been received.');
   if (st === 'Legalized') return 'Legalized. All ' + words(nReq()) + ' documents are done.';
-  if (st === 'Registered') return 'Registered. ' + rest + ' of the ' + (nReq() - nReg()) + ' other legalization documents ' + (rest === 1 ? 'is' : 'are') + ' done; the rest are still needed to become legalized.';
-  return 'Not registered yet. ' + reg + ' of the ' + nReg() + ' registration documents ' + (reg === 1 ? 'is' : 'are') + ' done' + (hasAny ? '.' : ', and nothing has been received.');
+  if (st === 'Registered') return 'Registered. The other legalization documents are still needed to become legalized.';
+  return 'Not registered yet.' + (hasAny ? '' : ' Nothing has been received.');
 }
 
 function panelStatus(r, st) {
@@ -1271,7 +1411,8 @@ function panelStatus(r, st) {
   return '<section class="psec"><div class="pline"><span class="pill ' + cls + '">' + esc(st) + '</span><span>' + esc(headline(r, st, hasAny)) + '</span></div>' +
     (r.pto === 'Yes' ? meter + '<div class="pcount">' + counts.join('') + '</div>' : '') +
     (pend.length ? '<div class="pcount" style="margin-top:6px"><span>Pending:</span>' + pend.join('') + '</div>' : '') +
-    (org ? '<div class="pcount" style="margin-top:6px"><span>Organization: ' + esc(org) + '</span></div>' : '') +
+    '<div class="pcount" style="margin-top:6px">' + (r.c1 ? '<span>C1 coordinator: <b>' + esc(r.c1) + '</b></span>' : '<span>No C1 coordinator assigned</span>') +
+      (r.pto === 'Yes' ? '<span>Last heard from: <b>' + esc(heardText(r)) + '</b></span>' : '') + (waitDays(r) > 0 ? '<span>Oldest document waiting: <b>' + plural(waitDays(r), 'day', 'days') + '</b></span>' : '') + '</div>' +
     (txLine(r) ? '<div class="pcount" style="margin-top:6px"><span>' + esc(txLine(r)) + '</span></div>' : '') + '</section>';
 }
 
@@ -1311,6 +1452,9 @@ function panelDocs(r, d) {
     var x = rev ? draftOf(r, i) : { s: r.d[i], m: vis ? rm.items[i] || '' : '' };
     var c = x.s, saved = r.d[i], t = DOCS[i].label + ': ' + TXT[c];
     var meta = [TXT[saved] + (rev && c !== saved ? ' (changing to: ' + TXT[c] + ')' : '')];
+    var rv = (d.rv || {})[(payload.itemKeys || [])[i] || DOCS[i].key];
+    if (rv && saved !== 'N' && saved !== 'R') meta.push(rv[0].toLowerCase() + ' ' + fmtDay(rv[1]) + (rv[2] ? ' by ' + rv[2] : ''));
+    if (saved === 'R' && arrivedDays(r, i) >= 0) meta.push('waiting ' + plural(arrivedDays(r, i), 'day', 'days'));
     if (last[i]) meta.push('last received ' + fmtDay(last[i]));
     var f = (files[i] || []).slice(0, 3).map(function (a) { return link(a[3], a[2] || 'file'); });
     var out = '<li data-item="' + i + '"' + (rev && isEdited(r, i) ? ' class="edited"' : '') + '><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div>' +
@@ -1410,6 +1554,21 @@ function panelActivity(r, d, all) {
     (!all && d.a.length > LIM ? '<button class="btn more" type="button" id="pMore">Show all ' + d.a.length + '</button>' : '') + '</section>';
 }
 
+/** Files from earlier school years for this campus (for example last year's bylaws), from the Submission Log. */
+function panelEarlier(r) {
+  if (!payload.live || !seesDetail(r)) return '';
+  var det = payload.detail || {}, years = [];
+  Object.keys(det).forEach(function (k) { var p = k.split('||'); if (nk(p[0]) === nk(r.campus) && p[1] && p[1] !== (r.year || '')) years.push(p[1]); });
+  years.sort().reverse();
+  var out = years.map(function (y) {
+    var files = (det[r.campus + '||' + y] || det[Object.keys(det).filter(function (k) { return k.split('||')[1] === y && nk(k.split('||')[0]) === nk(r.campus); })[0]] || { a: [] }).a
+      .filter(function (a) { return a[1] && a[2] && safeUrl(a[3]); });
+    if (!files.length) return '';
+    return '<li><span class="d">' + esc(y.replace('-', '–')) + '</span><span>' + files.slice(0, 20).map(function (a) { var i = docIndex(a[1]); return esc(i >= 0 ? DOCS[i].nm : a[1]) + ': ' + link(a[3], a[2]); }).join('<br>') + '</span></li>';
+  }).join('');
+  return out ? '<section class="psec"><h3>Earlier years<small>documents filed in other school years</small></h3><ul class="plist act">' + out + '</ul></section>' : '';
+}
+
 function currentRow() { return payload.rows.filter(function (x) { return x.campus === panel.campus && (x.year || '') === state.year; })[0]; }
 function renderPanel(all) {
   var r = currentRow();
@@ -1417,10 +1576,10 @@ function renderPanel(all) {
   panel.all = !!all;
   var d = detailFor(r), st = statusOf(r);
   $('#pTitle').textContent = r.campus;
-  $('#pSub').textContent = r.area + (state.year ? ' · ' + state.year.replace('-', '–') : '');
+  $('#pSub').textContent = [r.on, r.ot, r.area, state.year ? state.year.replace('-', '–') : ''].filter(Boolean).join(' · ');
   // staff come for the people to contact, so officers go above the checklist for them
   var mid = payload.live && seesDetail(r) ? panelOfficers(r, d) + panelDocs(r, d) : panelDocs(r, d) + panelOfficers(r, d);
-  $('#pBody').innerHTML = panelStatus(r, st) + panelResend(r, d) + mid + panelActivity(r, d, all);
+  $('#pBody').innerHTML = panelStatus(r, st) + panelResend(r, d) + mid + panelActivity(r, d, all) + panelEarlier(r);
   return true;
 }
 
@@ -1496,7 +1655,11 @@ function checkSaved(campus, year, res) {
   if (res.pto) r.pto = res.pto;
   var d = ensureDetail(r);
   if (res.remarks) d.rm = { items: res.remarks.items || {}, campus: res.remarks.campus || '' };
-  (res.notes || []).forEach(function (n) { d.a.unshift([res.date, '', '', '', n, res.by]); });
+  (res.notes || []).forEach(function (n) {
+    d.a.unshift([res.date, '', '', '', n, res.by]);
+    var m = /^(Accepted: |Needs correction, |Not needed, |Not there, |Put back to Received \(waiting for review\): )(.+?)(?::|\. Remark:|$)/.exec(n);
+    if (m) { d.rv = d.rv || {}; d.rv[m[2]] = [{ 'Accepted: ': 'Accepted', 'Needs correction, ': 'Sent back', 'Not needed, ': 'Not needed', 'Not there, ': 'Not there' }[m[1]] || 'Put back', res.date, String(res.by || '').replace(/\s*\([^)]*\)\s*$/, '')]; }
+  });
   var keepOpen = panel.open && panel.campus === campus;
   resetChecklist();
   panel.saved = true;
@@ -1717,7 +1880,7 @@ function mailPrefChanged(v) {
 /* ---------- live data: load, sign in, sign out ---------- */
 var loadSeq = 0, loadTimer = null;
 /** Asks the script for the dashboard numbers (leadership view when there is no token). done(ok) runs afterwards. */
-function loadLive(token, done) {
+function loadLive(token, done, fresh) {
   var seq = ++loadSeq, first = booting;
   if (first) showSpin('Loading the dashboard', 'Reading the campus register. This usually takes a few seconds.');
   clearTimeout(loadTimer);
@@ -1747,7 +1910,7 @@ function loadLive(token, done) {
       failLoad((err && err.message ? String(err.message) : 'The tracker did not answer.').replace(/^Error:\s*/, ''), first);
       if (done) done(false);
     })
-    .getDashboard(token || '');
+    .getDashboard(token || '', !!fresh);
 }
 function failLoad(msg, first) {
   if (first) { booting = true; bootCard('The dashboard could not load', msg, true); render(); }
@@ -1825,7 +1988,7 @@ function runCheck() {
 }
 
 /* ---------- events ---------- */
-function toCampuses(st) { state.st = st; state.q = ''; $('#q').value = ''; setTab('campuses'); window.scrollTo(0, 0); }
+function toCampuses(st) { setFilter(st); state.q = ''; $('#q').value = ''; setTab('campuses'); window.scrollTo(0, 0); }
 $('#app').addEventListener('click', function (e) {
   var t = e.target, el;
   if (t.closest('a[data-mail]')) return;                       // an Outlook link: the browser follows it
@@ -1835,12 +1998,18 @@ $('#app').addEventListener('click', function (e) {
     return;
   }
   if ((el = t.closest('[data-copy]'))) { copyField(el); return; }
+  if ((el = t.closest('[data-sort]'))) { sortBy(el.getAttribute('data-sort')); return; }
   if ((el = t.closest('[data-jump]'))) { var tg = document.getElementById(el.getAttribute('data-jump')); if (tg) { tg.scrollIntoView(); tg.focus({ preventScroll: true }); } return; }
   if ((el = t.closest('[data-tab]'))) { setTab(el.getAttribute('data-tab')); return; }
   if ((el = t.closest('[data-clear]'))) { state.area = ''; render(); return; }
   if ((el = t.closest('[data-st]'))) { toCampuses(el.getAttribute('data-st')); return; }
   if ((el = t.closest('[data-area]'))) { state.area = el.getAttribute('data-area'); toCampuses(''); return; }
-  if ((el = t.closest('[data-chip]'))) { state.st = el.getAttribute('data-chip'); if (!el.getAttribute('data-keepq')) { /* keep the search */ } renderCampuses(); return; }
+  if ((el = t.closest('[data-chip]'))) {
+    var dim = el.getAttribute('data-dim') || 'ty', ck = el.getAttribute('data-chip');
+    if (el.getAttribute('data-keepq')) { state.ty = 'all'; state.st = ''; state.w = ''; }
+    else state[dim] = dim !== 'ty' && state[dim] === ck ? '' : ck;     // pressing a chosen status or waiting chip again clears it
+    renderCampuses(); return;
+  }
   if ((el = t.closest('[data-mine]'))) { state.mine = !state.mine; renderCampuses(); return; }
   if ((el = t.closest('[data-c]'))) { if (el.getAttribute('data-c')) openCampus(el.getAttribute('data-c'), el.querySelector('.campbtn')); }
 });
@@ -1857,6 +2026,9 @@ $('#fYear').addEventListener('change', function (e) { closePanel(true); state.ye
 $('#q').addEventListener('input', function (e) { state.q = e.target.value; renderCampuses(); });
 $('#sort').addEventListener('change', function (e) { state.sort = e.target.value; renderCampuses(); });
 $('#pickCampus').addEventListener('change', function (e) { state.pick = e.target.value; renderCampusCard(); });
+$('#pickFind').addEventListener('input', function (e) { state.pickq = e.target.value; renderCampusCard(); });
+$('#reviewBody').addEventListener('input', function (e) { if (e.target.id === 'rq') { state.rq = e.target.value; refreshReviewList(); } });
+$('#reviewBody').addEventListener('change', function (e) { if (e.target.id === 'rsort') { state.rsort = e.target.value; refreshReviewList(); } });
 $('#signinBtn').addEventListener('click', openSignIn);
 $('#signoutBtn').addEventListener('click', function () { endSession(false); });
 $('#siForm').addEventListener('submit', function (e) { e.preventDefault(); doSignIn(); });
@@ -1867,7 +2039,7 @@ $('#siShow').addEventListener('click', function () {
 });
 $('#refreshBtn').addEventListener('click', function () {
   var b = this; b.textContent = 'Refreshing…'; b.disabled = true;
-  loadLive(session.token, function () { b.textContent = 'Refresh'; b.disabled = false; });
+  loadLive(session.token, function () { b.textContent = 'Refresh'; b.disabled = false; }, true);
 });
 $('#bootRetry').addEventListener('click', function () { loadLive(tokGet(), null); });
 $('#bootCheck').addEventListener('click', runCheck);
@@ -1977,7 +2149,7 @@ function loadText(text, name, modified) {
     var pto = p === 'yes' ? 'Yes' : p === 'no' ? 'No' : 'NYC';
     if (p && p !== 'yes' && p !== 'no' && p !== 'not yet confirmed') bad++;
     var d = di.map(function (ci) { var v = (row[ci] || '').trim().toLowerCase(); if (v in CODE) return CODE[v]; bad++; return 'N'; }).join('');
-    out.push({ campus: camp, area: (row[idx.area] || '').trim() || 'No Area Office', year: idx.year === undefined ? '' : (row[idx.year] || '').trim(), pto: pto,
+    out.push({ campus: camp, area: (row[idx.area] || '').trim() || NO_AREA, year: idx.year === undefined ? '' : (row[idx.year] || '').trim(), pto: pto,
       ot: idx.ot === undefined ? '' : (row[idx.ot] || '').trim(), on: idx.on === undefined ? '' : (row[idx.on] || '').trim(), d: d });
   }
   if (!out.length) return showError('That file has the right columns but no campus rows.');
@@ -1986,7 +2158,7 @@ function loadText(text, name, modified) {
   closePanel(true);
   state.area = ''; state.year = years().slice(-1)[0] || '';
   var n = $('#notice'); n.dataset.keep = '';
-  state.tab = 'overview'; state.st = ''; state.q = ''; $('#q').value = '';
+  state.tab = 'overview'; state.ty = ''; state.st = ''; state.w = ''; state.q = ''; $('#q').value = '';
   render();
   if (bad) { n.className = 'notice warn'; n.hidden = false; n.dataset.keep = '1'; n.textContent = num(bad) + ' cell' + (bad === 1 ? '' : 's') + ' had a value that was not recognized and ' + (bad === 1 ? 'was' : 'were') + ' treated as Not received (or Not yet confirmed).'; }
   else n.hidden = true;

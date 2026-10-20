@@ -192,7 +192,7 @@ function load(opts) {
       deleteTrigger: function (t) { triggers.splice(triggers.indexOf(t), 1); },
       newTrigger: function (fn) {
         var tr = { fn: fn, getHandlerFunction: function () { return fn; } }, b = {
-          timeBased: function () { tr.kind = 'time'; return b; }, everyDays: function (n) { tr.days = n; return b; }, atHour: function (h) { tr.hour = h; return b; },
+          timeBased: function () { tr.kind = 'time'; return b; }, everyDays: function (n) { tr.days = n; return b; }, atHour: function (h) { tr.hour = h; return b; }, onMonthDay: function (d) { tr.monthDay = d; return b; },
           forForm: function () { tr.kind = 'form'; return b; }, onFormSubmit: function () { return b; }, create: function () { triggers.push(tr); return tr; } };
         return b;
       } },

@@ -116,5 +116,6 @@ if (require.main === module) {
   try { require('./test-new'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND' || !/test-new/.test(e.message)) throw e; }
   require('./test-oct15');
   require('./test-txpta');
+  require('./test-feedback');
   process.exit(h.report() ? 0 : 1);
 }

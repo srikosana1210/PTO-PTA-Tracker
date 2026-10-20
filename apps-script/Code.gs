@@ -43,6 +43,10 @@ var CFG = {
   // SEDs, EDs, principals and APs, recognized by the district Google account they open the dashboard with (no passcode)
   TAB_LEADERS: 'Leaders',
   LEADER_HEADERS: ['Email', 'Name', 'Role', 'Area Office or Campus', 'Status'],
+  // one row per month: how many PTO/PTAs are at each stage, so the dashboard can show progress over time
+  TAB_HISTORY: 'Progress History',
+  HISTORY_HEADERS: ['Month', 'School Year', 'Saved', 'Campuses', 'PTO/PTAs', 'Legalized', 'Registered, not yet legalized', 'In progress', 'Not started', 'Nothing received yet',
+    'Documents waiting for review', 'Campuses waiting for review', 'Campuses with documents sent back'],
   TAB_TXPTA_PASTE: 'Texas PTA Paste',
   TAB_TXPTA: 'Texas PTA',
   TXPTA_HEADERS: ['Campus', 'Texas PTA Name', 'Texas PTA ID', 'PTA Status', 'Good Standing Date', 'SOA Officers', 'SOA Membership', 'SOA Bylaws',
@@ -113,7 +117,8 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-20a (Texas PTA standing hidden on the Overview)';
+var VERSION = 'Script version 2026-10-20b (tester feedback: clearer Overview, combined filters, days waiting, review history, C1 workload, monthly progress)';
+var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
 /* ================================================================== menu */
@@ -141,6 +146,8 @@ function onOpen() {
     .addItem('C1 reminders: send every weekday at 8 AM (turn on)', 'turnOnC1Reminders')
     .addItem('C1 reminders: stop sending (turn off)', 'turnOffC1Reminders')
     .addItem('C1 reminders: update the list now (sends nothing)', 'updateC1Reminders')
+    .addItem('Progress over time: save a snapshot on the 1st of every month (turn on)', 'turnOnSnapshots')
+    .addItem('Progress over time: save a snapshot now', 'saveSnapshotNow')
     .addItem('Show form and dashboard links', 'showLinks')
     .addSeparator()
     .addItem('Refresh the campus list in the form', 'refreshCampusList')
@@ -918,7 +925,7 @@ function texasPtaSummary_(r) {
 function importTexasPta_() {
   var lock = LockService.getScriptLock();
   lock.waitLock(60000);
-  try { return importTexasPtaLocked_(); } finally { lock.releaseLock(); }
+  try { return importTexasPtaLocked_(); } finally { clearPageCache_(); lock.releaseLock(); }
 }
 
 function importTexasPtaLocked_() {
@@ -1202,12 +1209,12 @@ function signOut(token) {
 }
 
 /** What the page shows. No token (or a dead one) gets the leadership view. */
-function getDashboard(token) {
+function getDashboard(token, fresh) {
   var who = token ? sessionFrom_(token) : null;
   var lead = who ? null : leaderFor_(activeEmail_());   // no passcode session: is this a leader, by their Google account?
   var access = who ? (who.role === 'staff' ? { staff: true, name: who.name } : { c1: { name: who.name, campuses: who.campuses }, viewer: who.role === 'viewer' })
     : lead ? { c1: { name: lead.name, campuses: lead.campuses }, viewer: true, level: lead.level } : null;
-  var p = getPayload_(access);
+  var p = access ? getPayload_(access) : cachedPublicPayload_(!!fresh);
   if (token && !who) p.sessionEnded = true;
   p.people = signInNames_();
   p.version = VERSION;
@@ -1713,7 +1720,7 @@ function getPayload_(access) {
     var p = String(v[t.col['Has PTO or PTA']] || '').trim().toLowerCase();
     rows.push({
       campus: campus,
-      area: String(v[t.col['Area Office']] || '').trim() || 'No Area Office',
+      area: String(v[t.col['Area Office']] || '').trim() || NO_AREA,
       year: String(v[t.col['School Year']] || '').trim(),
       pto: p === 'yes' ? 'Yes' : p === 'no' ? 'No' : 'NYC',
       ot: String(v[t.col['Org Type']] || '').trim(),
@@ -1729,6 +1736,9 @@ function getPayload_(access) {
   // Every campus's status is in the page for everyone. Officer names, contact details, file links and notes are added only for
   // the campuses the signed-in person may see: all of them for FACE staff, a C1's own list for a C1, none for leadership.
   var open = openDetails_();
+  var stats = { sentBack: {}, turn: {} }, hist = [];
+  try { stats = logStats_(); } catch (err) { stats = { sentBack: {}, turn: {} }; }
+  try { hist = historyRows_(currentYear_()); } catch (err) { hist = []; }
   var detail = open ? openDetail_(buildDetail_(true, tz, null)) : buildDetail_(false, tz, null);
   if (staff) detail = buildDetail_(true, tz, null);
   else if (c1) {
@@ -1741,7 +1751,8 @@ function getPayload_(access) {
     itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
     reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
     c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
-    asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, open: open, rows: rows, detail: detail };
+    asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, open: open, rows: rows, detail: detail,
+    sentBack: stats.sentBack, turn: staff ? stats.turn : null, hist: hist, today: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd') };
 }
 
 function safeTrigger_() { try { return reminderTrigger_(); } catch (err) { return false; } }
@@ -2024,7 +2035,15 @@ function buildDetail_(staff, tz, only) {
       acts.push({ k: campus + '||' + year, i: i, d: entry[0], e: entry, campus: campus, year: year });
     }
     acts.sort(function (x, y) { return x.d < y.d ? 1 : x.d > y.d ? -1 : y.i - x.i; });
-    acts.forEach(function (a) { var s = slot(a.campus, a.year); if (s.a.length < 60) s.a.push(a.e); });
+    acts.forEach(function (a) {
+      var s = slot(a.campus, a.year);
+      if (s.a.length < 60) s.a.push(a.e);
+      // the newest decision on each document: [what, date, by] (who is private: openDetail_ drops it)
+      if (staff && !a.e[1]) {
+        var rv = reviewOf_(a.e[4]);
+        if (rv) { s.rv = s.rv || {}; if (!s.rv[rv.key]) s.rv[rv.key] = [rv.s, a.e[0], byName_(a.e[5])]; }
+      }
+    });
   }
   if (staff && ss.getSheetByName(CFG.TAB_OFFICERS)) {
     var ot = table_(CFG.TAB_OFFICERS), oc = ot.col;
@@ -2130,6 +2149,7 @@ function firstEmptyRow_(t) {
 function setCell_(t, rowNum, header, value) {
   if (t.col[header] === undefined) throw new Error('Campus Register has no column headed "' + header + '".');
   t.sh.getRange(rowNum, t.col[header] + 1).setValue(value);
+  clearPageCache_();
 }
 
 /** Writes register input columns for a list of {header: value} objects starting at startRow. */
@@ -2161,6 +2181,7 @@ function appendLog_(rows) {
   if (last > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), last - sh.getMaxRows());
   sh.getRange(start, 7, rows.length, 1).setNumberFormat('@');   // School Year, so 2026-27 is not turned into a date
   sh.getRange(start, 1, rows.length, width).setValues(rows.map(function (r) { var x = r.slice(0, width); while (x.length < width) x.push(''); return x; }));
+  clearPageCache_();
 }
 
 function campusNames_() {
@@ -2962,6 +2983,157 @@ function setItemValidation_() {
  * Campuses of the school year marked Yes that have sent nothing: every document Not Received, no officer form on the Officers tab and no
  * line in the Submission Log. apply = true sets them to Not Yet Confirmed. Returns how many.
  */
+/* ================================================================== review history, workload and progress (tester feedback, 2026-10-20) */
+
+/** A Submission Log note that decides a document: { key, s: Accepted | Sent back | Not needed | Not there | Put back }, or null. */
+function reviewOf_(note) {
+  var n = cellText_(note), s = '';
+  if (n.indexOf('Accepted: ') === 0) s = 'Accepted';
+  else if (n.indexOf('Needs correction, ') === 0) s = 'Sent back';
+  else if (n.indexOf('Not needed, ') === 0) s = 'Not needed';
+  else if (n.indexOf('Not there, ') === 0) s = 'Not there';
+  else if (n.indexOf('Put back to Received') === 0) s = 'Put back';
+  if (!s) return null;
+  var it = itemNote_(n);
+  return it && it.key ? { key: it.key, s: s } : null;
+}
+
+/** "Ms. Lee (C1)" -> "Ms. Lee": the name a reviewer is logged under. */
+function byName_(by) { return cellText_(by).replace(/\s*\([^)]*\)\s*$/, ''); }
+
+/**
+ * From the Submission Log, for each school year: how many times each document was sent back for correction, and how many days each
+ * reviewer took to decide (from the day a document arrived to the day it was accepted, sent back or marked not needed).
+ * Returns { sentBack: { year: { key: n } }, turn: { year: { name: { n, days } } } }.
+ */
+function logStats_() {
+  var out = { sentBack: {}, turn: {} };
+  if (!SpreadsheetApp.getActive().getSheetByName(CFG.TAB_LOG)) return out;
+  var lt = table_(CFG.TAB_LOG), c = lt.col, arrived = {};
+  for (var i = 1; i < lt.values.length; i++) {
+    var v = lt.values[i], campus = norm_(v[c['Campus']]), year = cellText_(v[c['School Year']]), when = toDate_(v[c['Received']]);
+    if (!campus || !year) continue;
+    var doc = cellText_(v[c['Document Type']]);
+    if (doc) {
+      var it = itemByKey_(doc);
+      if (it && when && !arrived[campus + '||' + year + '||' + it.key]) arrived[campus + '||' + year + '||' + it.key] = when;   // the first arrival still waiting
+      continue;
+    }
+    var rv = reviewOf_(v[c['Notes']]);
+    if (!rv) continue;
+    if (rv.s === 'Sent back') { var sb = out.sentBack[year] = out.sentBack[year] || {}; sb[rv.key] = (sb[rv.key] || 0) + 1; }
+    var k = campus + '||' + year + '||' + rv.key, from = arrived[k];
+    if (from && when && (rv.s === 'Accepted' || rv.s === 'Sent back' || rv.s === 'Not needed')) {
+      var nm = byName_(v[c['Submitted By']]) || 'Someone';
+      var ty = out.turn[year] = out.turn[year] || {}, rec = ty[nm] = ty[nm] || { n: 0, days: 0 };
+      rec.n++; rec.days += Math.max(0, Math.round((when.getTime() - from.getTime()) / 86400000));
+      delete arrived[k];
+    }
+  }
+  return out;
+}
+
+/** The stage of one register row, the way the dashboard counts it (a PTA: two documents, never Legalized). */
+function stageOf_(v, t, flags) {
+  var pto = cellText_(v[t.col['Has PTO or PTA']]);
+  if (pto !== 'Yes') return pto === 'No' ? 'No PTO/PTA' : 'Nothing received yet';
+  var pta = isPtaRow_(v, t), regDone = true, legDone = !pta, any = false;
+  CFG.ITEMS.forEach(function (it, i) {
+    if (!tracksItem_(it, pta)) return;
+    var st = cellText_(v[t.col[it.key]]), done = st === 'Accepted' || st === 'Not Needed';
+    if (st && st !== 'Not Received' && st !== 'Not Needed') any = true;
+    if ((pta || flags.reg[i]) && !done) regDone = false;
+    if (!pta && (flags.req[i] || flags.reg[i]) && !done) legDone = false;
+  });
+  return legDone && regDone ? 'Legalized' : regDone ? 'Registered' : any ? 'In progress' : 'Not started';
+}
+
+/** Saves this month's counts on the Progress History tab (one row per month: saving again in the same month replaces it). */
+function saveSnapshot_(now) {
+  now = now || new Date();
+  var ss = SpreadsheetApp.getActive(), tz = ss.getSpreadsheetTimeZone(), year = currentYear_(), month = Utilities.formatDate(now, tz, 'yyyy-MM');
+  var t = table_(CFG.TAB_REGISTER), flags = itemFlags_(), n = { campuses: 0, yes: 0, Legalized: 0, Registered: 0, 'In progress': 0, 'Not started': 0, nyc: 0, docs: 0, wait: 0, fix: 0 };
+  for (var i = 1; i < t.values.length; i++) {
+    var v = t.values[i];
+    if (!cellText_(v[t.col['Campus']]) || cellText_(v[t.col['School Year']]) !== year) continue;
+    n.campuses++;
+    var st = stageOf_(v, t, flags);
+    if (st === 'Nothing received yet') n.nyc++;
+    else if (st !== 'No PTO/PTA') { n.yes++; n[st]++; }
+    var pta = isPtaRow_(v, t), w = 0, f = 0;
+    CFG.ITEMS.forEach(function (it) { if (!tracksItem_(it, pta)) return; var x = cellText_(v[t.col[it.key]]); if (x === 'Received') w++; if (x === 'Needs Correction') f++; });
+    n.docs += w; if (w) n.wait++; if (f) n.fix++;
+  }
+  var sh = ensureTab_(CFG.TAB_HISTORY, CFG.HISTORY_HEADERS);
+  var row = [month, year, Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm'), n.campuses, n.yes, n.Legalized, n.Registered, n['In progress'], n['Not started'], n.nyc, n.docs, n.wait, n.fix];
+  var vals = sh.getDataRange().getValues(), at = -1;
+  for (var r = 1; r < vals.length; r++) if (cellText_(vals[r][0]) === month || (isDate_(vals[r][0]) && Utilities.formatDate(vals[r][0], tz, 'yyyy-MM') === month)) at = r + 1;
+  if (at < 0) at = Math.max(sh.getLastRow(), 1) + 1;
+  sh.getRange(at, 1, 1, 1).setNumberFormat('@');
+  sh.getRange(at, 1, 1, row.length).setValues([row]);
+  clearPageCache_();
+  return { month: month, row: row };
+}
+
+/** Called by the monthly trigger. */
+function saveMonthlySnapshot() { saveSnapshot_(new Date()); }
+
+function saveSnapshotNow() {
+  var ui = SpreadsheetApp.getUi();
+  try { var r = saveSnapshot_(new Date()); ui.alert('Snapshot saved', 'This month (' + r.month + ') is saved on the ' + CFG.TAB_HISTORY + ' tab: ' + r.row[4] + ' PTO/PTAs, ' + r.row[5] + ' legalized, ' + r.row[6] + ' registered and not yet legalized. The Overview shows one row per month.', ui.ButtonSet.OK); }
+  catch (err) { ui.alert('Not saved', err.message, ui.ButtonSet.OK); }
+}
+
+function turnOnSnapshots() {
+  var ui = SpreadsheetApp.getUi();
+  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === 'saveMonthlySnapshot') ScriptApp.deleteTrigger(tr); });
+  ScriptApp.newTrigger('saveMonthlySnapshot').timeBased().onMonthDay(1).atHour(6).create();
+  var r = saveSnapshot_(new Date());
+  ui.alert('Progress over time is on', 'A snapshot is saved on the 1st of every month at about 6 AM, on the ' + CFG.TAB_HISTORY + ' tab. This month (' + r.month + ') is saved now. The Overview shows them under "Progress by month".', ui.ButtonSet.OK);
+}
+
+/** The Progress History rows of one school year, oldest first: [{ m, yes, leg, reg, prog, ns, nyc, docs }]. */
+function historyRows_(year) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_HISTORY), out = [];
+  if (!sh) return out;
+  var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  sh.getDataRange().getValues().slice(1).forEach(function (r) {
+    if (cellText_(r[1]) !== year) return;
+    var m = isDate_(r[0]) ? Utilities.formatDate(r[0], tz, 'yyyy-MM') : cellText_(r[0]);
+    if (m) out.push({ m: m, yes: Number(r[4]) || 0, leg: Number(r[5]) || 0, reg: Number(r[6]) || 0, prog: Number(r[7]) || 0, ns: Number(r[8]) || 0, nyc: Number(r[9]) || 0, docs: Number(r[10]) || 0 });
+  });
+  out.sort(function (a, b) { return a.m < b.m ? -1 : a.m > b.m ? 1 : 0; });
+  return out;
+}
+
+/*
+ * The page's numbers for someone not signed in are the same for everybody, so they are kept in the script cache for five minutes:
+ * the page then opens faster as the log grows. Any write through the script (setCell_, appendLog_, a snapshot) clears it, and the
+ * page's Refresh button asks for fresh numbers. A change typed straight into the sheet shows within five minutes.
+ */
+var PAGE_CACHE_SECONDS = 300, PAGE_CACHE_CHUNK = 90000;
+function clearPageCache_() { try { CacheService.getScriptCache().remove('pp'); } catch (err) { /* a cache is only a nicety */ } }
+function cachedPublicPayload_(fresh) {
+  var c = CacheService.getScriptCache();
+  if (!fresh) {
+    try {
+      var n = Number(c.get('pp') || 0);
+      if (n > 0) {
+        var parts = [];
+        for (var i = 0; i < n; i++) { var x = c.get('pp' + i); if (x === null) { parts = null; break; } parts.push(x); }
+        if (parts) return JSON.parse(parts.join(''));
+      }
+    } catch (err) { /* build it again */ }
+  }
+  var p = getPayload_(null);
+  try {
+    var js = JSON.stringify(p), k = 0;
+    for (var at = 0; at < js.length; at += PAGE_CACHE_CHUNK) c.put('pp' + (k++), js.slice(at, at + PAGE_CACHE_CHUNK), PAGE_CACHE_SECONDS + 30);
+    c.put('pp', String(k), PAGE_CACHE_SECONDS);
+  } catch (err) { /* too big or the cache is busy: no harm */ }
+  return p;
+}
+
 /* ================================================================== officers and documents for everyone in the district */
 
 /*
@@ -2975,12 +3147,14 @@ function openDetails_() { return PropertiesService.getScriptProperties().getProp
 function openDetailsOn() {
   var ui = SpreadsheetApp.getUi();
   PropertiesService.getScriptProperties().setProperty('OPEN_DETAILS', '1');
+  clearPageCache_();
   ui.alert('Officers and documents: shown to everyone in the district', 'Anyone in Houston ISD who opens the dashboard now sees each PTO/PTA\'s officers (name, position, email, phone) and the links to its documents, view only. Nobody signs in for this. Notes and remarks stay private.\n\nTo open a file, people also need view access to the Parent Org Documents folder in Drive (Share > General access > Houston ISD > Viewer).', ui.ButtonSet.OK);
 }
 
 function openDetailsOff() {
   var ui = SpreadsheetApp.getUi();
   PropertiesService.getScriptProperties().setProperty('OPEN_DETAILS', '0');
+  clearPageCache_();
   ui.alert('Officers and documents: only after sign-in', 'Officers and document links are now shown only to signed-in C1s (their own campuses) and FACE staff. Everyone else sees campus status only.', ui.ButtonSet.OK);
 }
 
@@ -2991,6 +3165,7 @@ function openDetail_(detail) {
     d.a = (d.a || []).map(function (e) { return e.length > 2 ? [e[0], e[1], e[2], e[3]] : e; });
     d.o = (d.o || []).map(function (sb) { return { d: sb.d, id: sb.id, g: sb.g, ty: sb.ty, off: (sb.off || []).map(function (o) { return { s: o.s, n: o.n, p: o.p, e: o.e, t: o.t, r: o.r }; }) }; });
     delete d.rm;
+    if (d.rv) Object.keys(d.rv).forEach(function (key) { d.rv[key] = [d.rv[key][0], d.rv[key][1]]; });   // the date of a decision, not who made it
   });
   return detail;
 }
@@ -3050,6 +3225,7 @@ function limitToBylaws_(detail) {
     var d = detail[k];
     d.a = (d.a || []).map(function (e) { return norm_(e[1]) === bylaws ? [e[0], e[1], e[2], e[3]] : [e[0], e[1]]; });
     delete d.rm;
+    if (d.rv) Object.keys(d.rv).forEach(function (key) { d.rv[key] = [d.rv[key][0], d.rv[key][1]]; });
   });
   return detail;
 }

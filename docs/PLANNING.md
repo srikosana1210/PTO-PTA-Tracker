@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-20a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-20b`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -112,6 +112,7 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 19. Colors: option A (FACE, 2026-10-15): dark green header, dark green buttons, teal accents, light green for accepted documents. The mockup with the three options is `mock/pto-pta-mock.html`.
 20. Texas PTA spreadsheet (FACE, 2026-10-16): pasted weekly; PTAs with *Charter Withdrawal* are not shown. Names are matched to the register (aliases in `CFG.TXPTA_ALIASES`, then dropping leading words, flagged for checking); a Campus typed by hand on the Texas PTA tab wins. A listed campus with a blank Org Type becomes PTA. Texas PTA's contact columns are never read. A campus whose charter is withdrawn loses Org Type PTA on import, and goes back to Not Yet Confirmed if it has sent nothing (2026-10-16b). Menu **PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed** (`resetUnstarted`) does the same for the old tracker's Yes campuses, keeping senders and Texas PTAs; it asks first and saves a backup.
 21. The email to a PTO/PTA goes to two officers: the president and the secretary. When one is missing, the next in line fills the place: vice president, then treasurer, then any other officer with an email; with no officer email, the newest form's submitter (FACE, 2026-10-19; one officer from 2026-10-16).
+22. Tester feedback (Eric, 2026-10-20), built in 2026-10-20b: the Overview tiles are the PTO/PTA total ("active") plus what needs doing by campus (waiting for review, sent back, waiting on the PTO/PTA); Registered and Legalized are counted once, in the stages, with a line showing they add up to the total. Campuses filter on three rows that combine (Show / Status / Waiting on). Days waiting, last heard from, who decided each document and when (who: signed-in only), earlier years' files, per-C1 workload and review turnaround (FACE staff only), "Times sent back" per document, and monthly snapshots on the **Progress History** tab (menu *Progress over time*). The public page's numbers are cached for five minutes (`cachedPublicPayload_`); writes through the script clear the cache, and Refresh asks for fresh numbers. A campus with an empty Area Office shows as "Area Office not set".
 
 ## 6. Known gaps and risks
 
