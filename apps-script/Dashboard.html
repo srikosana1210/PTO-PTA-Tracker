@@ -305,6 +305,12 @@ details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .rcard:hover { border-color: var(--teal); box-shadow: 0 6px 16px -10px var(--shadow); }
 .rcard .campbtn { font-size: 16px; }
 .rdays { font-size: 12px; color: var(--muted); align-self: center; }
+.upl { margin-top: 10px; padding: 12px 14px; border: 1px dashed var(--axis); border-radius: 10px; background: var(--lt1); display: grid; gap: 8px; }
+.upl .uph { font-weight: 600; font-size: 13.5px; }
+.upl input[type=file] { max-width: 100%; }
+.upmode { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; }
+.upmode label { display: inline-flex; gap: 6px; align-items: center; }
+.mvbtn { font-size: 12.5px; margin-left: 4px; }
 .rtools { margin: 10px 0 4px; }
 /* the My campus card's way into the officers and documents: a real button, so nobody has to be told it is there */
 .ccard .btn.campbtn { display: inline-flex; gap: 8px; align-items: center; background: var(--btn-bg); border: 1px solid var(--btn-bg); color: var(--btn-ink); padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 15px; min-height: 44px; }
@@ -720,7 +726,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-20b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-23a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1456,7 +1462,9 @@ function panelDocs(r, d) {
     if (rv && saved !== 'N' && saved !== 'R') meta.push(rv[0].toLowerCase() + ' ' + fmtDay(rv[1]) + (rv[2] ? ' by ' + rv[2] : ''));
     if (saved === 'R' && arrivedDays(r, i) >= 0) meta.push('waiting ' + plural(arrivedDays(r, i), 'day', 'days'));
     if (last[i]) meta.push('last received ' + fmtDay(last[i]));
-    var f = (files[i] || []).slice(0, 3).map(function (a) { return link(a[3], a[2] || 'file'); });
+    var f = (files[i] || []).slice(0, 3).map(function (a) {
+      return link(a[3], a[2] || 'file') + (rev && canUpload(i) ? ' <button type="button" class="linkbtn mvbtn" data-act="mvopen" data-i="' + i + '" data-l="' + esc(a[3]) + '">Wrong document?</button>' : '');
+    });
     var out = '<li data-item="' + i + '"' + (rev && isEdited(r, i) ? ' class="edited"' : '') + '><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div>' +
       '<div class="meta">' + esc(meta.join(' · ')) + '</div>' + (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '');
     if (!rev) return out + (x.m ? '<div class="rnote">Remark: ' + esc(x.m) + '</div>' : '') + '</div></li>';
@@ -1464,6 +1472,7 @@ function panelDocs(r, d) {
     out += '<div class="seg" role="group" aria-label="' + esc('Check off: ' + DOCS[i].label) + '">' + CHOICES.map(function (ch) {
       return '<button type="button" data-act="pick" data-i="' + i + '" data-v="' + ch[0] + '" aria-pressed="' + (c === ch[0]) + '"' + dis + '>' + esc(ch[1]) + '</button>';
     }).join('') + '</div>';
+    out += uploadHtml(r, i);
     var need = c === 'C' || c === 'X', open = need || x.m || panel.showRm[i];
     if (open) {
       out += '<div class="rmk"><label for="rmk' + i + '">' + (c === 'C' ? 'What needs to be corrected? (goes into the email)' : c === 'X' ? 'Why is it not needed? (for example: a PTA covered by Texas PTA)' : 'Remark (goes into the email)') + '</label>' +
@@ -1474,7 +1483,8 @@ function panelDocs(r, d) {
   var groups = [[], [], []];
   docsOf(r).forEach(function (i) { groups[grpOf(i, r)].push(item(i)); });
   var help = rev ? '<p class="pnote rhelp">Open each file, then check off each document: it\'s there, it needs correction, it\'s not there, or it\'s not needed for this PTO/PTA. ' +
-    'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registration and Legalization. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you.</p>' : '';
+    'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registration and Legalization. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you. ' +
+    'Got the right file from the PTO/PTA yourself? Use <b>Upload a file</b> under a document. A file under the wrong document? Use <b>Wrong document?</b> next to it.</p>' : '';
   var out = '<section class="psec" id="pChecklist"><h3>' + (isPta(r) ? 'Registration<small>a PTA needs these two</small>' : 'Registration') + '</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
     (groups[1].length ? '<section class="psec"><h3>Legalization<small>also needed to become legalized</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' : '') +
     (groups[2].length ? '<section class="psec"><h3>Other documents<small>not required</small></h3><ul class="plist chk">' + groups[2].join('') + '</ul></section>' : '');
@@ -1554,6 +1564,101 @@ function panelActivity(r, d, all) {
     (!all && d.a.length > LIM ? '<button class="btn more" type="button" id="pMore">Show all ' + d.a.length + '</button>' : '') + '</section>';
 }
 
+/* ---------- uploading a document, and moving a file filed under the wrong document (signed-in C1s and FACE staff) ---------- */
+var UPLOAD_EXT = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'heic', 'tif', 'tiff'], UPLOAD_MAX = 10 * 1024 * 1024;
+function docKey(i) { return (payload.itemKeys || [])[i] || DOCS[i].key; }
+/** The officer information form comes from the officer form, not a file. */
+function canUpload(i) { return DOCS[i].key !== 'Officer Information'; }
+function modeRadios(name) {
+  return '<div class="upmode" role="radiogroup" aria-label="After uploading"><label><input type="radio" name="' + name + '" value="accept" checked> Upload and accept</label>' +
+    '<label><input type="radio" name="' + name + '" value="review"> Upload for review</label></div>';
+}
+function uploadHtml(r, i) {
+  if (!canUpload(i)) return '';
+  var busy = panel.upBusy ? ' disabled' : '';
+  if (panel.mv && panel.mv.i === i) {
+    var opts = docsOf(r).filter(function (j) { return j !== i && canUpload(j); }).map(function (j) { return '<option value="' + j + '">' + esc(DOCS[j].nm) + '</option>'; }).join('');
+    return '<div class="upl"><p class="uph">This file was filed under the wrong document. It is really:</p><select id="mvTo">' + opts + '</select>' + modeRadios('mvm').replace('Upload and accept', 'Move and accept').replace('Upload for review', 'Move for review') +
+      '<div class="rctl"><button type="button" class="btn sm primary" data-act="mvgo" data-i="' + i + '"' + busy + '>' + (panel.upBusy ? 'Moving…' : 'Move the file') + '</button><button type="button" class="btn sm" data-act="upcancel"' + busy + '>Cancel</button></div>' +
+      (panel.upErr ? '<p class="rerr" role="alert">' + esc(panel.upErr) + '</p>' : '') + '</div>';
+  }
+  if (panel.up !== i) return '<div class="rmk-show"><button type="button" class="linkbtn" data-act="upopen" data-i="' + i + '">Upload a file</button></div>';
+  return '<div class="upl"><label class="uph" for="upf' + i + '">Upload ' + esc(DOCS[i].nm.toLowerCase()) + ' for ' + esc(r.campus) + '</label>' +
+    '<input type="file" id="upf' + i + '" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.heic,.tif,.tiff"' + busy + '>' + modeRadios('upm' + i) +
+    '<p class="pnote">PDF, Word or a picture, up to 10 MB. It is filed in the campus folder under its own name, and any file already there stays.</p>' +
+    '<div class="rctl"><button type="button" class="btn sm primary" data-act="upgo" data-i="' + i + '"' + busy + '>' + (panel.upBusy ? 'Uploading…' : 'Upload') + '</button><button type="button" class="btn sm" data-act="upcancel"' + busy + '>Cancel</button></div>' +
+    (panel.upErr ? '<p class="rerr" role="alert">' + esc(panel.upErr) + '</p>' : '') + '</div>';
+}
+/** After a save, an upload or a move: the new log lines and each document's latest decision, without reloading the page. */
+function applyNotes(d, res) {
+  (res.notes || []).forEach(function (n) {
+    d.a.unshift([res.date, '', '', '', n, res.by]);
+    var m = /^(Accepted: |Needs correction, |Not needed, |Not there, |Put back to Received \(waiting for review\): )(.+?)(?::|\. Remark:|$)/.exec(n);
+    if (m) { d.rv = d.rv || {}; d.rv[m[2]] = [{ 'Accepted: ': 'Accepted', 'Needs correction, ': 'Sent back', 'Not needed, ': 'Not needed', 'Not there, ': 'Not there' }[m[1]] || 'Put back', res.date, String(res.by || '').replace(/\s*\([^)]*\)\s*$/, '')]; }
+  });
+}
+function upDone(r, i, res, said) {
+  var d = ensureDetail(r);
+  if (res.d) r.d = res.d;
+  if (res.pto) r.pto = res.pto;
+  applyNotes(d, res);
+  delete panel.edit[i]; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = '';
+  render();
+  if (panel.open) keepScroll(function () { renderPanel(panel.all); });
+  $('#pLive').textContent = said;
+}
+function upFail(err) {
+  var msg = (err && err.message ? String(err.message) : 'That did not work. Try again.').replace(/^Error:\s*/, '');
+  panel.upBusy = false; panel.upErr = msg;
+  if (/sign-in has ended/i.test(msg)) { endSession(true); return; }
+  if (panel.open) keepScroll(function () { renderPanel(panel.all); });
+}
+function picked(name) { var x = document.querySelector('#panel input[name="' + name + '"]:checked'); return x ? x.value : 'accept'; }
+function uploadGo(i) {
+  var r = currentRow(), inp = document.getElementById('upf' + i), file = inp && inp.files && inp.files[0];
+  if (!r || panel.upBusy) return;
+  if (!file) { panel.upErr = 'Choose a file first.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  var ext = (String(file.name).match(/\.([A-Za-z0-9]+)$/) || ['', ''])[1].toLowerCase();
+  if (UPLOAD_EXT.indexOf(ext) < 0) { panel.upErr = 'That kind of file cannot be uploaded. Use a PDF, a Word document or a picture.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (file.size > UPLOAD_MAX) { panel.upErr = 'The file is larger than 10 MB. Save a smaller copy and upload that.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (!hasGas() || !session.token) { panel.upErr = 'Your sign-in has ended. Sign in again to upload.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  var mode = picked('upm' + i), campus = r.campus, year = r.year || '', key = docKey(i), reader = new FileReader();
+  panel.upBusy = true; panel.upErr = '';
+  keepScroll(function () { renderPanel(panel.all); });
+  reader.onerror = function () { upFail(new Error('The file could not be read. Choose it again.')); };
+  reader.onload = function () {
+    var b64 = String(reader.result || '').split(',')[1] || '';
+    google.script.run
+      .withSuccessHandler(function (res) {
+        var row = rowFor(campus, year);
+        if (!row || !res || !res.ok) { upFail(new Error('That did not upload. Try again.')); return; }
+        var d = ensureDetail(row);
+        d.a.unshift([res.date, res.file.key, res.file.name, res.file.link, '', res.by]);
+        upDone(row, i, res, res.file.name + ' was uploaded for ' + campus + (res.accepted ? ' and accepted.' : ', waiting for review.'));
+      })
+      .withFailureHandler(upFail)
+      .uploadDocument(session.token, campus, year, key, file.name, b64, mode);
+  };
+  reader.readAsDataURL(file);
+}
+function moveGo(i) {
+  var r = currentRow(), sel = $('#mvTo');
+  if (!r || panel.upBusy || !panel.mv || !sel) return;
+  if (!hasGas() || !session.token) { panel.upErr = 'Your sign-in has ended. Sign in again.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  var to = Number(sel.value), campus = r.campus, year = r.year || '', link = panel.mv.link, mode = picked('mvm');
+  panel.upBusy = true; panel.upErr = '';
+  keepScroll(function () { renderPanel(panel.all); });
+  google.script.run
+    .withSuccessHandler(function (res) {
+      var row = rowFor(campus, year);
+      if (!row || !res || !res.ok) { upFail(new Error('The file was not moved. Try again.')); return; }
+      ensureDetail(row).a.forEach(function (a) { if (a[3] === res.link && docIndex(a[1]) === i) a[1] = res.to; });
+      upDone(row, i, res, 'The file is now filed under ' + DOCS[to].nm.toLowerCase() + (res.accepted ? ', accepted.' : ', waiting for review.'));
+    })
+    .withFailureHandler(upFail)
+    .refileDocument(session.token, campus, year, link, docKey(i), docKey(to), mode);
+}
+
 /** Files from earlier school years for this campus (for example last year's bylaws), from the Submission Log. */
 function panelEarlier(r) {
   if (!payload.live || !seesDetail(r)) return '';
@@ -1584,8 +1689,8 @@ function renderPanel(all) {
 }
 
 /* edit: the checklist changes not saved yet, by item ({ s: status letter, m: remark }); cr: the overall remarks being typed (null = untouched) */
-var panel = { campus: '', open: false, all: false, edit: {}, cr: null, showRm: {}, busy: false, err: '', saved: false, ask: false, mailBusy: false, mailErr: '' };
-function resetChecklist() { panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; }
+var panel = { campus: '', open: false, all: false, edit: {}, cr: null, showRm: {}, busy: false, err: '', saved: false, ask: false, mailBusy: false, mailErr: '', up: null, mv: null, upBusy: false, upErr: '' };
+function resetChecklist() { panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
 function openCampus(campus, opener) {
   if (panel.open && panel.campus !== campus && !leaveOk()) return;
   panel.campus = campus; resetChecklist(); panel.mailBusy = false; panel.mailErr = '';
@@ -1655,11 +1760,7 @@ function checkSaved(campus, year, res) {
   if (res.pto) r.pto = res.pto;
   var d = ensureDetail(r);
   if (res.remarks) d.rm = { items: res.remarks.items || {}, campus: res.remarks.campus || '' };
-  (res.notes || []).forEach(function (n) {
-    d.a.unshift([res.date, '', '', '', n, res.by]);
-    var m = /^(Accepted: |Needs correction, |Not needed, |Not there, |Put back to Received \(waiting for review\): )(.+?)(?::|\. Remark:|$)/.exec(n);
-    if (m) { d.rv = d.rv || {}; d.rv[m[2]] = [{ 'Accepted: ': 'Accepted', 'Needs correction, ': 'Sent back', 'Not needed, ': 'Not needed', 'Not there, ': 'Not there' }[m[1]] || 'Put back', res.date, String(res.by || '').replace(/\s*\([^)]*\)\s*$/, '')]; }
-  });
+  applyNotes(d, res);
   var keepOpen = panel.open && panel.campus === campus;
   resetChecklist();
   panel.saved = true;
@@ -2068,6 +2169,11 @@ $('#pBody').addEventListener('click', function (e) {
     var again = document.querySelector('#panel [data-item="' + i + '"] [data-v="' + v + '"]'); if (again) again.focus();
     var box = document.getElementById('rmk' + i); if (box && (e.s === 'C' || e.s === 'X') && !box.value) box.focus();
   }
+  else if (act === 'upopen') { panel.up = i; panel.mv = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); var fi = document.getElementById('upf' + i); if (fi) fi.focus(); }
+  else if (act === 'mvopen') { panel.mv = { i: i, link: b.getAttribute('data-l') }; panel.up = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); var ms = $('#mvTo'); if (ms) ms.focus(); }
+  else if (act === 'upcancel') { panel.up = null; panel.mv = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); }
+  else if (act === 'upgo') uploadGo(i);
+  else if (act === 'mvgo') moveGo(i);
   else if (act === 'addrmk') { panel.showRm[i] = true; keepScroll(function () { renderPanel(panel.all); }); var t = document.getElementById('rmk' + i); if (t) t.focus(); }
   else if (act === 'save') saveCheck();
   else if (act === 'discard') { resetChecklist(); keepScroll(function () { renderPanel(panel.all); }); $('#pLive').textContent = 'Changes undone.'; }

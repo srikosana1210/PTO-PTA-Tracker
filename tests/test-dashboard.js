@@ -167,6 +167,41 @@ async function signIn(page, name, pass) {
     check('no page errors (C1)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
 
+    /* ---------- a C1 uploads a document, and moves a file filed under the wrong document (2026-10-23) ---------- */
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Ms. Lee', w.p.pass['Ms. Lee']);
+    await page.click('[data-tab="campuses"]');
+    await page.click('[data-dim="ty"][data-chip="all"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    await page.click('#panel [data-item="4"] [data-act="upopen"]');
+    check('upload offers "Upload and accept", chosen by default', await page.isChecked('#panel input[name="upm4"][value="accept"]'));
+    await page.setInputFiles('#upf4', { name: 'Proof of 501c from the PTO.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test') });
+    await page.click('#panel [data-act="upgo"]');
+    await page.waitForFunction(function () { return /uploaded for Anderson ES and accepted/.test(document.querySelector('#pLive').textContent); }, null, { timeout: 10000 });
+    check('the upload is filed and accepted', base.regRow(w.g, 'Anderson ES')['Proof of 501c Status'] === 'Accepted');
+    check('the panel shows the new file', /Proof of 501c from the PTO\.pdf/.test(await page.textContent('#panel [data-item="4"]')) && !(await page.isHidden('#panel')));
+    var wrong = await page.$('#panel [data-item="2"] [data-act="mvopen"]');
+    check('a file has a "Wrong document?" button', !!wrong);
+    if (wrong) {
+      await wrong.click();
+      await page.selectOption('#mvTo', '3');
+      await page.check('#panel input[name="mvm"][value="review"]');
+      await page.click('#panel [data-act="mvgo"]');
+      await page.waitForFunction(function () { return /now filed under budget report or minutes/.test(document.querySelector('#pLive').textContent); }, null, { timeout: 10000 });
+      check('the file moved to the right document, waiting for review', base.regRow(w.g, 'Anderson ES')['Budget or Financial Report'] === 'Received');
+    }
+    check('no page errors (upload)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+    /* leadership never gets the upload buttons */
+    o = await openPage(browser, w); page = o.page;
+    await page.click('[data-tab="campuses"]');
+    await page.click('[data-dim="ty"][data-chip="all"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    check('no upload or move buttons without a C1 or staff sign-in', (await page.$$('#panel [data-act="upopen"], #panel [data-act="mvopen"]')).length === 0);
+    await page.close();
+
     /* ---------- FACE staff: remind C1s ---------- */
     o = await openPage(browser, w); page = o.page;
     await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);

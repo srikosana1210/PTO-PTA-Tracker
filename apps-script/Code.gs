@@ -117,7 +117,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-20b (tester feedback: clearer Overview, combined filters, days waiting, review history, C1 workload, monthly progress)';
+var VERSION = 'Script version 2026-10-23a (C1s and FACE staff upload documents on the dashboard, and move a file filed under the wrong document)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -1450,6 +1450,110 @@ function emailAsks_(t, row, campus, year) {
   if (fix.length) parts.push('needs correction: ' + fix.join(', '));
   if (remarksFor_(campus, year).campus) parts.push('remarks');
   return { parts: parts };
+}
+
+/* ---------- uploading and refiling documents on the dashboard (FACE, 2026-10-23) ---------- */
+
+var UPLOAD_MAX_BYTES = 10 * 1024 * 1024;   // 10 MB: enough for a scan; Apps Script is unreliable with much larger uploads
+var UPLOAD_TYPES = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', heic: 'image/heic', tif: 'image/tiff', tiff: 'image/tiff' };
+
+/** The signed-in C1 (for one of their own campuses) or FACE staff member who may change this campus, or an error in plain words. */
+function writerFor_(token, campus) {
+  var who = sessionFrom_(token);
+  if (!who) throw new Error('Your sign-in has ended. Sign in again.');
+  if (who.role === 'viewer') throw new Error('You can see these campuses, but not change anything. Ask the campus\'s C1 or FACE.');
+  if (who.role === 'c1' && !who.campuses[norm_(campus)]) throw new Error(campus + ' is not on your list of campuses.');
+  return who;
+}
+function byLabel_(who) { return who.name + (who.role === 'c1' ? ' (C1)' : ' (FACE staff)'); }
+
+/**
+ * Called from the campus panel by a signed-in C1 or FACE staff member: files one document for one campus and school year.
+ * The file goes into the campus folder under the name it was chosen with, and is logged. mode 'accept' (the default the page offers)
+ * marks the document Accepted at once, because the person uploading is the reviewer; 'review' marks it Received (waiting for review).
+ * A file already filed for that document stays in Drive and in the history. Returns what the page needs to redraw.
+ */
+function uploadDocument(token, campus, year, itemKey, fileName, base64, mode) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    campus = cellText_(campus); year = cellText_(year);
+    var who = writerFor_(token, campus);
+    var item = itemByKey_(cellText_(itemKey));
+    if (!item || item.retired || !item.upload) throw new Error('That document type cannot be uploaded here.');
+    var t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
+    if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
+    var canon = cellText_(t.values[row - 1][t.col['Campus']]);
+    if (!tracksItem_(item, isPtaRow_(t.values[row - 1], t))) throw new Error('FACE tracks only the training certificate and the officer information form for a PTA, so ' + item.key + ' cannot be uploaded for ' + canon + '.');
+    var name = cleanText_(fileName, 150).replace(/[\\/:*?"<>|]+/g, '-') || 'document';
+    var ext = (name.match(/\.([A-Za-z0-9]+)$/) || ['', ''])[1].toLowerCase();
+    if (!UPLOAD_TYPES[ext]) throw new Error('That kind of file cannot be uploaded. Use a PDF, a Word document or a picture (JPG, PNG, HEIC, TIFF).');
+    var bytes = Utilities.base64Decode(String(base64 || ''));
+    if (!bytes.length) throw new Error('The file is empty. Choose the file again.');
+    if (bytes.length > UPLOAD_MAX_BYTES) throw new Error('The file is larger than 10 MB. Save a smaller copy (for example a PDF scanned in black and white) and upload that.');
+    var accept = mode !== 'review';
+    var file = campusFolder_(rootFolder_(), canon).createFile(Utilities.newBlob(bytes, UPLOAD_TYPES[ext], name));
+    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), now = new Date(), by = byLabel_(who);
+    setCell_(t, row, item.key, accept ? 'Accepted' : 'Received');
+    var pto = cellText_(t.values[row - 1][t.col['Has PTO or PTA']]);
+    if (pto !== 'Yes' && pto !== 'No') setCell_(t, row, 'Has PTO or PTA', 'Yes');
+    var notes = [];
+    var logRows = [[now, by, canon, item.key, file.getName(), file.getUrl(), year, 'Uploaded on the dashboard by ' + who.name + '.']];
+    if (accept) { notes.push(checkNote_('Accepted', item.key, '', true)); logRows.push([now, by, canon, '', '', '', year, notes[0]]); }
+    appendLog_(logRows);
+    t = table_(CFG.TAB_REGISTER);
+    return { ok: true, d: codesOf_(t, row), pto: pto !== 'Yes' && pto !== 'No' ? 'Yes' : '', date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), by: by,
+      file: { name: file.getName(), link: file.getUrl(), key: item.key }, notes: notes, accepted: accept };
+  } finally { lock.releaseLock(); }
+}
+
+/**
+ * "This file is really ..." from the campus panel: a file filed under the wrong document is moved to the right one. Its log lines are
+ * changed to the right document, and a note says who moved it. The right document becomes Accepted ('accept') or Received ('review').
+ * The wrong document goes back to Not Received if this file was what made it Received; an Accepted one is left for the reviewer to decide.
+ */
+function refileDocument(token, campus, year, fileLink, fromKey, toKey, mode) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    campus = cellText_(campus); year = cellText_(year);
+    var who = writerFor_(token, campus);
+    var from = itemByKey_(cellText_(fromKey)), to = itemByKey_(cellText_(toKey));
+    if (!from || !to || to.retired || !to.upload) throw new Error('That document type is not recognized.');
+    if (from.key === to.key) throw new Error('Choose a different document to move the file to.');
+    var t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
+    if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
+    var canon = cellText_(t.values[row - 1][t.col['Campus']]);
+    if (!tracksItem_(to, isPtaRow_(t.values[row - 1], t))) throw new Error('FACE tracks only the training certificate and the officer information form for a PTA, so the file cannot be moved to ' + to.key + '.');
+    var link = cellText_(fileLink), lt = table_(CFG.TAB_LOG), c = lt.col, moved = 0, name = '';
+    for (var i = 1; i < lt.values.length; i++) {
+      var v = lt.values[i];
+      if (cellText_(v[c['File Link']]) !== link || norm_(v[c['Campus']]) !== norm_(canon) || cellText_(v[c['School Year']]) !== year) continue;
+      var it = itemByKey_(cellText_(v[c['Document Type']]));
+      if (!it || it.key !== from.key) continue;
+      lt.sh.getRange(i + 1, c['Document Type'] + 1).setValue(to.key);
+      name = cellText_(v[c['File Name']]); moved++;
+    }
+    if (!moved) throw new Error('That file was not found under ' + from.key + ' for ' + canon + '. Reload the page and try again.');
+    var accept = mode !== 'review', now = new Date(), tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), by = byLabel_(who);
+    setCell_(t, row, to.key, accept ? 'Accepted' : 'Received');
+    var notes = [];
+    // the wrong document: if this file was all it had, it is not there after all
+    var fromStatus = cellText_(t.values[row - 1][t.col[from.key]]), others = 0;
+    var lv = table_(CFG.TAB_LOG).values;
+    for (var j = 1; j < lv.length; j++) { var it2 = itemByKey_(cellText_(lv[j][c['Document Type']])); if (it2 && it2.key === from.key && norm_(lv[j][c['Campus']]) === norm_(canon) && cellText_(lv[j][c['School Year']]) === year) others++; }
+    if (!others && (fromStatus === 'Received' || fromStatus === 'Needs Correction')) {
+      setCell_(t, row, from.key, 'Not Received');
+      notes.push(checkNote_('Not Received', from.key, 'the file was really ' + to.key, true));
+    }
+    if (accept) notes.push(checkNote_('Accepted', to.key, '', true));
+    var logRows = [[now, by, canon, '', name, link, year, 'Moved "' + name + '" from ' + from.key + ' to ' + to.key + ' (it was filed under the wrong document).']];
+    notes.forEach(function (n) { logRows.push([now, by, canon, '', '', '', year, n]); });
+    appendLog_(logRows);
+    t = table_(CFG.TAB_REGISTER);
+    return { ok: true, d: codesOf_(t, row), date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), by: by, notes: notes, link: link, from: from.key, to: to.key, accepted: accept };
+  } finally { lock.releaseLock(); }
 }
 
 /* ---------- passcodes (menu) ---------- */

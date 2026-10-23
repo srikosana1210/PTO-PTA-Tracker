@@ -112,6 +112,8 @@ DFolder.prototype.getFilesByName = function (n) { return iter(this.files.filter(
 DFolder.prototype.getFiles = function () { return iter(this.files.slice()); };
 DFolder.prototype.getFolders = function () { return iter(this.folders.slice()); };
 DFolder.prototype.createFolder = function (n) { var f = new DFolder(n); this.folders.push(f); return f; };
+DFolder.prototype.createFile = function (blob) { var f = new DFile(blob.getName(), this); f.size = blob.bytes.length; f.mime = blob.getContentType(); this.files.push(f); return f; };
+DFile.prototype.getSize = function () { return this.size || 0; };
 
 /* ------------------------------------------------------------------ load */
 function load(opts) {
@@ -149,6 +151,8 @@ function load(opts) {
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   var Utilities = {
+    base64Decode: function (b) { return Array.prototype.slice.call(Buffer.from(String(b), 'base64')); },
+    newBlob: function (bytes, type, name) { var bl = { bytes: bytes, type: type, name: name, getName: function () { return bl.name; }, getContentType: function () { return bl.type; }, getBytes: function () { return bl.bytes; }, setName: function (n) { bl.name = n; return bl; } }; return bl; },
     formatDate: function (d, tz, fmt) {
       // formats in UTC, which is what the tests use for dates; enough for yyyy, MM, M, dd, d, HH, mm, ss, MMM, h, a
       var M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -117,5 +117,6 @@ if (require.main === module) {
   require('./test-oct15');
   require('./test-txpta');
   require('./test-feedback');
+  require('./test-upload');
   process.exit(h.report() ? 0 : 1);
 }
