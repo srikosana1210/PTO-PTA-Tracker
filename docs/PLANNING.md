@@ -2,7 +2,7 @@
 
 This doc lets someone (a person or Claude) pick up the project without re-reading all the code. It covers what the tracker does today, the rules it enforces, why things are the way they are, and what is left to build.
 
-Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-23a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
+Source of truth for current behaviour: `apps-script/Code.gs` (version `2026-10-25a`) and the **Start Here** tab of the sheet. If this doc disagrees with them, they win. Fix this doc.
 
 ---
 
@@ -53,6 +53,7 @@ The script finds everything by tab name and column header. **Renaming either bre
 | Dashboard Sign-ins | Name, Role (C1 / Staff), Passcode status, Email (a C1's email, for reminders) | Staff + script |
 | C1 Reminders | Send, C1, Email, Campuses, Waiting, Subject, Body, Text, Note, Updated. Rewritten by the script each weekday morning before it posts the reminders to Power Automate | Script only |
 | Leaders | SEDs, EDs, principals, APs: Email, Name, Role (Area Office or Principal), Area Office or Campus, Status. Pasted from the district list | Staff |
+| No PTO-PTA List | FACE's list of campuses with no PTO or PTA (Campus Name, Division, FACE Coordinator 1, PTO/PTA), plus Name in the register and Status | Staff (when it changes) |
 | Texas PTA Paste | Texas PTA's spreadsheet for Houston ISD, pasted in whole each week (headings included) | Staff (weekly) |
 | Texas PTA | One row per PTA: Campus (editable, kept by Texas PTA ID), status, Good Standing date, the five SOA standards, members, goal. Charter withdrawals left out; no contact details | Script (`importTexasPta`) |
 | Area Office Campuses | Campus, Area Office, Unit, Name in the register, Texas PTA, Texas PTA status (from `sheet/Area Office Campuses.csv`) | Staff (imported once a year) |
@@ -114,6 +115,7 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 21. The email to a PTO/PTA goes to two officers: the president and the secretary. When one is missing, the next in line fills the place: vice president, then treasurer, then any other officer with an email; with no officer email, the newest form's submitter (FACE, 2026-10-19; one officer from 2026-10-16).
 22. Tester feedback (Eric, 2026-10-20), built in 2026-10-20b: the Overview tiles are the PTO/PTA total ("active") plus what needs doing by campus (waiting for review, sent back, waiting on the PTO/PTA); Registered and Legalized are counted once, in the stages, with a line showing they add up to the total. Campuses filter on three rows that combine (Show / Status / Waiting on). Days waiting, last heard from, who decided each document and when (who: signed-in only), earlier years' files, per-C1 workload and review turnaround (FACE staff only), "Times sent back" per document, and monthly snapshots on the **Progress History** tab (menu *Progress over time*). The public page's numbers are cached for five minutes (`cachedPublicPayload_`); writes through the script clear the cache, and Refresh asks for fresh numbers. A campus with an empty Area Office shows as "Area Office not set".
 23. Signed-in C1s (their own campuses) and FACE staff can upload a document from the campus panel (FACE, 2026-10-23): PDF, Word or a picture, up to 10 MB, filed in the campus folder under its own name and logged ("Uploaded on the dashboard by ..."). The person chooses **Upload and accept** (the default) or **Upload for review**. Earlier files stay. A file filed under the wrong document can be moved with **Wrong document?**: its log lines are changed to the right document, a note says who moved it, and the wrong document goes back to Not Received if that file was all it had (an Accepted one is left alone). Not for the officer information form, retired documents, or documents FACE does not track for a PTA. `uploadDocument`, `refileDocument`.
+24. Overview (FACE, 2026-10-25): title "2026–27 HISD PTO/PTAs". Tiles: **Registered** (including those that can fundraise), **Can Fundraise** (FACE's word for Legalized, used everywhere on the dashboard; the sheet keeps "Legalized", its column names are the API), **In progress** (turning documents in, not registered) and **No PTO/PTA** (campuses marked No). A PTO/PTA that has sent nothing yet is in none of the four. "Where PTO/PTAs stand" is gone. By Area Office: Campuses, Registered, Can Fundraise, In progress, No PTO/PTA. Documents and Progress by month: signed-in C1s and FACE staff only. FACE's list of campuses with no PTO/PTA is pasted into the **No PTO-PTA List** tab and applied with *Mark the campuses with no PTO/PTA* (`importNoPto`; aliases in `CFG.NOPTO_ALIASES`; a campus that sent something or is on the Texas PTA list is not changed; backup first). `sheet/No PTO-PTA Campuses.csv` is the 2026-10-25 list.
 
 ## 6. Known gaps and risks
 

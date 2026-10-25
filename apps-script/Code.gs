@@ -47,6 +47,12 @@ var CFG = {
   TAB_HISTORY: 'Progress History',
   HISTORY_HEADERS: ['Month', 'School Year', 'Saved', 'Campuses', 'PTO/PTAs', 'Legalized', 'Registered, not yet legalized', 'In progress', 'Not started', 'Nothing received yet',
     'Documents waiting for review', 'Campuses waiting for review', 'Campuses with documents sent back'],
+  // FACE's list of campuses that do not have a PTO or a PTA (Campus Name, Division, FACE Coordinator 1, PTO/PTA), pasted in when it changes
+  TAB_NOPTO: 'No PTO-PTA List',
+  // names on that list that the register spells differently (lower case, spacing ignored) -> the register's name
+  NOPTO_ALIASES: { 'benavidez es': 'Benavides ES', 'fondren es': 'Fondern ES', 'gregory-lincoln pk-8': 'Gregory Lincoln ES', 'harper daep': 'Harper/Secondary DAEP',
+    'secondary daep': 'Harper/Secondary DAEP', 'hcc lifeskills': 'SPED HCC Lifeskills', 'r d s p d': 'SPED RDSPD', 'reagan ed ctr k-8': 'Reagan K-8',
+    'sharpstown intl': 'Sharpstown Int', 'cage es': 'Cage ES (@Lantrip ES)', 'hobby es': 'Hobby ES (@Lawson MS)' },
   TAB_TXPTA_PASTE: 'Texas PTA Paste',
   TAB_TXPTA: 'Texas PTA',
   TXPTA_HEADERS: ['Campus', 'Texas PTA Name', 'Texas PTA ID', 'PTA Status', 'Good Standing Date', 'SOA Officers', 'SOA Membership', 'SOA Bylaws',
@@ -60,7 +66,7 @@ var CFG = {
   REMINDER_FILE_TITLE: 'PTO-PTA C1 Reminders (read by Power Automate)',
   FORM_TITLE: 'PTO/PTA Documents Received',
   ROOT_DOCS: 'Parent Org Documents',
-  DASHBOARD_TITLE: 'PTO/PTA Registration',
+  DASHBOARD_TITLE: 'HISD PTO/PTAs',
   // The mailbox the PTO/PTAs send documents to. The "ask them to resend" email copies it, so a reply comes back to the people who work it.
   INBOX: 'ParentOrgDocs@houstonisd.org',
   // One entry per requirement. key = column header in Campus Register. title = form question title. label = the words FACE uses for it
@@ -117,7 +123,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-23a (C1s and FACE staff upload documents on the dashboard, and move a file filed under the wrong document)';
+var VERSION = 'Script version 2026-10-25a (Overview: Registered, Can Fundraise, In progress, No PTO/PTA; the list of campuses with no PTO/PTA)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -134,6 +140,7 @@ function onOpen() {
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
     .addItem('Import the Texas PTA spreadsheet from the Texas PTA Paste tab', 'importTexasPta')
+    .addItem('Mark the campuses with no PTO/PTA (from the No PTO-PTA List tab)', 'importNoPto')
     .addItem('PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed', 'resetUnstarted')
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
@@ -888,6 +895,85 @@ function ensureTab_(name, headers) {
     if (headers) sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
   return sh;
+}
+
+/* ================================================================== campuses with no PTO or PTA (FACE's list, 2026-10-25) */
+
+/*
+ * FACE keeps a list of the campuses that do not have a PTO or a PTA. It is pasted (headings included) into the No PTO-PTA List tab, and
+ * the menu marks each of those campuses No for Has PTO or PTA, which the dashboard counts under "No PTO/PTA". A campus that has sent
+ * something this school year, or that Texas PTA lists, is not changed: the Status column says why. A name the register spells
+ * differently can be fixed by typing the register's name in the "Name in the register" column; it is kept. Safe to run again.
+ */
+function importNoPto() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = importNoPto_();
+    if (r.empty) { ui.alert('Paste the list first', 'The ' + CFG.TAB_NOPTO + ' tab is empty. Copy FACE\'s list of campuses with no PTO or PTA (with its headings: Campus Name, Division, FACE Coordinator 1, PTO/PTA), click cell A1 of that tab and paste. Then choose this again.', ui.ButtonSet.OK); return; }
+    ui.alert('Campuses with no PTO/PTA', noPtoSummary_(r), ui.ButtonSet.OK);
+  } catch (err) { ui.alert('Nothing was changed', err.message, ui.ButtonSet.OK); }
+}
+
+function noPtoSummary_(r) {
+  var L = [plural_(r.marked, 'campus is', 'campuses are') + ' now marked No PTO/PTA (' + plural_(r.already, 'was', 'were') + ' already). The dashboard counts them under No PTO/PTA.'];
+  if (r.backup) L.unshift('Backup saved in your Drive: ' + r.backup);
+  if (r.kept.length) L.push('', 'Not changed, because they have sent something this year or Texas PTA lists them: ' + r.kept.join(', ') + '. If they really have no PTO/PTA, change Has PTO or PTA on the Campus Register by hand.');
+  if (r.unmatched.length) L.push('', 'Not found on the Campus Register: ' + r.unmatched.join(', ') + '. On the ' + CFG.TAB_NOPTO + ' tab, type the campus name as it is in the Campus Register in the "Name in the register" column, then run this again.');
+  return L.join('\n');
+}
+
+function importNoPto_() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try { return importNoPtoLocked_(); } finally { clearPageCache_(); lock.releaseLock(); }
+}
+
+function importNoPtoLocked_() {
+  var ss = SpreadsheetApp.getActive(), res = { marked: 0, already: 0, kept: [], unmatched: [], empty: false, backup: '' };
+  var sh = ss.getSheetByName(CFG.TAB_NOPTO) || ss.insertSheet(CFG.TAB_NOPTO);
+  var vals = sh.getDataRange().getValues();
+  if (vals.length < 2) { res.empty = true; return res; }
+  var head = vals[0].map(function (h) { return norm_(h); });
+  var ci = head.indexOf('campus name'); if (ci < 0) ci = head.indexOf('campus');
+  var pi = head.indexOf('pto/pta'); if (pi < 0) pi = head.indexOf('has pto or pta');
+  if (ci < 0) throw new Error('The ' + CFG.TAB_NOPTO + ' tab needs a "Campus Name" heading in row 1. Paste the list with its headings into cell A1.');
+  var ri = head.indexOf('name in the register'), si = head.indexOf('status');
+  if (ri < 0) { ri = Math.max(sh.getLastColumn(), 1); sh.getRange(1, ri + 1).setValue('Name in the register'); }
+  if (si < 0) { si = Math.max(sh.getLastColumn(), ri + 1); sh.getRange(1, si + 1).setValue('Status'); }
+  var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before marking campuses with no PTO-PTA ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm:ss'));
+  res.backup = copy.getName();
+  var map = campusMap_(), t = table_(CFG.TAB_REGISTER), year = currentYear_(), sent = sentThisYear_(year), tx = {};
+  try { tx = txPtaByCampus_().by; } catch (err) { tx = {}; }
+  for (var i = 1; i < vals.length; i++) {
+    var name = cellText_(vals[i][ci]);
+    if (!name) continue;
+    if (pi >= 0 && cellText_(vals[i][pi]) && norm_(vals[i][pi]) !== 'no') { sh.getRange(i + 1, si + 1).setValue('Skipped: PTO/PTA is not No'); continue; }
+    var typed = ri < vals[i].length ? cellText_(vals[i][ri]) : '';
+    var campus = noPtoCampus_(typed || name, map);
+    if (!campus) { res.unmatched.push(name); sh.getRange(i + 1, si + 1).setValue('Not found: type the register\'s name in "Name in the register"'); continue; }
+    var row = findRow_(t, year, campus);
+    if (!row) { res.unmatched.push(name); sh.getRange(i + 1, si + 1).setValue('Not found for ' + year); continue; }
+    var v = t.values[row - 1], has = cellText_(v[t.col['Has PTO or PTA']]);
+    var anything = sent[norm_(campus)] || CFG.ITEMS.some(function (it) { var x = cellText_(v[t.col[it.key]]); return x && x !== 'Not Received' && x !== 'Not Needed'; });
+    if (has === 'No') { res.already++; sh.getRange(i + 1, si + 1).setValue('No PTO/PTA: ' + campus); continue; }
+    if (anything || tx[norm_(campus)]) { res.kept.push(campus); sh.getRange(i + 1, si + 1).setValue('Not changed: ' + campus + (anything ? ' has sent something this year' : ' is on the Texas PTA list')); continue; }
+    setCell_(t, row, 'Has PTO or PTA', 'No');
+    v[t.col['Has PTO or PTA']] = 'No';          // two names on the list can be one campus (Harper DAEP and Secondary DAEP)
+    res.marked++;
+    sh.getRange(i + 1, si + 1).setValue('No PTO/PTA: ' + campus);
+  }
+  return res;
+}
+
+/** A name on FACE's list -> the Campus Register's name: the list's own spelling, a known alias, or the name without "*" and "- Charter". */
+function noPtoCampus_(name, map) {
+  var key = campusKey_(name);
+  var alias = CFG.NOPTO_ALIASES[key];
+  if (alias && lookup_(map, alias)) return lookup_(map, alias);
+  var hit = lookup_(map, name);
+  if (hit) return hit;
+  var plain = String(name).replace(/^\s*\*+/, '').replace(/\s*-\s*charter\s*$/i, '').replace(/\bacademy\b/ig, 'Acad').replace(/\s+/g, ' ').trim();
+  return lookup_(map, plain) || '';
 }
 
 /* ================================================================== Texas PTA spreadsheet */

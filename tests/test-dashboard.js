@@ -83,11 +83,13 @@ async function signIn(page, name, pass) {
     var page = o.page;
     var kpiText = await page.textContent('#kpis');
     check('no percentages on the overview', !/%/.test(await page.textContent('#v-overview')), kpiText);
-    check('tiles: PTO/PTAs (the total), then what needs doing by campus', /PTO\/PTAs/.test(kpiText) && /Waiting for review/.test(kpiText) && /Sent back for correction/.test(kpiText) && /Waiting on the PTO\/PTA/.test(kpiText) && !/^Registered$/m.test(kpiText), kpiText);
-    var sum = await page.textContent('.stagesum');
-    check('the stages add up to the PTO/PTA total (tester feedback)', /= 13 PTO\/PTAs\./.test(sum), sum);
-    var pto = await page.textContent('.kpi.k1 .kval');
-    check('PTO/PTAs counts campuses that sent something plus Texas PTAs, marked active', /^13\s*active$/.test(pto.trim()), pto);
+    check('tiles: Registered, Can Fundraise, In progress, No PTO/PTA (FACE, 2026-10-25)', /^Registered/.test(kpiText.trim()) && /Can Fundraise/.test(kpiText) && /In progress/.test(kpiText) && /No PTO\/PTA/.test(kpiText) && !/Waiting for review/.test(kpiText), kpiText);
+    check('the title is the school year and HISD PTO/PTAs', /^2026–27 HISD PTO\/PTAs$/.test((await page.textContent('#h1')).trim()), await page.textContent('#h1'));
+    check('"Where PTO/PTAs stand" is gone', !/Where PTO\/PTAs stand/.test(await page.textContent('#v-overview')));
+    check('Documents and Progress by month are for signed-in C1s and FACE staff only', await page.isHidden('#docSec') && await page.isHidden('#histSec'));
+    var inprog = await page.textContent('.kpi.k4 .kval');
+    check('In progress counts campuses turning documents in, not registered yet', inprog.trim() === '2', inprog);
+    check('By Area Office has Campuses, Registered, Can Fundraise, In progress, No PTO/PTA', /Area Office\s*▲?\s*Campuses\s*Registered\s*Can Fundraise\s*In progress\s*No PTO\/PTA/.test(await page.textContent('#areas thead')), await page.textContent('#areas thead'));
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
     check('one row per Area Office (five, plus the two campuses with no Area Office yet)', areas.length === 6, areas.join(' / '));
@@ -95,11 +97,11 @@ async function signIn(page, name, pass) {
     await page.click('#defs summary');
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
-    check('Legalization list has the bank letter wording and no Articles', /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && /PTAs: FACE tracks two documents/.test(defs), defs);
+    check('Can Fundraise list has the bank letter wording and no Articles', /Can Fundraise:/.test(defs) && /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && /PTAs: FACE tracks two documents/.test(defs), defs);
     check('Texas PTA standing is hidden on the Overview (FACE, 2026-10-20)', await page.isHidden('#txSec'));
     await page.screenshot({ path: path.join(SHOTS, 'overview.png'), fullPage: true });
     // campus panel without sign-in: no checklist, no remarks
-    await page.click('[data-st="review"]');
+    await page.click('[data-st="In progress"]');
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     check('leadership sees no checklist buttons', (await page.$$('#panel .seg button')).length === 0);
     var lb = await page.textContent('#pBody');
@@ -116,7 +118,7 @@ async function signIn(page, name, pass) {
     await page.click('#reviewBody [data-c="Anderson ES"] .campbtn');
     await page.waitForSelector('#panel .seg');
     var pb = await page.textContent('#pBody');
-    check('checklist shows Registration and Legalization, and no retired documents', /Registration[\s\S]*Legalization/.test(pb) && !/Articles of incorporation|insurance/i.test(pb), pb.slice(0, 300));
+    check('checklist shows Registration and Can Fundraise, and no retired documents', /Registration[\s\S]*Can Fundraise/.test(pb) && !/Articles of incorporation|insurance/i.test(pb), pb.slice(0, 300));
     // Bylaws: needs correction with a remark; training: it's there; bank letter: not needed; budget: remark only
     await page.click('#panel [data-item="0"] [data-v="C"]');
     await page.fill('#rmk0', 'Please send the signed copy.');
@@ -218,7 +220,7 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w); page = o.page;
     await page.click('[data-tab="campuses"]');
     var chips = await page.$$eval('#chips .chiprow', function (rows) { return rows.map(function (row) { return [].map.call(row.querySelectorAll('[data-chip]'), function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }).join(','); }); });
-    check('three rows of filters that combine: show, status, waiting on', chips[0] === 'All campuses,All PTO/PTAs,PTOs,PTAs,Nothing received yet' && chips[1] === 'Any status,Not started,In progress,Registered,Legalized' && chips[2] === 'Anyone,Waiting for review,Sent back for correction,Waiting on the PTO/PTA,Nothing needed', JSON.stringify(chips));
+    check('three rows of filters that combine: show, status, waiting on', chips[0] === 'All campuses,All PTO/PTAs,PTOs,PTAs,Nothing received yet,No PTO/PTA' && chips[1] === 'Any status,Not started,In progress,Registered,Can Fundraise' && chips[2] === 'Anyone,Waiting for review,Sent back for correction,Waiting on the PTO/PTA,Nothing needed', JSON.stringify(chips));
     check('the table has Org type and Waiting on columns', /Campus\s*Org type\s*Status\s*Documents\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');
     var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
@@ -305,7 +307,7 @@ async function signIn(page, name, pass) {
     /* ---------- tester feedback (2026-10-20): combined filters, sorting, tooltips, C1 table, progress by month, find a campus ---------- */
     w.g.saveSnapshot_(new Date());
     o = await openPage(browser, w); page = o.page;
-    check('progress by month shows the snapshot', !(await page.isHidden('#histSec')) && (await page.$$('#hist tbody tr')).length === 1);
+    check('progress by month is not on the public page', await page.isHidden('#histSec'));
     check('the C1 table is for FACE staff only', await page.isHidden('#c1Sec'));
     await page.click('#areas thead [data-sort="area|roster"]');
     var firstArea = await page.$eval('#areas tbody tr th', function (x) { return x.textContent; });
@@ -329,6 +331,8 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w); page = o.page;
     await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
     await page.click('[data-tab="overview"]');
+    check('FACE staff see progress by month', !(await page.isHidden('#histSec')) && (await page.$$('#hist tbody tr')).length === 1);
+    check('FACE staff see the Documents section', !(await page.isHidden('#docSec')));
     var c1t = await page.textContent('#c1tab');
     check('FACE staff see each C1 with their campuses and what waits for them', !(await page.isHidden('#c1Sec')) && /Ms\. Lee/.test(c1t) && /No C1 assigned/.test(c1t), c1t.slice(0, 300));
     await page.click('[data-tab="review"]');

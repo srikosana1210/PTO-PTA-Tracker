@@ -73,3 +73,36 @@ test('a campus with no Area Office says so plainly', function () {
   t.sh.getRange(r, t.col['Area Office'] + 1).setValue('');
   eq(g.getDashboard('', true).rows.filter(function (x) { return x.campus === 'Anderson ES'; })[0].area, 'Area Office not set');
 });
+
+/* ---------- FACE's list of campuses with no PTO or PTA (2026-10-25) ---------- */
+var helpers = require('./test-new-helpers');
+function withNoList(g) {
+  var rows = helpers.csvRows(require('path').join(__dirname, '..', 'sheet', 'No PTO-PTA Campuses.csv'));
+  var sh = g.__ss.getSheetByName('No PTO-PTA List') || g.__ss.insertSheet('No PTO-PTA List');
+  sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+  return rows.length - 1;
+}
+test('the No PTO/PTA list: campuses are marked No, matched through their other spellings, safe to run twice', function () {
+  var g = h.load(); helpers.withAreaTab(g); g.applyOctober2026_({ reset: false });
+  ok(g.importNoPto_().empty, 'an empty tab says what to do');
+  withNoList(g);
+  g.processSubmission_(sub('Almeda ES', { uploads: [upload(g, 'Bylaws')] }));    // on the list, but it sent something
+  var r = g.importNoPto_();
+  ok(/^PTO-PTA Tracker backup/.test(r.backup));
+  eq(regRow(g, 'Benavides ES')['Has PTO or PTA'], 'No', 'Benavidez ES on the list');
+  eq(regRow(g, 'Cage ES (@Lantrip ES)')['Has PTO or PTA'], 'No');
+  eq(regRow(g, 'Energized MS')['Has PTO or PTA'], 'No', '*Energized MS on the list');
+  ok(r.kept.indexOf('Almeda ES') >= 0, 'a campus that sent something is not changed');
+  eq(regRow(g, 'Almeda ES')['Has PTO or PTA'], 'Yes');
+  eq(r.unmatched.slice().sort().join(), 'Ed White ES,Fleming MS,HSLJ,Jones HS,SOAR Center');
+  ok(r.marked > 100, String(r.marked));
+  var st = g.__ss.getSheetByName('No PTO-PTA List').values()[0].map(function (x) { return String(x).trim(); });
+  ok(st.indexOf('Name in the register') >= 0 && st.indexOf('Status') >= 0, 'columns for fixing names and saying what happened');
+  // a name fixed by hand is kept
+  var sh = g.__ss.getSheetByName('No PTO-PTA List'), v = sh.values(), ri = v[0].map(String).indexOf('Name in the register');
+  var at = v.map(function (x) { return x[0]; }).indexOf('Jones HS');
+  sh.getRange(at + 1, ri + 1).setValue('Westbury HS');
+  var again = g.importNoPto_();
+  eq(again.marked, 1, 'only the fixed name is new');
+  eq(regRow(g, 'Westbury HS')['Has PTO or PTA'], 'No');
+});
