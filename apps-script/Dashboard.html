@@ -224,6 +224,10 @@ details.defs p { margin-top: 8px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
 .legend > span { display: inline-flex; gap: 6px; align-items: center; }
 .legend .ic { width: 20px; height: 20px; border-radius: 5px; }
+.mylist { margin: 0 0 18px; }
+.mylist h3 { font-size: 16px; margin: 0 0 8px; }
+.mylist h3 small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
+.mylist tr.on th, .mylist tr.on td { background: var(--lt1); }
 .ccount { margin: 12px 0 6px; color: var(--muted); font-size: 13px; }
 .chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 72px 140px 180px 130px 66px; gap: 6px 16px; align-items: center; }
 .cw { font-size: 13px; color: var(--ink2); line-height: 1.3; }
@@ -625,6 +629,7 @@ a.btn.primary { color: var(--btn-ink); }
     </section>
 
     <section id="v-campus" role="tabpanel" aria-labelledby="tab-campus" tabindex="-1" hidden>
+      <div id="myList"></div>
       <div class="pick"><label for="pickFind">Find</label><input type="search" id="pickFind" placeholder="Type part of a name, for example HSPVA" autocomplete="off"><label for="pickCampus">Campus</label><select id="pickCampus"></select></div>
       <p class="hint">For principals and assistant principals: pick your campus to see what is done, what is still needed, and whether it is waiting on your PTO/PTA or on FACE.</p>
       <div id="campusCard"></div>
@@ -719,7 +724,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-26c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-26d';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -781,7 +786,7 @@ function fromTx(r, i) { return !!r && isPta(r) && TX_KEYS.indexOf(DOCS[i].key) >
 function sends(r, i) { return !isPta(r) || PTA_KEYS.indexOf(DOCS[i].key) >= 0; }
 function tracked(r, i) { return true; }
 /** For a box that comes from Texas PTA: what it says, in plain words ('' for any other box). */
-function txText(r, i) { return fromTx(r, i) ? (isDone(r.d[i]) ? 'Texas PTA shows it' : 'Texas PTA does not show it yet') : ''; }
+function txText(r, i) { return fromTx(r, i) ? (isDone(r.d[i]) ? 'Confirmed by Texas PTA' : 'Not confirmed by Texas PTA yet') : ''; }
 function docsOf(r) { return shown(); }
 function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (test(i) && isDone(r.d[i])) n++; return n; }
 function nRegOf(r) { return nReg(); }
@@ -1200,6 +1205,7 @@ function renderCampusCard() {
     var hit = rows.filter(function (r) { return r.campus.toLowerCase().indexOf(pq) >= 0; });
     if (hit.length) { rows = hit; if (!hit.some(function (r) { return r.campus === state.pick; })) state.pick = hit[0].campus; }
   }
+  $('#myList').innerHTML = myListHtml();
   var sel = $('#pickCampus');
   if (!rows.length) { sel.innerHTML = ''; $('#campusCard').innerHTML = '<p class="empty">No campuses to show here.</p>'; return; }
   if (!rows.some(function (r) { return r.campus === state.pick; })) {
@@ -1220,10 +1226,25 @@ function renderCampusCard() {
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions, or something wrong or out of date? Contact this campus\'s C1 coordinator, <b>' + esc(r.c1) + '</b>, or email ' : 'Questions, or something wrong or out of date? Email ') +
-      '<a href="mailto:' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '?subject=' + encodeURIComponent('PTO/PTA dashboard: ' + r.campus) + '">' + esc(payload.inbox || 'ParentOrgDocs@houstonisd.org') + '</a>.</p>' +
+      '<a href="mailto:' + esc(payload.contact || 'FACE@houstonisd.org') + '?subject=' + encodeURIComponent('PTO/PTA dashboard: ' + r.campus) + '">' + esc(payload.contact || 'FACE@houstonisd.org') + '</a>.</p>' +
     (seesDetail(r) ? '<div class="cmore" data-c="' + esc(r.campus) + '"><p>' + (canReview(r) ? 'Check off documents, see the files and email the PTO/PTA.' : 'Officer names, emails and phone numbers, and the documents this ' + esc(r.ot || 'PTO/PTA') + ' has sent in.') + '</p>' +
       '<button type="button" class="btn campbtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>' +
       (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
+}
+
+/** A signed-in C1's own campuses, at the top of My campus: status, who it waits on, documents waiting for review. A row opens its card. */
+function myListHtml() {
+  if (!payload.me || payload.me.role !== 'c1') return '';
+  var mine = yearRows().filter(isMine).sort(function (a, b) { return cmp(a.campus, b.campus); });
+  if (!mine.length) return '<section class="mylist"><h3>Your campuses</h3><p class="empty">No campuses are assigned to you on the C1 Assignments tab. Ask FACE.</p></section>';
+  var wait = mine.reduce(function (n, r) { return n + count(r.d, 'R'); }, 0);
+  return '<section class="mylist"><h3>Your campuses<small>' + plural(mine.length, 'campus', 'campuses') + (wait ? ', ' + plural(wait, 'document', 'documents') + ' waiting for your review' : '') + '</small></h3>' +
+    '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Campus</th><th scope="col">Org type</th><th scope="col">Status</th><th scope="col">Waiting on</th><th scope="col">For your review</th></tr></thead><tbody>' +
+    mine.map(function (r) {
+      var st = statusOf(r), w = waitOn(r), n = count(r.d, 'R');
+      return '<tr' + (r.campus === state.pick ? ' class="on"' : '') + '><th scope="row"><button type="button" class="linkbtn" data-pick="' + esc(r.campus) + '">' + esc(r.campus) + '</button></th><td>' + esc(r.ot || '—') + '</td>' +
+        '<td><span class="pill ' + st.replace(/[^A-Za-z]+/g, '-') + '">' + esc(st) + '</span></td><td>' + esc(w.short || '—') + '</td><td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td></tr>';
+    }).join('') + '</tbody></table></div></section>';
 }
 
 /** Signed-in FACE staff: a link for each Area Office, for SEDs and EDs. The link opens the page on that office; nobody signs in. */
@@ -1317,13 +1338,13 @@ function remindHtml() {
   if (payload.remindAuto && payload.remindHook) {
     // automatic reminders are working: no buttons, just what tomorrow's email will cover and who cannot get one
     var noMail = due.filter(function (c) { return !c.e; });
-    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. Every weekday at 8 AM each C1 with something waiting gets one from ParentOrgDocs. ' +
+    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. Every weekday at 8 AM each C1 with something waiting gets one from ' + esc(payload.remindFrom || 'FACE@houstonisd.org') + '. ' +
       (due.length ? 'Right now that is ' + plural(due.length - noMail.length, 'C1', 'C1s') + '.' : 'Right now no C1 has anything waiting.') + '</p>' +
       (noMail.length ? '<p class="rerr">No email on the Dashboard Sign-ins tab, so no reminder: ' + esc(noMail.map(function (c) { return c.n; }).join(', ')) + '.</p>' : '');
   }
   var out = '<h3 class="rhead" id="remind" tabindex="-1">Remind C1s<small>' + (list.length ? plural(due.length, 'C1 has', 'C1s have') + ' campuses waiting' : 'no C1s set up yet') + '</small></h3>';
   if (!list.length) return out + '<p class="hint">C1s appear here once the C1 Assignments tab and Dashboard sign-ins are set up.</p>';
-  out += '<p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. ' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ParentOrgDocs. You only need these buttons to send one sooner.'
+  out += '<p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. ' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ' + esc(payload.remindFrom || 'FACE@houstonisd.org') + '. You only need these buttons to send one sooner.'
     : '<b>Automatic reminders are off.</b> To send them every weekday morning, set up the Power Automate flow and choose "C1 reminders: send every weekday at 8 AM (turn on)" in the sheet menu. Until then, use these buttons.') +
     ' Each button writes the reminder in Outlook; read it, then press Send there.</p>' + mailPrefHtml('data-mailact');
   if (!due.length) return out + '<div class="caught"><b>No C1 has anything waiting.</b>Nothing to remind them about.</div>';
@@ -1457,7 +1478,7 @@ function panelDocs(r, d) {
     });
     var out = '<li data-item="' + i + '"' + (rev && isEdited(r, i) ? ' class="edited"' : '') + '><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div>' +
       '<div class="meta">' + esc(meta.join(' · ')) + '</div>' + (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '');
-    if (fromTx(r, i)) return out + '<div class="meta txsrc">' + esc(txText(r, i)) + '. For a PTA this box is filled from the Texas PTA spreadsheet each week.</div></div></li>';
+    if (fromTx(r, i)) return out + '<div class="meta txsrc">' + esc(txText(r, i)) + '. Updated each week from the Texas PTA report, so it is not checked off here.</div></div></li>';
     if (!rev) return out + (x.m ? '<div class="rnote">Remark: ' + esc(x.m) + '</div>' : '') + '</div></li>';
     var dis = panel.busy ? ' disabled' : '';
     out += '<div class="seg" role="group" aria-label="' + esc('Check off: ' + DOCS[i].label) + '">' + CHOICES.map(function (ch) {
@@ -2096,6 +2117,7 @@ $('#app').addEventListener('click', function (e) {
   if ((el = t.closest('[data-clear]'))) { state.area = ''; render(); return; }
   if ((el = t.closest('[data-st]'))) { toCampuses(el.getAttribute('data-st')); return; }
   if ((el = t.closest('[data-area]'))) { state.area = el.getAttribute('data-area'); toCampuses('all'); return; }
+  if ((el = t.closest('[data-pick]'))) { state.pick = el.getAttribute('data-pick'); state.pickq = ''; $('#pickFind').value = ''; renderCampusCard(); $('#campusCard').scrollIntoView({ block: 'nearest' }); return; }
   if ((el = t.closest('[data-chip]'))) {
     var ck = el.getAttribute('data-chip'), f = FILTERS.filter(function (x) { return x.k === ck; })[0];
     if (el.getAttribute('data-keepq')) f = FILTERS[0];

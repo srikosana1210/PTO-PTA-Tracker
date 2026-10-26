@@ -78,6 +78,10 @@ var CFG = {
   DASHBOARD_TITLE: 'HISD PTO/PTAs',
   // The mailbox the PTO/PTAs send documents to. The "ask them to resend" email copies it, so a reply comes back to the people who work it.
   INBOX: 'ParentOrgDocs@houstonisd.org',
+  // Where people write with questions or corrections (the dashboard's My campus card), FACE 2026-10-26
+  CONTACT: 'FACE@houstonisd.org',
+  // The shared mailbox the Power Automate flow sends C1 reminders from (set in the flow's "Original Mailbox Address"; FACE 2026-10-26)
+  REMINDER_FROM: 'FACE@houstonisd.org',
   // One entry per requirement. key = column header in Campus Register. title = form question title. label = the words FACE uses for it
   // everywhere (dashboard, emails, Start Here); the dashboard has the same labels in its DOCS list.
   // A file question is matched by the START of its title (or of any formAliases entry), so the wording after the key can be changed freely.
@@ -141,7 +145,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-26c (PTAs count on every document, four of them from Texas PTA; one row of Campuses filters)';
+var VERSION = 'Script version 2026-10-26d (My campus: activity without blanks, FACE contact, a C1 list of their campuses, Texas PTA wording)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -2014,7 +2018,7 @@ function getPayload_(access) {
   return { sample: false, live: true, me: staff ? { role: 'staff', name: access.name || 'FACE staff' } : c1 ? { role: access.viewer ? 'viewer' : 'c1', name: c1.name, level: access.level || '' } : null,
     mine: c1 ? Object.keys(c1.campuses).map(function (k) { return c1.campuses[k]; }) : null,
     itemKeys: act.map(function (it) { return it.key; }), labels: act.map(function (it) { return it.label || it.key; }),
-    reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
+    reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, contact: CFG.CONTACT, remindFrom: CFG.REMINDER_FROM, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
     c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
     asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, open: open, rows: rows, detail: detail,
     sentBack: stats.sentBack, turn: staff ? stats.turn : null, hist: hist, today: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd') };
@@ -2041,7 +2045,7 @@ function c1Contacts_() {
  * This script cannot send email (the Google account has no Gmail), and Power Automate's Google Sheets connector is too often refused by
  * Google ("429 Too many requests"), so the tracker hands the reminders to Power Automate itself. Each weekday at 8 AM it rewrites the C1
  * Reminders tab (one row per C1; Send = Yes when something is waiting for their review and their email is known) and POSTs the Yes rows to
- * a Power Automate flow that starts with "When a Teams webhook request is received". The flow emails each one from the ParentOrgDocs
+ * a Power Automate flow that starts with "When a Teams webhook request is received". The flow emails each one from the CFG.REMINDER_FROM
  * mailbox. The flow's link is kept in Script Properties (REMINDER_HOOK). Setup: docs/power-automate-c1-reminders.md.
  */
 var REVIEW_NOTE_RE = /^(Accepted: |Needs correction, |Not needed, |Not there, |Remark, |Remark cleared, |Put back to Received)/;
@@ -2089,7 +2093,7 @@ function sendSummary_(r) {
   var L = [];
   if (!r.hook) L.push('The tracker is not connected to Power Automate yet. Choose "C1 reminders: connect to Power Automate" first.');
   else if (!r.send) L.push('Nothing was sent: no C1 has something waiting (and an email on file) right now.');
-  else L.push('Sent ' + plural_(r.send, 'reminder', 'reminders') + ' to Power Automate. The emails should arrive from ParentOrgDocs within a few minutes. If they do not, open the flow\'s run history in Power Automate.');
+  else L.push('Sent ' + plural_(r.send, 'reminder', 'reminders') + ' to Power Automate. The emails should arrive from ' + CFG.REMINDER_FROM + ' within a few minutes. If they do not, open the flow\'s run history in Power Automate.');
   if (r.noEmail.length) L.push('', 'No email on the ' + CFG.TAB_SIGNINS + ' tab, so no reminder: ' + r.noEmail.join(', ') + '.');
   return L.join('\n');
 }
@@ -2100,7 +2104,7 @@ function turnOnC1Reminders() {
   removeReminderTriggers_();
   ScriptApp.newTrigger(REMINDER_RUN).timeBased().everyDays(1).atHour(CFG.REMINDER_HOUR).create();
   try { refreshC1Reminders_(); } catch (err) { /* the trigger is on; "update the list now" shows any problem */ }
-  ui.alert('C1 reminders', 'On. Every weekday between ' + CFG.REMINDER_HOUR + ' and ' + (CFG.REMINDER_HOUR + 1) + ' AM the tracker updates the ' + CFG.TAB_REMINDERS + ' tab and sends the reminders to Power Automate, which emails each C1 from ParentOrgDocs.' +
+  ui.alert('C1 reminders', 'On. Every weekday between ' + CFG.REMINDER_HOUR + ' and ' + (CFG.REMINDER_HOUR + 1) + ' AM the tracker updates the ' + CFG.TAB_REMINDERS + ' tab and sends the reminders to Power Automate, which emails each C1 from ' + CFG.REMINDER_FROM + '.' +
     (reminderHook_() ? '' : '\n\nThe tracker is not connected to Power Automate yet, so nothing will be sent. Choose "C1 reminders: connect to Power Automate".'), ui.ButtonSet.OK);
 }
 
@@ -3683,10 +3687,34 @@ function openDetailsOff() {
 }
 
 /** The private detail made fit for everyone: officers and documents only; no notes, remarks, submitter or reviewer. */
+/**
+ * A Submission Log note with no file, in words anyone may see: what was decided about which document, or that the PTO/PTA was emailed.
+ * Remarks, email addresses and who did it are left out. '' when the note has nothing anyone else needs (a remark, for example).
+ */
+function publicNote_(note, by) {
+  var n = cellText_(note), rv = reviewOf_(n);
+  if (rv) {
+    var nm = { 'Bylaws': 'Bylaws', 'Officer Information': 'Officer information form', 'Training Certificate': 'Training certificate', 'Budget or Financial Report': 'Budget report or minutes',
+      'Proof of 501c Status': 'Proof of 501(c) status', 'Bank Verification Letter': 'Bank verification letter' }[rv.key] || rv.key;   // the dashboard's short names
+    var what = { 'Accepted': 'accepted', 'Sent back': 'sent back for correction', 'Not needed': 'marked not needed', 'Not there': 'marked not received', 'Put back': 'put back for review' }[rv.s];
+    if (!what) return '';
+    return (cellText_(by) === 'Texas PTA' ? (rv.s === 'Accepted' ? nm + ' confirmed by Texas PTA' : nm + ' not confirmed by Texas PTA') : nm + ' ' + what) + '.';
+  }
+  if (n.indexOf('Emailed the PTO/PTA') === 0) return 'Emailed the PTO/PTA about what is still needed.';
+  if (n.indexOf('Marked as having a PTO/PTA') === 0) return 'Marked as having a PTO/PTA.';
+  return '';
+}
+
 function openDetail_(detail) {
   Object.keys(detail).forEach(function (k) {
     var d = detail[k];
-    d.a = (d.a || []).map(function (e) { return e.length > 2 ? [e[0], e[1], e[2], e[3]] : e; });
+    // a file keeps its name and link; a line with no file says only what happened (never a remark or who), or is left out
+    d.a = (d.a || []).map(function (e) {
+      if (e.length <= 2) return e;
+      if (e[1]) return [e[0], e[1], e[2], e[3]];
+      var what = publicNote_(e[4], e[5]);
+      return what ? [e[0], '', '', '', what] : null;
+    }).filter(Boolean);
     d.o = (d.o || []).map(function (sb) { return { d: sb.d, id: sb.id, g: sb.g, ty: sb.ty, off: (sb.off || []).map(function (o) { return { s: o.s, n: o.n, p: o.p, e: o.e, t: o.t, r: o.r }; }) }; });
     delete d.rm;
     if (d.rv) Object.keys(d.rv).forEach(function (key) { d.rv[key] = [d.rv[key][0], d.rv[key][1]]; });   // the date of a decision, not who made it

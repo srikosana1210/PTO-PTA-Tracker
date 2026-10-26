@@ -195,6 +195,13 @@ async function signIn(page, name, pass) {
       check('the file moved to the right document, waiting for review', base.regRow(w.g, 'Anderson ES')['Budget or Financial Report'] === 'Received');
     }
     check('no page errors (upload)', o.errors.length === 0, o.errors.join(' | '));
+    /* a signed-in C1 sees their own campuses at the top of My campus (2026-10-26) */
+    await page.keyboard.press('Escape');
+    await page.click('[data-tab="campus"]');
+    var my = await page.$$eval('#myList [data-pick]', function (b) { return b.map(function (x) { return x.textContent; }); });
+    check('My campus lists the C1\'s own campuses', my.join() === 'Anderson ES,Ashford ES', my.join());
+    await page.click('#myList [data-pick="Ashford ES"]');
+    check('a campus in the list opens its card', /^Ashford ES/.test((await page.textContent('#campusCard')).trim()) && (await page.inputValue('#pickCampus')) === 'Ashford ES');
     await page.close();
     /* leadership never gets the upload buttons */
     o = await openPage(browser, w); page = o.page;
@@ -203,6 +210,9 @@ async function signIn(page, name, pass) {
     await page.fill('#q', 'Anderson');
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     check('no upload or move buttons without a C1 or staff sign-in', (await page.$$('#panel [data-act="upopen"], #panel [data-act="mvopen"]')).length === 0);
+    var acts = await page.$$eval('#panel .plist.act li', function (li) { return li.map(function (x) { return x.children[1] ? x.children[1].textContent.trim() : ''; }); });
+    check('recent activity has no blank lines, and says what happened without remarks', acts.length > 0 && acts.every(Boolean) && acts.some(function (x) { return /accepted\.|sent back for correction\.|marked not received\./.test(x); }), acts.join(' / '));
+    check('no My campus list without a C1 sign-in', !(await page.$('#myList [data-pick]')));
     await page.close();
 
     /* ---------- FACE staff: remind C1s ---------- */
@@ -243,12 +253,12 @@ async function signIn(page, name, pass) {
     await page.click('[data-tab="campus"]');
     await page.selectOption('#pickCampus', 'Oak Forest ES');
     var card = await page.textContent('#campusCard');
-    check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /To be Registered/.test(card) && /Texas PTA shows it/.test(card) && /Received from the form/.test(card), card);
+    check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /To be Registered/.test(card) && /Confirmed by Texas PTA/.test(card) && /Received from the form/.test(card), card);
     check('My campus shows the PTA\'s Texas PTA standing', /Texas PTA: Good Standing since 9\/9\/2026\. All five standards are checked\./.test(card), card);
     check('My campus offers the officers and documents, not the checklist, without sign-in', /See officers and documents/.test(await page.textContent('#campusCard')) && !/Open the checklist/.test(await page.textContent('#campusCard')));
     await page.selectOption('#pickCampus', 'Anderson ES');
     card = await page.textContent('#campusCard');
-    check('My campus names the C1 and how to report a problem', /C1 coordinator, Ms\. Lee/.test(card) && /something wrong or out of date/.test(card) && !/lee@houstonisd/.test(card), card);
+    check('My campus names the C1 and how to report a problem', /C1 coordinator, Ms\. Lee/.test(card) && /something wrong or out of date\? Contact this campus's C1 coordinator, Ms\. Lee, or email FACE@houstonisd\.org\./.test(card) && !/lee@houstonisd/.test(card), card);
     await page.screenshot({ path: path.join(SHOTS, 'my-campus.png'), fullPage: false });
     check('no page errors (campus views)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();

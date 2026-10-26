@@ -105,3 +105,16 @@ test('the one-time update: formulas, a fresh import and Start Here wording; safe
   ok(again.ok && again.lines.some(function (l) { return /Start Here was already up to date/.test(l); }), again.lines.join('\n'));
   ok(again.lines.some(function (l) { return /0 PTA document boxes were updated/.test(l); }), again.lines.join('\n'));
 });
+
+/* ---------- My campus (2026-10-26d): what everyone sees in Recent activity ---------- */
+test('open details: a log line with no file says what happened, never a remark or who; a bare remark is left out', function () {
+  var g = tracker(), p = withPeople(g);
+  g.saveChecklist(p.c1, 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Needs Correction', remark: 'Page 2 is missing the signature' }, { key: 'Training Certificate', status: 'Accepted', remark: '' }], 'Call Ms. Rivera at home');
+  var d = g.openDetail_(g.buildDetail_(true, 'America/Chicago'))['Anderson ES||2026-27'];
+  var lines = d.a.map(function (e) { return e[4] || ''; });
+  ok(lines.indexOf('Bylaws sent back for correction.') >= 0 && lines.indexOf('Training certificate accepted.') >= 0, lines.join(' / '));
+  ok(lines.every(Boolean), 'no blank lines');
+  ok(JSON.stringify(d).indexOf('signature') < 0 && JSON.stringify(d).indexOf('Rivera') < 0 && JSON.stringify(d).indexOf('Ms. Lee') < 0, 'no remark and no reviewer');
+  eq(g.publicNote_('Accepted: Bylaws. Remark: From the Texas PTA spreadsheet: SOA Bylaws checked', 'Texas PTA'), 'Bylaws confirmed by Texas PTA.');
+  eq(g.getPayload_(null).contact, 'FACE@houstonisd.org');
+});
