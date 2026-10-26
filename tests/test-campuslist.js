@@ -13,7 +13,10 @@ function setCell(g, campus, header, value) { var t = g.table_('Campus Register')
 /** The template as FACE's live sheet looked on 2026-10-26: old spellings, and two campuses added twice by the officer import. */
 function liveLike() {
   var g = h.load({ fixture: 'template' });
-  var t = g.table_('Campus Register'), at = g.firstEmptyRow_(t);
+  var t = g.table_('Campus Register');
+  // the template already uses FACE's short names (2026-10-26); the live sheet still had the old spellings
+  setCell(g, 'White E ES', 'Campus', 'White, Ed. ES'); setCell(g, 'Cage ES', 'Campus', 'Cage ES (@Lantrip ES)');
+  t = g.table_('Campus Register'); var at = g.firstEmptyRow_(t);
   g.writeInputRows_(t, at, [
     { 'School Year': '2026-27', 'Campus': 'White E ES', 'Area Office': '', 'Has PTO or PTA': 'Yes', 'Org Type': 'PTO', 'Org Name': 'PTO', 'Officer Information': 'Accepted' },
     { 'School Year': '2026-27', 'Campus': 'Cage ES', 'Area Office': '', 'Has PTO or PTA': 'Yes', 'Org Type': 'PTO', 'Org Name': 'Rufus Cage PTO', 'Officer Information': 'Accepted' }]);
@@ -74,4 +77,31 @@ test('a campus name in an old spelling still finds the campus everywhere', funct
   eq(g.lookup_(m, 'Law & Justice HS'), 'HSLJ');
   eq(g.lookup_(m, 'Cage ES (@Lantrip ES)'), 'Cage ES');
   eq(g.lookup_(m, 'Ed White ES'), 'White E ES');
+});
+
+/* ---------- 2026-10-26b: rows are removed by name, never by a row number that may have moved ---------- */
+test('running the update again removes old-spelling rows that were left behind', function () {
+  var g = liveLike();
+  g.applyCampusList_();
+  // the live sheet after the first run: four rows still there
+  var t = g.table_('Campus Register');
+  g.writeInputRows_(t, g.firstEmptyRow_(t), ['Cage ES (@Lantrip ES)', 'White, Ed. ES', 'Barbara Jordan Career Center', 'Virtual Launchpad'].map(function (n) {
+    return { 'School Year': '2026-27', 'Campus': n, 'Area Office': /Jordan|Launchpad/.test(n) ? 'Programs/Charters' : 'NES Elementary', 'Has PTO or PTA': /Cage/.test(n) ? 'No' : 'Not Yet Confirmed' };
+  }));
+  eq(rows(g).length, 268);
+  var r = g.applyCampusList_();
+  ok(r.ok, r.lines.join('\n'));
+  eq(rows(g).length, 264, r.lines.join('\n'));
+  eq(regRow(g, 'Cage ES')['Has PTO or PTA'], 'Yes', 'the kept Cage ES still has its officer form');
+  eq(regRow(g, 'White E ES')['Officer Information'], 'Accepted');
+});
+
+test('a row that moved is found again by name; a kept campus is never deleted', function () {
+  var g = liveLike();
+  var t = g.table_('Campus Register'), lantrip = g.findRow_(t, '2026-27', 'Cage ES (@Lantrip ES)'), anderson = g.findRow_(t, '2026-27', 'Anderson ES');
+  // stale row numbers: point at the wrong rows on purpose
+  var stuck = g.deleteRegisterRows_('2026-27', [{ row: anderson, name: 'Cage ES (@Lantrip ES)' }, { row: lantrip + 1, name: 'Anderson ES' }], ['Anderson ES']);
+  ok(!g.findRow_(g.table_('Campus Register'), '2026-27', 'Cage ES (@Lantrip ES)'), 'found by name and removed');
+  ok(g.findRow_(g.table_('Campus Register'), '2026-27', 'Anderson ES'), 'Anderson ES is kept');
+  eq(stuck, ['Anderson ES'], 'the one it would not guess at is reported');
 });

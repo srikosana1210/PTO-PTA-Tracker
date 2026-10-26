@@ -132,7 +132,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-26a (FACE\'s campus list: every campus in an Area Office, duplicates merged, short names)';
+var VERSION = 'Script version 2026-10-26b (campus list update: rows are removed by name and checked afterwards)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -3020,18 +3020,19 @@ function applyCampusList_() {
           if (other) setCell_(t, keep.row, hd, cellText_(other.v[t.col[hd]]));
         });
         if (has && has !== cellText_(keep.v[t.col['Has PTO or PTA']])) setCell_(t, keep.row, 'Has PTO or PTA', has);
-        g.slice(1).forEach(function (x) { del.push(x.row); });
+        g.slice(1).forEach(function (x) { del.push({ row: x.row, name: x.name }); });
         merged.push(g.map(function (x) { return x.name; }).join(' + ') + ' = ' + short);
       }
       if (keep.name !== short) { setCell_(t, keep.row, 'Campus', short); renamed++; }
       var area = list.area[norm_(short)];
       if (area && cellText_(keep.v[t.col['Area Office']]) !== area) { setCell_(t, keep.row, 'Area Office', area); areaSet++; }
     });
-    gone.forEach(function (x) { del.push(x.row); });
-    del.sort(function (a, b) { return b - a; }).forEach(function (r) { t.sh.deleteRow(r); });
+    gone.forEach(function (x) { del.push({ row: x.row, name: x.name }); });
+    var stuck = deleteRegisterRows_(year, del, order);
     if (merged.length) lines.push('Merged ' + plural_(merged.length, 'campus that was', 'campuses that were') + ' listed twice: ' + merged.join('; ') + '.');
     lines.push(plural_(renamed, 'campus was', 'campuses were') + ' given FACE\'s short name, and ' + plural_(areaSet, 'Area Office was', 'Area Offices were') + ' set from the list.');
     if (gone.length) lines.push('Removed ' + plural_(gone.length, 'campus', 'campuses') + ' that ' + (gone.length === 1 ? 'is' : 'are') + ' not on the list and had nothing on file: ' + gone.map(function (x) { return x.name; }).join(', ') + '.');
+    if (stuck.length) lines.push('Could not remove ' + stuck.join(', ') + ' from the Campus Register. Delete ' + (stuck.length === 1 ? 'that row' : 'those rows') + ' by hand (School Year ' + year + '), or run this again.');
     if (strays.length) lines.push('Not on the list but with something on file, so left as they are: ' + strays.map(function (x) { return x.name; }).join(', ') + '. Add them to the list, or merge them by hand.');
     // 3. the campus's history follows its new name: other tabs, other years and the Drive folder
     var moved = renameEverywhere_(list);
@@ -3046,6 +3047,37 @@ function applyCampusList_() {
   var bad = scanForErrors_();
   if (bad.length) lines.push('', 'Please check: these cells show an error: ' + bad.slice(0, 6).join(', ') + '.', 'If anything looks wrong, the backup copy above has everything as it was.');
   return { ok: !bad.length, lines: lines };
+}
+
+/**
+ * Deletes this year's register rows listed as {row, name}. A row is deleted only when it still holds that campus; if it moved (a sort,
+ * someone typing), the campus is looked up again by name, unless the name is one of the campuses being kept (keepNames), so a kept
+ * row is never deleted. Returns the names that are still there afterwards, for a person to remove by hand.
+ */
+function deleteRegisterRows_(year, targets, keepNames) {
+  SpreadsheetApp.flush();
+  var keep = {};
+  (keepNames || []).forEach(function (n) { keep[norm_(n)] = 1; });
+  var t = table_(CFG.TAB_REGISTER), yc = t.col['School Year'], cc = t.col['Campus'];
+  function at(r) { var v = t.values[r - 1]; return v && cellText_(v[yc]) === year ? norm_(v[cc]) : ''; }
+  var rows = [], used = {}, stuck = [];
+  targets.forEach(function (x) {
+    var r = at(x.row) === norm_(x.name) ? x.row : 0;
+    if (!r && !keep[norm_(x.name)]) {
+      for (var i = t.values.length; i >= 2; i--) if (!used[i] && at(i) === norm_(x.name)) { r = i; break; }
+    }
+    if (r && !used[r]) { used[r] = 1; rows.push(r); } else stuck.push(x.name);
+  });
+  rows.sort(function (a, b) { return b - a; }).forEach(function (r) { t.sh.deleteRow(r); });   // bottom first, so the rows above keep their numbers
+  SpreadsheetApp.flush();
+  // check: a removed spelling that is not a kept campus must be gone
+  var after = table_(CFG.TAB_REGISTER);
+  for (var k = 1; k < after.values.length; k++) {
+    var v = after.values[k], n = cellText_(v[after.col['Campus']]);
+    if (cellText_(v[after.col['School Year']]) !== year || keep[norm_(n)]) continue;
+    if (targets.some(function (x) { return norm_(x.name) === norm_(n); }) && stuck.indexOf(n) < 0) stuck.push(n);
+  }
+  return stuck;
 }
 
 /** Renames old spellings to FACE's short names on the other tabs, earlier years of the register, and campus folders. Returns how many cells changed. */
