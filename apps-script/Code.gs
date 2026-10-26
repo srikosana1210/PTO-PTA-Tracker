@@ -45,6 +45,9 @@ var CFG = {
   LEADER_HEADERS: ['Email', 'Name', 'Role', 'Area Office or Campus', 'Status'],
   // one row per month: how many PTO/PTAs are at each stage, so the dashboard can show progress over time
   TAB_HISTORY: 'Progress History',
+  // Principals and APs confirm their campus's PTO/PTA details (FACE, 2026-10-26): one row per answer, newest last
+  TAB_CONFIRM: 'Campus Confirmations',
+  CONFIRM_HEADERS: ['Submitted', 'School Year', 'Campus', 'Answer', 'Note', 'Email', 'Signed In As'],
   HISTORY_HEADERS: ['Month', 'School Year', 'Saved', 'Campuses', 'PTO/PTAs', 'Legalized', 'Registered, not yet legalized', 'In progress', 'Not started', 'Nothing received yet',
     'Documents waiting for review', 'Campuses waiting for review', 'Campuses with documents sent back'],
   // FACE's list of campuses that do not have a PTO or a PTA (Campus Name, Division, FACE Coordinator 1, PTO/PTA), pasted in when it changes
@@ -145,7 +148,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-26e (emails to PTO/PTAs copy FACE@houstonisd.org; C1 reminders stay with ParentOrgDocs)';
+var VERSION = 'Script version 2026-10-26f (principals confirm their PTO/PTA details on My campus; FACE staff only while testing)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -171,6 +174,9 @@ function onOpen() {
     .addItem('Dashboard sign-ins: new passcode for one person', 'newPasscode')
     .addItem('Officers and documents: show to everyone in the district (no sign-in)', 'openDetailsOn')
     .addItem('Officers and documents: show only after a C1 or staff sign-in', 'openDetailsOff')
+    .addItem('Principal confirmation: show to everyone (after testing)', 'confirmOpenOn')
+    .addItem('Principal confirmation: FACE staff only (testing)', 'confirmOpenOff')
+    .addItem('Principal confirmation: ask again (start a new round)', 'confirmNewRound')
     .addItem('Dashboard: check that it works', 'checkDashboard')
     .addItem('C1 reminders: connect to Power Automate', 'connectPowerAutomate')
     .addItem('C1 reminders: send now (test)', 'sendC1RemindersNow')
@@ -2021,7 +2027,8 @@ function getPayload_(access) {
     reg: only(flags.reg), req: only(flags.req), inbox: CFG.INBOX, contact: CFG.CONTACT, remindFrom: CFG.REMINDER_FROM, source: 'the PTO/PTA tracker', url: dashboardUrl_(),
     c1s: staff ? c1Contacts_() : null, remindAuto: staff ? safeTrigger_() : null, remindHook: staff ? !!reminderHook_() : null,
     asOf: Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a'), txAsOf: tx.asOf, open: open, rows: rows, detail: detail,
-    sentBack: stats.sentBack, turn: staff ? stats.turn : null, hist: hist, today: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd') };
+    sentBack: stats.sentBack, turn: staff ? stats.turn : null, hist: hist, today: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'),
+    conf: confirmPayload_(staff, c1, tz) };
 }
 
 function safeTrigger_() { try { return reminderTrigger_(); } catch (err) { return false; } }
@@ -3662,6 +3669,123 @@ function cachedPublicPayload_(fresh) {
   return p;
 }
 
+/* ================================================================== principals confirm their campus's PTO/PTA details */
+
+/*
+ * FACE, 2026-10-26: a principal or AP opens My campus and says whether the PTO/PTA details are right (Yes / Something is wrong), or, for a
+ * campus without a PTO/PTA on file, whether it has one. Nobody signs in: the answer is saved with the district Google account that gave it
+ * (the dashboard runs for "Anyone within Houston ISD"). While FACE tests it (Script Property CONFIRM_OPEN not '1'), only signed-in FACE
+ * staff see it and may answer. FACE asks again every few months with "ask again" (CONFIRM_ROUND, a date): an answer from before it is
+ * "due again". An answer that the details are correct is also due again when a newer officer form arrives.
+ * Everyone may see whether a campus confirmed and when; the note and who answered are for FACE staff and the campus's C1 only.
+ */
+var CONFIRM_ANSWERS = { ok: 'Correct', wrong: 'Something is wrong', has: 'We have a PTO/PTA', none: 'We do not have a PTO/PTA' };
+var CONFIRM_NOTE_MAX = 500;
+function confirmOpen_() { return PropertiesService.getScriptProperties().getProperty('CONFIRM_OPEN') === '1'; }
+function confirmRound_() { return PropertiesService.getScriptProperties().getProperty('CONFIRM_ROUND') || ''; }
+
+/** This school year's newest answer for each campus: { normalised campus: { k, d, e, n, by, due } }. due: '' | 'round' | 'officers'. */
+function confirmations_(year, tz) {
+  var out = {}, ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(CFG.TAB_CONFIRM);
+  if (!sh) return out;
+  tz = tz || ss.getSpreadsheetTimeZone();
+  var t = table_(CFG.TAB_CONFIRM), c = t.col, codeOf = {};
+  Object.keys(CONFIRM_ANSWERS).forEach(function (k) { codeOf[CONFIRM_ANSWERS[k]] = k; });
+  function day(v) { return isDate_(v) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : cellText_(v).slice(0, 10); }
+  for (var i = 1; i < t.values.length; i++) {
+    var v = t.values[i], campus = cellText_(v[c['Campus']]), k = codeOf[cellText_(v[c['Answer']])];
+    if (!campus || !k || cellText_(v[c['School Year']]) !== year) continue;
+    out[norm_(campus)] = { k: k, d: day(v[c['Submitted']]), e: cellText_(v[c['Email']]), n: cellText_(v[c['Note']]), by: cellText_(v[c['Signed In As']]), due: '' };
+  }
+  // the newest officer form for each campus, to tell when "correct" no longer covers the officers on file
+  var newest = {};
+  if (ss.getSheetByName(CFG.TAB_OFFICERS)) {
+    var ot = table_(CFG.TAB_OFFICERS), oc = ot.col;
+    if (oc['Submitted'] !== undefined) for (var j = 1; j < ot.values.length; j++) {
+      var ov = ot.values[j], cp = norm_(ov[oc['Campus']]), d = day(ov[oc['Submitted']]);
+      if (cp && cellText_(ov[oc['School Year']]) === year && d > (newest[cp] || '')) newest[cp] = d;
+    }
+  }
+  var round = confirmRound_();
+  Object.keys(out).forEach(function (cp) {
+    var a = out[cp];
+    if (round && a.d < round) a.due = 'round';
+    else if (a.k === 'ok' && newest[cp] && newest[cp] > a.d) a.due = 'officers';
+  });
+  return out;
+}
+
+/** For the page: null while it is being tested and the viewer is not FACE staff. Notes and who answered only for staff and the campus's C1. */
+function confirmPayload_(staff, c1, tz) {
+  var open = confirmOpen_();
+  if (!open && !staff) return null;
+  var by = {}, all = {};
+  try { all = confirmations_(currentYear_(), tz); } catch (err) { all = {}; }
+  var names = {};
+  try { var t = table_(CFG.TAB_REGISTER); for (var i = 1; i < t.values.length; i++) names[norm_(t.values[i][t.col['Campus']])] = cellText_(t.values[i][t.col['Campus']]); } catch (err) { names = {}; }
+  Object.keys(all).forEach(function (cp) {
+    var a = all[cp], priv = staff || !!(c1 && c1.campuses[cp]);
+    by[names[cp] || cp] = priv ? [a.k, a.d, a.due, a.e || a.by, a.n] : [a.k, a.d, a.due];
+  });
+  return { open: open, round: confirmRound_(), by: by };
+}
+
+/**
+ * Called from My campus. answer: ok | wrong | has | none. A note says what is wrong (required then), or for "has", the PTO/PTA's name.
+ * While FACE tests it, only a signed-in FACE staff member may answer. Returns this campus's newest answer, as the page shows it.
+ */
+function confirmCampus(token, campus, answer, note) {
+  var who = token ? sessionFrom_(token) : null, staff = !!(who && who.role === 'staff');
+  if (!confirmOpen_() && !staff) throw new Error('FACE is still testing this. Only signed-in FACE staff can answer for now.');
+  answer = cellText_(answer); campus = cellText_(campus);
+  if (!CONFIRM_ANSWERS[answer]) throw new Error('That answer is not recognized. Reload the page and try again.');
+  note = cleanText_(note, CONFIRM_NOTE_MAX);
+  if (answer === 'wrong' && !note) throw new Error('Say what is wrong, so the C1 coordinator can fix it.');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var year = currentYear_(), t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
+    if (!row) throw new Error(campus + ' is not on the Campus Register for ' + year + '.');
+    var canon = cellText_(t.values[row - 1][t.col['Campus']]);
+    var sh = ensureTab_(CFG.TAB_CONFIRM, CFG.CONFIRM_HEADERS), now = new Date();
+    var email = activeEmail_(), as = who ? who.name + (who.role === 'staff' ? ' (FACE)' : who.role === 'c1' ? ' (C1)' : '') : '';
+    var at = Math.max(sh.getLastRow(), 1) + 1;
+    if (at > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), at - sh.getMaxRows());
+    sh.getRange(at, 2, 1, 1).setNumberFormat('@');   // School Year, so 2026-27 is not turned into a date
+    sh.getRange(at, 1, 1, CFG.CONFIRM_HEADERS.length).setValues([[now, year, canon, CONFIRM_ANSWERS[answer], note, email, as]]);
+    clearPageCache_();
+    var a = confirmations_(year)[norm_(canon)];
+    return { ok: true, campus: canon, c: [a.k, a.d, a.due, a.e || a.by, a.n] };
+  } finally { lock.releaseLock(); }
+}
+
+function confirmOpenOn() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Principal confirmation: show to everyone', 'Everyone who opens the dashboard will see, on My campus, the buttons to confirm a campus\'s PTO/PTA details or report a problem. Each answer is saved with the district Google account that gave it, on the ' + CFG.TAB_CONFIRM + ' tab.\n\nTurn it on now?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  PropertiesService.getScriptProperties().setProperty('CONFIRM_OPEN', '1');
+  clearPageCache_();
+  ui.alert('Principal confirmation is on', 'Principals and APs now see the confirm buttons on My campus. To go back to testing, choose Principal confirmation: FACE staff only.', ui.ButtonSet.OK);
+}
+
+function confirmOpenOff() {
+  var ui = SpreadsheetApp.getUi();
+  PropertiesService.getScriptProperties().setProperty('CONFIRM_OPEN', '0');
+  clearPageCache_();
+  ui.alert('Principal confirmation: FACE staff only', 'Only signed-in FACE staff see the confirm buttons now. Answers already given are kept.', ui.ButtonSet.OK);
+}
+
+/** Every few months FACE asks again: answers from before today are shown as due again. Answers are kept. */
+function confirmNewRound() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Principal confirmation: ask again', 'Every campus\'s earlier answer will show as "due again", so principals and APs are asked to confirm once more. The earlier answers stay on the ' + CFG.TAB_CONFIRM + ' tab.\n\nStart a new round today?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  var ss = SpreadsheetApp.getActive(), today = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  PropertiesService.getScriptProperties().setProperty('CONFIRM_ROUND', today);
+  clearPageCache_();
+  ui.alert('New round started', 'From today, answers given before ' + today + ' show as due again.', ui.ButtonSet.OK);
+}
+
 /* ================================================================== officers and documents for everyone in the district */
 
 /*
@@ -3686,7 +3810,6 @@ function openDetailsOff() {
   ui.alert('Officers and documents: only after sign-in', 'Officers and document links are now shown only to signed-in C1s (their own campuses) and FACE staff. Everyone else sees campus status only.', ui.ButtonSet.OK);
 }
 
-/** The private detail made fit for everyone: officers and documents only; no notes, remarks, submitter or reviewer. */
 /**
  * A Submission Log note with no file, in words anyone may see: what was decided about which document, or that the PTO/PTA was emailed.
  * Remarks, email addresses and who did it are left out. '' when the note has nothing anyone else needs (a remark, for example).
@@ -3705,6 +3828,7 @@ function publicNote_(note, by) {
   return '';
 }
 
+/** The private detail made fit for everyone: officers and documents only; no notes, remarks, submitter or reviewer. */
 function openDetail_(detail) {
   Object.keys(detail).forEach(function (k) {
     var d = detail[k];

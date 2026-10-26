@@ -224,6 +224,18 @@ details.defs p { margin-top: 8px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
 .legend > span { display: inline-flex; gap: 6px; align-items: center; }
 .legend .ic { width: 20px; height: 20px; border-radius: 5px; }
+.conf { margin-top: 16px; border: 1px solid var(--grid); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+.conf h4 { margin: 0 0 6px; font-size: 16px; }
+.conf .ctest { margin: 0 0 8px; font-size: 12.5px; color: var(--warn-ink); background: var(--warn-bg); border-radius: 6px; padding: 4px 8px; display: inline-block; }
+.conf .chint { margin: 0 0 10px; color: var(--ink2); }
+.conf .cstate { margin: 0 0 10px; font-weight: 600; }
+.conf.ok .cstate { color: var(--ok-ink); } .conf.wrong .cstate, .conf.due .cstate { color: var(--err-ink); }
+.conf .cnote { display: block; font-weight: 400; margin-top: 4px; }
+.conf .cbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.conf .cask label { display: block; margin-bottom: 6px; }
+.conf .cask textarea { width: 100%; box-sizing: border-box; }
+.conf .cdone { margin: 8px 0 0; color: var(--ok-ink); font-weight: 600; }
+.conf .cdone:empty { display: none; }
 .mylist { margin: 0 0 18px; }
 .mylist h3 { font-size: 16px; margin: 0 0 8px; }
 .mylist h3 small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
@@ -580,6 +592,11 @@ a.btn.primary { color: var(--btn-ink); }
         <p class="hint">Whole numbers for each Area Office. Registered includes the campuses that can fundraise. Select an Area Office to see its campuses, or a column heading to sort.</p>
         <div id="areas"></div>
       </div>
+      <div class="sec" id="confSec" hidden>
+        <h2>Principal confirmation</h2>
+        <p class="hint" id="confHint"></p>
+        <div id="conftab"></div>
+      </div>
       <div class="sec" id="c1Sec" hidden>
         <h2>By C1 coordinator</h2>
         <p class="hint">For FACE staff. Each C1's campuses, what is waiting for them, and how long reviews take. Select a column heading to sort.</p>
@@ -724,7 +741,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-26e';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-26f';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -971,7 +988,7 @@ function renderOverview(s) {
   var sc = $('#scope');
   sc.hidden = !state.area;
   if (state.area) sc.innerHTML = 'Showing <b>' + esc(state.area) + '</b> only. <button type="button" class="linkbtn" data-clear="area">Show all Area Offices</button>';
-  renderKpis(s); renderAreas(); renderC1s(); renderHist(); renderTx(); renderDocs(s); renderDefs();
+  renderKpis(s); renderAreas(); renderConf(); renderC1s(); renderHist(); renderTx(); renderDocs(s); renderDefs();
 }
 
 /* a table whose column headings sort it: cols [{ k, n }], rows [{ k: value }], first column is the name; sorts kept in state.sorts */
@@ -1075,7 +1092,9 @@ var FILTERS = [
   { k: '', n: 'All PTO/PTAs', ty: '', st: '' },
   { k: 'no', n: 'No PTO/PTA', ty: 'no', st: '' }
 ];
-var EXTRA_LABEL = { 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, cannot fundraise yet', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet' };
+var EXTRA_LABEL = { 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, cannot fundraise yet', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet',
+  'conf:ok': 'Principal confirmed', 'conf:wrong': 'Principal reported a problem', 'conf:due': 'Principal confirmation due again', 'conf:not': 'Principal has not answered',
+  'conf:has': 'Principal says it has a PTO/PTA', 'conf:none': 'Principal says it has none' };
 function passTy(r, k) {
   switch (k) {
     case 'all': return true;
@@ -1091,13 +1110,14 @@ function passW(r, k) {
   if (!k) return true;
   if (k === 'review') return docsOf(r).some(function (i) { return r.d[i] === 'R'; });
   if (k === 'fix') return docsOf(r).some(function (i) { return r.d[i] === 'C'; });
+  if (k.indexOf('conf:') === 0) return confKind(r) === k.slice(5);
   var w = waitOn(r).who;
   return k === 'wpto' ? w === 'pto' || w === 'both' : k === 'done' ? w === 'done' : true;
 }
 function inFilter(r, f) { f = f || state; return passTy(r, f.ty) && passSt(r, f.st) && passW(r, f.w); }
 /** A key from a tile, a stage or an old link, turned into the three filters. */
 function setFilter(k) {
-  if (k === 'review' || k === 'fix') { state.ty = 'all'; state.st = ''; state.w = k; }
+  if (k === 'review' || k === 'fix' || k.indexOf('conf:') === 0) { state.ty = 'all'; state.st = ''; state.w = k; }
   else if (k === 'w:pto') { state.ty = ''; state.st = ''; state.w = 'wpto'; }
   else if (['all', '', 'pto', 'pta', 'nyc', 'no'].indexOf(k) >= 0) { state.ty = k; state.st = ''; state.w = ''; }
   else { state.ty = ''; state.st = k; state.w = ''; }
@@ -1226,10 +1246,99 @@ function renderCampusCard() {
     (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions, or something wrong or out of date? Contact this campus\'s C1 coordinator, <b>' + esc(r.c1) + '</b>, or email ' : 'Questions, or something wrong or out of date? Email ') +
-      '<a href="mailto:' + esc(payload.contact || 'FACE@houstonisd.org') + '?subject=' + encodeURIComponent('PTO/PTA dashboard: ' + r.campus) + '">' + esc(payload.contact || 'FACE@houstonisd.org') + '</a>.</p>' +
+      '<a href="mailto:' + esc(payload.contact || 'FACE@houstonisd.org') + '?subject=' + encodeURIComponent('PTO/PTA dashboard: ' + r.campus) + '">' + esc(payload.contact || 'FACE@houstonisd.org') + '</a>.</p>' + confHtml(r) +
     (seesDetail(r) ? '<div class="cmore" data-c="' + esc(r.campus) + '"><p>' + (canReview(r) ? 'Check off documents, see the files and email the PTO/PTA.' : 'Officer names, emails and phone numbers, and the documents this ' + esc(r.ot || 'PTO/PTA') + ' has sent in.') + '</p>' +
       '<button type="button" class="btn campbtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>' +
       (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
+}
+
+/* ---------- principal confirmation (FACE, 2026-10-26): on My campus, "are these PTO/PTA details correct?" ---------- */
+var confUI = { ask: '', busy: false, err: '', msg: '' };
+function latestYear() { return years().slice(-1)[0] || ''; }
+/** This campus's newest answer: [kind, date, due, who, note] (who and note only for FACE staff and its C1), or null. */
+function confOf(r) { var c = payload.conf; return c && c.by && (r.year || '') === latestYear() ? c.by[r.campus] || null : null; }
+/** Whether this viewer may answer: everyone once FACE turns it on, signed-in FACE staff while it is tested. */
+function canConfirm(r) { var c = payload.conf; return !!(c && hasGas() && payload.live && (r.year || '') === latestYear() && (c.open || (payload.me && payload.me.role === 'staff'))); }
+/** One word for the Overview counts and the filters: ok, wrong, due, has, none, or not (no answer yet). */
+function confKind(r) { var a = confOf(r); return !a ? 'not' : a[2] ? 'due' : a[0]; }
+function confLine(a) {
+  if (!a) return '';
+  var who = a[3] ? ' by ' + a[3] : '', when = fmtDay(a[1]);
+  var t = a[0] === 'ok' ? 'Confirmed as correct on ' + when + who + '.' : a[0] === 'wrong' ? 'A problem was reported on ' + when + who + '.' :
+    a[0] === 'has' ? 'On ' + when + who + ', the campus said it has a PTO/PTA.' : 'On ' + when + who + ', the campus said it does not have a PTO/PTA.';
+  if (a[2] === 'round') t += ' FACE has asked again since then, so please check once more.';
+  if (a[2] === 'officers') t += ' A newer officer form has come in since then, so please check once more.';
+  return t;
+}
+function confHtml(r) {
+  var c = payload.conf;
+  if (!c || (r.year || '') !== latestYear()) return '';
+  var a = confOf(r), can = canConfirm(r), yes = r.pto === 'Yes';
+  if (!can && !a) return '';
+  var out = '<section class="conf' + (a ? ' ' + confKind(r) : '') + '" aria-labelledby="confH"><h4 id="confH">' + (yes ? 'Are these PTO/PTA details correct?' : 'Does this campus have a PTO or PTA?') + '</h4>';
+  if (!c.open) out += '<p class="ctest">Testing: only FACE staff see this. Principals and APs will see it when FACE turns it on.</p>';
+  if (yes) {
+    var sb = (detailFor(r).o || [])[0], what = [r.on, r.ot].filter(Boolean).join(' · ');
+    out += '<p class="chint">Please check the organization' + (what ? ' (<b>' + esc(what) + '</b>)' : '') + (sb && sb.off && sb.off.length && seesDetail(r) ? ' and its officers: ' + esc(sb.off.map(function (o) { return (o.n || '?') + (o.p ? ' (' + o.p + ')' : ''); }).join(', ')) : ' and its officers (open <b>See officers and documents</b> below)') + '.</p>';
+  } else out += '<p class="chint">FACE has ' + (r.pto === 'No' ? 'this campus down as having no PTO/PTA.' : 'nothing from this campus yet.') + ' Tell us if that is right.</p>';
+  if (a) out += '<p class="cstate">' + esc(confLine(a)) + (a[4] ? '<span class="cnote">Note: ' + esc(a[4]) + '</span>' : '') + '</p>';
+  if (!can) return out + '</section>';
+  var dis = confUI.busy ? ' disabled' : '', ask = confUI.ask && confUI.ask.split('|')[0] === r.campus ? confUI.ask.split('|')[1] : '';
+  if (ask) {
+    var lab = ask === 'wrong' ? 'What is wrong? For example: the president changed, or an email is wrong.' : 'The PTO/PTA\'s name and a contact, if you know them (optional).';
+    out += '<div class="cask"><label for="confNote">' + esc(lab) + '</label><textarea id="confNote" rows="3" maxlength="500"' + dis + '></textarea>' +
+      '<div class="rctl"><button type="button" class="btn sm primary" data-conf-send="' + ask + '"' + dis + '>' + (confUI.busy ? 'Sending…' : 'Send') + '</button><button type="button" class="btn sm" data-conf-cancel="1"' + dis + '>Cancel</button></div></div>';
+  } else {
+    out += '<div class="cbtns">' + (yes
+      ? '<button type="button" class="btn primary" data-conf="ok"' + dis + '>Yes, this is correct</button><button type="button" class="btn" data-conf="wrong"' + dis + '>Something is wrong</button>'
+      : '<button type="button" class="btn primary" data-conf="has"' + dis + '>We have a PTO/PTA</button><button type="button" class="btn" data-conf="none"' + dis + '>We do not have a PTO/PTA</button>') + '</div>';
+  }
+  if (confUI.err) out += '<p class="rerr" role="alert">' + esc(confUI.err) + '</p>';
+  out += '<p class="cdone" role="status">' + esc(confUI.msg) + '</p>';
+  return out + '</section>';
+}
+function confSend(kind, note) {
+  var r = yearRows().filter(function (x) { return x.campus === state.pick; })[0];
+  if (!r || confUI.busy || !hasGas()) return;
+  confUI.busy = true; confUI.err = ''; confUI.msg = ''; renderCampusCard();
+  google.script.run
+    .withSuccessHandler(function (res) {
+      confUI.busy = false; confUI.ask = '';
+      if (res && res.ok) { payload.conf.by[res.campus] = res.c; confUI.msg = kind === 'wrong' ? 'Thank you. The C1 coordinator and FACE will see what needs fixing.' : 'Thank you. Your answer is saved.'; }
+      renderCampusCard(); renderConf();
+    })
+    .withFailureHandler(function (e) { confUI.busy = false; confUI.err = e && e.message ? e.message : 'Your answer was not saved. Try again.'; renderCampusCard(); })
+    .confirmCampus(session.token || '', r.campus, kind, note || '');
+}
+/** Review tab: what principals told FACE that needs someone to act (a problem, or a campus whose PTO/PTA answer differs from the register). */
+function confReviewHtml(rows) {
+  if (!payload.conf) return '';
+  var act = rows.filter(function (r) { var k = confKind(r); return k === 'wrong' || (k === 'has' && r.pto !== 'Yes') || (k === 'none' && r.pto !== 'No'); })
+    .sort(function (a, b) { return cmp(a.campus, b.campus); });
+  if (!act.length) return '';
+  return '<h3 class="rhead">From principals: please check<small>' + plural(act.length, 'campus', 'campuses') + '</small></h3>' +
+    '<p class="hint">Fix what they report on the Campus Register or the Officers tab. When a new officer form comes in, the campus is asked to confirm again.</p>' +
+    '<ul class="plist act">' + act.map(function (r) {
+      var a = confOf(r);
+      return '<li><span class="d">' + esc(fmtDay(a[1])) + '</span><span><button type="button" class="linkbtn" data-gocard="' + esc(r.campus) + '">' + esc(r.campus) + '</button> ' + esc(confLine(a)) + (a[4] ? ' <span class="nt">' + esc(a[4]) + '</span>' : '') + '</span></li>';
+    }).join('') + '</ul>';
+}
+
+/** FACE staff (and a C1 once it is open): how many campuses have answered, and how. */
+function renderConf() {
+  var c = payload.conf, sec = $('#confSec');
+  var show = !!(c && payload.me && (payload.me.role === 'staff' || (c.open && payload.me.role === 'c1')));
+  sec.hidden = !show;
+  if (!show) return;
+  var rows = scoped().filter(function (r) { return (r.year || '') === latestYear() && (!state.mine || isMine(r)); });
+  var yes = rows.filter(function (r) { return r.pto === 'Yes'; }), other = rows.filter(function (r) { return r.pto !== 'Yes'; });
+  function n(list, k) { return list.filter(function (r) { return confKind(r) === k; }).length; }
+  function cell(k, v) { return '<td' + (v ? '' : ' class="zero"') + '>' + (v ? '<button type="button" class="linkbtn" data-st="conf:' + k + '"><b>' + num(v) + '</b></button>' : '<b>0</b>') + '</td>'; }
+  $('#confHint').textContent = (c.open ? 'Principals and APs answer on My campus.' : 'Testing: only FACE staff see the buttons on My campus (menu: Principal confirmation).') + (c.round ? ' This round started ' + fmtDay(c.round) + '.' : '') + ' Select a number to see those campuses.';
+  $('#conftab').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col"></th><th scope="col">Confirmed</th><th scope="col">Reported a problem</th><th scope="col">Due again</th><th scope="col">Said they have a PTO/PTA</th><th scope="col">Said they have none</th><th scope="col">Not answered</th></tr></thead><tbody>' +
+    '<tr><th scope="row">Campuses with a PTO/PTA (' + num(yes.length) + ')</th>' + cell('ok', n(yes, 'ok')) + cell('wrong', n(yes, 'wrong')) + cell('due', n(yes, 'due')) + cell('has', n(yes, 'has')) + cell('none', n(yes, 'none')) + cell('not', n(yes, 'not')) + '</tr>' +
+    '<tr><th scope="row">Other campuses (' + num(other.length) + ')</th>' + cell('ok', n(other, 'ok')) + cell('wrong', n(other, 'wrong')) + cell('due', n(other, 'due')) + cell('has', n(other, 'has')) + cell('none', n(other, 'none')) + cell('not', n(other, 'not')) + '</tr>' +
+    '</tbody></table></div>';
 }
 
 /** A signed-in C1's own campuses, at the top of My campus: status, who it waits on, documents waiting for review. A row opens its card. */
@@ -1303,6 +1412,7 @@ function renderReview() {
       '<p class="hint">Each email is written for you in Outlook, with the documents and your reasons. Read it, then press Send there. Nothing is sent from this page.</p>' + mailPrefHtml('data-mailact') +
       '<ul class="rgrid">' + fix.map(fixCard).join('') + '</ul>';
   }
+  out += confReviewHtml(rows);
   if (me.role === 'staff') out += remindHtml();
   box.innerHTML = out;
 }
@@ -2118,7 +2228,11 @@ $('#app').addEventListener('click', function (e) {
   if ((el = t.closest('[data-clear]'))) { state.area = ''; render(); return; }
   if ((el = t.closest('[data-st]'))) { toCampuses(el.getAttribute('data-st')); return; }
   if ((el = t.closest('[data-area]'))) { state.area = el.getAttribute('data-area'); toCampuses('all'); return; }
-  if ((el = t.closest('[data-pick]'))) { state.pick = el.getAttribute('data-pick'); state.pickq = ''; $('#pickFind').value = ''; renderCampusCard(); $('#campusCard').scrollIntoView({ block: 'nearest' }); return; }
+  if ((el = t.closest('[data-gocard]'))) { state.pick = el.getAttribute('data-gocard'); state.pickq = ''; $('#pickFind').value = ''; confUI.ask = ''; confUI.msg = ''; setTab('campus'); return; }
+  if ((el = t.closest('[data-conf]'))) { var ck2 = el.getAttribute('data-conf'); confUI.err = ''; if (ck2 === 'wrong' || ck2 === 'has') { confUI.ask = state.pick + '|' + ck2; renderCampusCard(); var ta = $('#confNote'); if (ta) ta.focus(); } else confSend(ck2, ''); return; }
+  if ((el = t.closest('[data-conf-send]'))) { var nt = $('#confNote') ? $('#confNote').value : ''; if (el.getAttribute('data-conf-send') === 'wrong' && !nt.trim()) { confUI.err = 'Say what is wrong, so the C1 coordinator can fix it.'; renderCampusCard(); return; } confSend(el.getAttribute('data-conf-send'), nt); return; }
+  if ((el = t.closest('[data-conf-cancel]'))) { confUI.ask = ''; confUI.err = ''; renderCampusCard(); return; }
+  if ((el = t.closest('[data-pick]'))) { confUI.ask = ''; confUI.msg = ''; state.pick = el.getAttribute('data-pick'); state.pickq = ''; $('#pickFind').value = ''; renderCampusCard(); $('#campusCard').scrollIntoView({ block: 'nearest' }); return; }
   if ((el = t.closest('[data-chip]'))) {
     var ck = el.getAttribute('data-chip'), f = FILTERS.filter(function (x) { return x.k === ck; })[0];
     if (el.getAttribute('data-keepq')) f = FILTERS[0];
@@ -2140,7 +2254,7 @@ $('#fArea').addEventListener('change', function (e) { state.area = e.target.valu
 $('#fYear').addEventListener('change', function (e) { closePanel(true); state.year = e.target.value; state.area = ''; render(); });
 $('#q').addEventListener('input', function (e) { state.q = e.target.value; renderCampuses(); });
 $('#sort').addEventListener('change', function (e) { state.sort = e.target.value; renderCampuses(); });
-$('#pickCampus').addEventListener('change', function (e) { state.pick = e.target.value; renderCampusCard(); });
+$('#pickCampus').addEventListener('change', function (e) { state.pick = e.target.value; confUI.ask = ''; confUI.msg = ''; confUI.err = ''; renderCampusCard(); });
 $('#pickFind').addEventListener('input', function (e) { state.pickq = e.target.value; renderCampusCard(); });
 $('#reviewBody').addEventListener('input', function (e) { if (e.target.id === 'rq') { state.rq = e.target.value; refreshReviewList(); } });
 $('#reviewBody').addEventListener('change', function (e) { if (e.target.id === 'rsort') { state.rsort = e.target.value; refreshReviewList(); } });

@@ -366,6 +366,44 @@ async function signIn(page, name, pass) {
     check('automatic reminders: one status line, no buttons', /C1 reminders\s*automatic/.test(auto) && /Right now that is 1 C1/.test(auto) && (await page.$$('.c1list')).length === 0, auto.slice(-300));
     await page.close();
 
+    /* ---------- principal confirmation (2026-10-26f): FACE staff only while it is tested ---------- */
+    o = await openPage(browser, w); page = o.page;
+    await page.click('[data-tab="campus"]');
+    await page.selectOption('#pickCampus', 'Anderson ES');
+    check('leadership does not see the confirm box while FACE tests it', !(await page.$('#campusCard .conf')));
+    await page.close();
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
+    await page.click('[data-tab="overview"]');
+    check('the Overview shows Principal confirmation to staff', !(await page.isHidden('#confSec')) && /Not answered/.test(await page.textContent('#conftab')));
+    await page.click('[data-tab="campus"]');
+    await page.selectOption('#pickCampus', 'Anderson ES');
+    var cbox = await page.textContent('#campusCard .conf');
+    await (await page.$('#campusCard .ccard')).screenshot({ path: path.join(SHOTS, 'confirm-ask.png') });
+    check('staff see the confirm box, marked as a test', /Are these PTO\/PTA details correct\?/.test(cbox) && /Testing: only FACE staff see this/.test(cbox) && /Yes, this is correct/.test(cbox), cbox);
+    await page.click('#campusCard [data-conf="wrong"]');
+    await page.click('#campusCard [data-conf-send="wrong"]');
+    check('something is wrong asks what', /Say what is wrong/.test(await page.textContent('#campusCard .conf')));
+    await page.fill('#confNote', 'The secretary changed');
+    await page.click('#campusCard [data-conf-send="wrong"]');
+    await page.waitForFunction(function () { return /A problem was reported/.test(document.querySelector('#campusCard .conf').textContent); }, null, { timeout: 10000 });
+    cbox = await page.textContent('#campusCard .conf');
+    await (await page.$('#campusCard .ccard')).screenshot({ path: path.join(SHOTS, 'confirm.png') });
+    check('the answer is saved and shown, with the note', /The secretary changed/.test(cbox) && /Thank you/.test(cbox), cbox);
+    await page.selectOption('#pickCampus', 'Askew ES');
+    check('a campus with nothing on file asks whether it has a PTO/PTA', /Does this campus have a PTO or PTA\?/.test(await page.textContent('#campusCard .conf')));
+    await page.click('#campusCard [data-conf="none"]');
+    await page.waitForFunction(function () { return /does not have a PTO\/PTA/.test(document.querySelector('#campusCard .conf').textContent); }, null, { timeout: 10000 });
+    await page.click('[data-tab="review"]');
+    var fromP = await page.textContent('#reviewBody');
+    check('Review lists what principals reported', /From principals: please check/.test(fromP) && /Anderson ES/.test(fromP) && /Askew ES/.test(fromP), fromP.slice(-400));
+    await page.click('[data-tab="overview"]');
+    await page.click('#conftab [data-st="conf:wrong"]');
+    var cl = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
+    check('a number in Principal confirmation lists those campuses', cl.join() === 'Anderson ES' && /Principal reported a problem/.test(await page.textContent('#chips .chip.extra')), cl.join());
+    check('no page errors (confirmation)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
     /* ---------- phone width ---------- */
     o = await openPage(browser, w, 390); page = o.page;
     var sw = await page.evaluate(function () { return document.documentElement.scrollWidth; });

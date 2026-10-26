@@ -120,5 +120,6 @@ if (require.main === module) {
   require('./test-upload');
   require('./test-campuslist');
   require('./test-ptadocs');
+  require('./test-confirm');
   process.exit(h.report() ? 0 : 1);
 }
