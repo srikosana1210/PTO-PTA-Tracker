@@ -143,7 +143,7 @@ async function signIn(page, name, pass) {
     check('saved to the register', row['Bylaws'] === 'Needs Correction' && row['Training Certificate'] === 'Accepted' && row['Bank Verification Letter'] === 'Not Needed', JSON.stringify(row));
     var href = await page.getAttribute('#pResend a[data-mail]', 'href');
     var body = decodeURIComponent(href.split('body=')[1] || '');
-    check('email goes to two officers: the president, then (no secretary on file) the vice president; not the treasurer', /^mailto:ann@example\.org,vic@example\.org\?cc=ParentOrgDocs@houstonisd\.org/.test(href), href.slice(0, 120));
+    check('email goes to two officers: the president, then (no secretary on file) the vice president; not the treasurer', /^mailto:ann@example\.org,vic@example\.org\?cc=FACE@houstonisd\.org/.test(href), href.slice(0, 120));
     check('email lists the correction with its remark', /The organization's bylaws: Please send the signed copy\./.test(body), body);
     check('email lists what is still needed, with the remark', /We also still need these documents:[\s\S]*Annual budget report or meeting minutes showing budget approval \(The approved budget, not the draft\.\)/.test(body), body);
     check('email does not ask for the not-needed document', !/Bank account verification/i.test(body) && !/Articles of incorporation|insurance/i.test(body), body);

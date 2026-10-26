@@ -724,7 +724,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-26d';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-26e';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1338,13 +1338,13 @@ function remindHtml() {
   if (payload.remindAuto && payload.remindHook) {
     // automatic reminders are working: no buttons, just what tomorrow's email will cover and who cannot get one
     var noMail = due.filter(function (c) { return !c.e; });
-    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. Every weekday at 8 AM each C1 with something waiting gets one from ' + esc(payload.remindFrom || 'FACE@houstonisd.org') + '. ' +
+    return '<h3 class="rhead" id="remind" tabindex="-1">C1 reminders<small>automatic</small></h3><p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. Every weekday at 8 AM each C1 with something waiting gets one from ' + esc(payload.remindFrom || 'ParentOrgDocs@houstonisd.org') + '. ' +
       (due.length ? 'Right now that is ' + plural(due.length - noMail.length, 'C1', 'C1s') + '.' : 'Right now no C1 has anything waiting.') + '</p>' +
       (noMail.length ? '<p class="rerr">No email on the Dashboard Sign-ins tab, so no reminder: ' + esc(noMail.map(function (c) { return c.n; }).join(', ')) + '.</p>' : '');
   }
   var out = '<h3 class="rhead" id="remind" tabindex="-1">Remind C1s<small>' + (list.length ? plural(due.length, 'C1 has', 'C1s have') + ' campuses waiting' : 'no C1s set up yet') + '</small></h3>';
   if (!list.length) return out + '<p class="hint">C1s appear here once the C1 Assignments tab and Dashboard sign-ins are set up.</p>';
-  out += '<p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. ' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ' + esc(payload.remindFrom || 'FACE@houstonisd.org') + '. You only need these buttons to send one sooner.'
+  out += '<p class="hint">A C1 reminder is an email to a C1 coordinator listing the documents at their campuses that are waiting for them to review. ' + (payload.remindAuto ? '<b>Automatic reminders are on:</b> every weekday at 8 AM the tracker sends these reminders to Power Automate, which emails each C1 below from ' + esc(payload.remindFrom || 'ParentOrgDocs@houstonisd.org') + '. You only need these buttons to send one sooner.'
     : '<b>Automatic reminders are off.</b> To send them every weekday morning, set up the Power Automate flow and choose "C1 reminders: send every weekday at 8 AM (turn on)" in the sheet menu. Until then, use these buttons.') +
     ' Each button writes the reminder in Outlook; read it, then press Send there.</p>' + mailPrefHtml('data-mailact');
   if (!due.length) return out + '<div class="caught"><b>No C1 has anything waiting.</b>Nothing to remind them about.</div>';
@@ -1853,9 +1853,10 @@ function mailMessage(r, reasonMax) {
   if (p.need.length) body = body.concat(['', (p.fix.length ? 'We also still need ' : 'We still need ') + (p.need.length === 1 ? 'this document' : 'these documents') + ':', ''], p.need.map(function (x, k) { var w = cut(x.m); return (k + 1) + '. ' + DOCS[x.i].label + (w ? ' (' + w + ')' : ''); }));
   var rem = cut(p.remarks);
   if (rem) body = body.concat(['', 'Remarks:', rem]);
-  body = body.concat(['', 'Please send ' + (p.fix.length || p.need.length ? 'the documents' : 'anything you have') + ' to ' + inbox + '. You can reply to this email, since that address is copied.', '',
+  body = body.concat(['', 'Please send ' + (p.fix.length || p.need.length ? 'the documents' : 'anything you have') + ' to ' + inbox + '.', '',
     'If anything is unclear, just reply and we will help.', '', 'Thank you,', 'Houston ISD Family and Community Engagement']);
-  return { to: mailRecipients(r), cc: [inbox], subject: 'PTO/PTA documents for ' + r.campus + (yr ? ' (' + yr + ')' : '') + ': ' + (p.fix.length || p.need.length ? 'action needed' : 'a note from FACE'),
+  // FACE is copied (2026-10-26); documents still go to the inbox
+  return { to: mailRecipients(r), cc: [payload.contact || 'FACE@houstonisd.org'], subject: 'PTO/PTA documents for ' + r.campus + (yr ? ' (' + yr + ')' : '') + ': ' + (p.fix.length || p.need.length ? 'action needed' : 'a note from FACE'),
     body: body.join('\r\n'), n: p.fix.length + p.need.length };
 }
 function mailAddrs(list, sep) { return list.map(function (a) { return encodeURIComponent(a).replace(/%40/g, '@'); }).join(sep); }

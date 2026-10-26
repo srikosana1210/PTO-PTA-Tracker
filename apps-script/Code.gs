@@ -80,8 +80,8 @@ var CFG = {
   INBOX: 'ParentOrgDocs@houstonisd.org',
   // Where people write with questions or corrections (the dashboard's My campus card), FACE 2026-10-26
   CONTACT: 'FACE@houstonisd.org',
-  // The shared mailbox the Power Automate flow sends C1 reminders from (set in the flow's "Original Mailbox Address"; FACE 2026-10-26)
-  REMINDER_FROM: 'FACE@houstonisd.org',
+  // The shared mailbox the Power Automate flow sends C1 reminders from (set in the flow's "Original Mailbox Address")
+  REMINDER_FROM: 'ParentOrgDocs@houstonisd.org',
   // One entry per requirement. key = column header in Campus Register. title = form question title. label = the words FACE uses for it
   // everywhere (dashboard, emails, Start Here); the dashboard has the same labels in its DOCS list.
   // A file question is matched by the START of its title (or of any formAliases entry), so the wording after the key can be changed freely.
@@ -145,7 +145,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-26d (My campus: activity without blanks, FACE contact, a C1 list of their campuses, Texas PTA wording)';
+var VERSION = 'Script version 2026-10-26e (emails to PTO/PTAs copy FACE@houstonisd.org; C1 reminders stay with ParentOrgDocs)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
