@@ -244,10 +244,11 @@ test('the Registered and Legalized lists read in FACE\'s order and wording', fun
 });
 
 /* ---------- the template for a new setup already has the October changes ---------- */
-test('the template: 266 campuses, 11 PTAs, Legalized = six documents, Not Needed and Email ready', function () {
+test('the template: 264 campuses, every one in an Area Office, 11 PTAs, Legalized = six documents, Not Needed and Email ready', function () {
   var g = h.load({ fixture: 'template' });
   var rows = campuses(g);
-  eq(rows.length, 266);
+  eq(rows.length, 264);
+  ok(rows.every(function (v) { return v[col(g, 'Area Office')]; }), 'no campus without an Area Office');
   eq(rows.filter(function (v) { return v[col(g, 'Has PTO or PTA')] === 'Yes'; }).length, 11);
   ok(g.table_('Campus Register').headers.indexOf('Bank Verification Letter') >= 0, 'renamed column');
   eq(g.itemFlags_().req, [true, true, true, true, true, true, false, false]);
@@ -257,7 +258,9 @@ test('the template: 266 campuses, 11 PTAs, Legalized = six documents, Not Needed
   ok(/Not Needed/.test(t.sh.getRange(2, t.col['Legalization Items Accepted'] + 1).getFormulas()[0][0]));
   var again = g.applyOctober2026_({ reset: false });
   ok(again.ok && again.lines.some(function (l) { return /already means the six/.test(l); }), again.lines.join(' / '));
-  eq(campuses(g).length, 266, 'running the update on the template changes nothing');
+  eq(campuses(g).length, 264, 'running the update on the template changes nothing');
+  var cl = g.applyCampusList_();
+  ok(cl.ok && campuses(g).length === 264, 'the campus list update on the template is already done: ' + cl.lines.join(' / '));
   g.diagnose().forEach(function (st) { ok(st[1], st[0]); });
 });
 

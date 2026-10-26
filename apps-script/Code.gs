@@ -50,9 +50,18 @@ var CFG = {
   // FACE's list of campuses that do not have a PTO or a PTA (Campus Name, Division, FACE Coordinator 1, PTO/PTA), pasted in when it changes
   TAB_NOPTO: 'No PTO-PTA List',
   // names on that list that the register spells differently (lower case, spacing ignored) -> the register's name
-  NOPTO_ALIASES: { 'benavidez es': 'Benavides ES', 'fondren es': 'Fondern ES', 'gregory-lincoln pk-8': 'Gregory Lincoln ES', 'harper daep': 'Harper/Secondary DAEP',
-    'secondary daep': 'Harper/Secondary DAEP', 'hcc lifeskills': 'SPED HCC Lifeskills', 'r d s p d': 'SPED RDSPD', 'reagan ed ctr k-8': 'Reagan K-8',
-    'sharpstown intl': 'Sharpstown Int', 'cage es': 'Cage ES (@Lantrip ES)', 'hobby es': 'Hobby ES (@Lawson MS)' },
+  // (since 2026-10-26 the register uses FACE's short names, so the list's names match; CAMPUS_RENAMES covers older spellings)
+  NOPTO_ALIASES: { 'ed white es': 'White E ES', 'fleming ms': 'Fleming McReynolds MS' },
+  // Older spellings of a campus (the first Area Office file, the old register, the officer form) -> FACE's short name (2026-10-26).
+  // lookup_ uses these everywhere, so a form, a list or a log line that uses an old spelling still finds the campus.
+  CAMPUS_RENAMES: { 'white, ed. es': 'White E ES', 'ed white es': 'White E ES', 'cage es (@lantrip es)': 'Cage ES', 'benavides es': 'Benavidez ES',
+    'energized for stem acad hs': 'Energized for STEM Academy HS', 'energized for stem acad ms': 'Energized for STEM Academy MS', 'fondern es': 'Fondren ES',
+    'gregory lincoln es': 'Gregory-Lincoln PK-8', 'harper/secondary daep': 'Secondary DAEP', 'harper daep': 'Secondary DAEP', 'hobby es (@lawson ms)': 'Hobby ES',
+    'jones futures hs': 'Jones HS', 'law & justice hs': 'HSLJ', 'mc fraga ec hs': 'Middle College HS - Fraga', 'reagan k-8': 'Reagan Ed Ctr K-8',
+    'sharpstown int': 'Sharpstown Intl', 'sped hcc lifeskills': 'HCC Lifeskills', 'sped rdspd': 'R D S P D', 'sped soar': 'SOAR Center',
+    'rice school pk-8': 'Rice School K-8', 'mcreynolds ms': 'Fleming McReynolds MS', 'fleming ms': 'Fleming McReynolds MS',
+    'fleming/mcreynolds (@ leland ms )': 'Fleming McReynolds MS', 'fleming/mcreynolds (@ leland ms)': 'Fleming McReynolds MS', 'highland height es': 'Highland Heights ES',
+    'south early hs': 'South EC HS', 'south early community': 'South EC HS' },
   TAB_TXPTA_PASTE: 'Texas PTA Paste',
   TAB_TXPTA: 'Texas PTA',
   TXPTA_HEADERS: ['Campus', 'Texas PTA Name', 'Texas PTA ID', 'PTA Status', 'Good Standing Date', 'SOA Officers', 'SOA Membership', 'SOA Bylaws',
@@ -123,7 +132,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-25a (Overview: Registered, Can Fundraise, In progress, No PTO/PTA; the list of campuses with no PTO/PTA)';
+var VERSION = 'Script version 2026-10-26a (FACE\'s campus list: every campus in an Area Office, duplicates merged, short names)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -138,6 +147,7 @@ function onOpen() {
     .addItem('Update the tracker: officer form, PTAs and documents (run once)', 'updateOctober15')
     .addSeparator()
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
+    .addItem('Update the campus list: FACE\'s short names, Area Offices, duplicates merged (run once)', 'updateCampusList')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
     .addItem('Import the Texas PTA spreadsheet from the Texas PTA Paste tab', 'importTexasPta')
     .addItem('Mark the campuses with no PTO/PTA (from the No PTO-PTA List tab)', 'importNoPto')
@@ -549,7 +559,11 @@ function importOfficersLocked_() {
     seen[key] = true;
     var year = schoolYearFor_(when || new Date(), settings.startMonth);
     var unlisted = unlistedSchool_(rec.school, map);
-    if (unlisted) { addCampus_(unlisted, year, rec.orgName, rec.orgType, map, res); rec.addedCampus = unlisted; }
+    if (unlisted) {
+      // with FACE's campus list, only a campus on the list is added (under the list's name and Area Office); anything else is flagged
+      var clist = campusList_(), on = clist ? lookup_(clist.map, unlisted) : unlisted;
+      if (on) { addCampus_(on, year, rec.orgName, rec.orgType, map, res, clist ? clist.area[norm_(on)] : ''); rec.addedCampus = on; }
+    }
     res.added++;
     officerRows_(rec, map, year, when).forEach(function (o) { fresh.push(o); });
   });
@@ -681,6 +695,15 @@ function adoptSchool_(sch, v, oc, map, res, settings) {
   var found = lookup_(map, sch);
   if (found) return found;
   if (!plausibleSchool_(sch)) return '';
+  // since 2026-10-26 FACE's campus list (the Area Office Campuses tab) is the list of campuses: a school that is not on it is never added,
+  // so a different spelling can no longer make a second row; the form is flagged for someone to pick the campus
+  var list = campusList_();
+  if (list) {
+    var on = lookup_(list.map, sch);
+    if (!on) return '';
+    addCampus_(on, cellText_(v[oc['School Year']]) || schoolYearFor_(new Date(), settings.startMonth), cellText_(v[oc['Organization']]), cellText_(v[oc['Org Type']]), map, res, list.area[norm_(on)]);
+    return on;
+  }
   addCampus_(sch, cellText_(v[oc['School Year']]) || schoolYearFor_(new Date(), settings.startMonth), cellText_(v[oc['Organization']]), cellText_(v[oc['Org Type']]), map, res);
   return sch;
 }
@@ -720,15 +743,16 @@ function parentOrgLike_(name, type) {
 }
 
 /** Adds the campus to the Campus Register for that school year, logs it, and teaches the lookup map about it. */
-function addCampus_(name, year, orgName, orgType, map, res) {
+function addCampus_(name, year, orgName, orgType, map, res, area) {
   var t = table_(CFG.TAB_REGISTER);
   var row = ensureRegisterRow_(t, year, name);
   t = table_(CFG.TAB_REGISTER);
+  if (area && !cellText_(t.values[row - 1][t.col['Area Office']])) setCell_(t, row, 'Area Office', area);
   if (parentOrgLike_(orgName, orgType)) setCell_(t, row, 'Has PTO or PTA', 'Yes');
   addToMap_(map, name);
   if (res.newCampuses.indexOf(name) < 0) {
     res.newCampuses.push(name);
-    appendLog_([[new Date(), '', name, '', '', '', year, 'Campus added to the Campus Register from the officer update form' + (orgName ? ' (' + orgName + ')' : '') + '. Area Office is blank.']]);
+    appendLog_([[new Date(), '', name, '', '', '', year, 'Campus added to the Campus Register from the officer update form' + (orgName ? ' (' + orgName + ')' : '') + '.' + (area ? '' : ' Area Office is blank.')]]);
   }
 }
 
@@ -808,8 +832,10 @@ function looseKey_(s) {
 
 /** Campus names by key. An exact key (case, spacing and * ignored) wins; the looser key is used only when it points at one campus. */
 function campusMap_() {
-  var m = { exact: {}, loose: {} };
-  campusNames_().forEach(function (n) { addToMap_(m, n); });
+  var m = { exact: {}, loose: {} }, names = campusNames_();
+  names.forEach(function (n) { addToMap_(m, n); });
+  // a register still using an older spelling is found by FACE's short name too (CAMPUS_RENAMES works both ways)
+  names.forEach(function (n) { var r = CFG.CAMPUS_RENAMES[campusKey_(n)]; if (r && !m.exact[campusKey_(r)]) m.exact[campusKey_(r)] = n; });
   return m;
 }
 function addToMap_(m, name) {
@@ -819,7 +845,12 @@ function addToMap_(m, name) {
   if (m.loose[lk] && m.loose[lk] !== name) m.loose[lk] = null;   // two campuses read the same: never guess between them
   else if (m.loose[lk] === undefined) m.loose[lk] = name;
 }
-function lookup_(m, s) { return m.exact[campusKey_(s)] || m.loose[looseKey_(s)] || ''; }
+function lookup_(m, s) {
+  var hit = m.exact[campusKey_(s)] || m.loose[looseKey_(s)];
+  if (hit) return hit;
+  var r = CFG.CAMPUS_RENAMES[campusKey_(s)];          // an older spelling of a campus FACE now calls by its short name
+  return r ? m.exact[campusKey_(r)] || m.loose[looseKey_(r)] || '' : '';
+}
 
 // How to recognize each column of the Microsoft Forms export. Titles are matched by their start, case-insensitively,
 // so small wording changes do not matter. The five "Do you have additional officers" questions are not needed.
@@ -2852,6 +2883,8 @@ function addAreaCampuses_() {
     if (!sh) throw new Error('There is no "' + CFG.TAB_CAMPUSES + '" tab. Import the Area Office Campuses file as a new tab with that name (File > Import > Upload > Insert new sheet), then run this again.');
     var vals = sh.getDataRange().getValues(), head = vals[0].map(function (x) { return norm_(x); });
     var ci = head.indexOf('campus'), ai = head.indexOf('area office'), ri = head.indexOf('name in the register'), pi = head.indexOf('texas pta');
+    if (ci < 0) ci = head.indexOf('shortname');
+    if (ai < 0) ai = head.indexOf('areaoffice');
     if (ci < 0 || ai < 0) throw new Error('The "' + CFG.TAB_CAMPUSES + '" tab needs the headings Campus and Area Office in row 1.');
     var year = currentYear_();
     var t = table_(CFG.TAB_REGISTER), map = campusMap_(), carry = carrySettings_();
@@ -2894,6 +2927,161 @@ function addAreaCampuses_() {
     }
     return res;
   } finally { lock.releaseLock(); }
+}
+
+/* ================================================================== FACE's campus list (2026-10-26) */
+
+/** FACE's campus list from the Area Office Campuses tab: { map (lookup map of the list's names), area: { normalised name: Area Office }, names }, or null. */
+function campusList_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_CAMPUSES);
+  if (!sh) return null;
+  var vals = sh.getDataRange().getValues();
+  if (vals.length < 2) return null;
+  var head = vals[0].map(function (x) { return norm_(x); });
+  var ci = head.indexOf('campus'); if (ci < 0) ci = head.indexOf('shortname');
+  var ai = head.indexOf('area office'); if (ai < 0) ai = head.indexOf('areaoffice');
+  if (ci < 0 || ai < 0) return null;
+  var out = { map: { exact: {}, loose: {} }, area: {}, names: [] };
+  for (var i = 1; i < vals.length; i++) {
+    var n = cellText_(vals[i][ci]);
+    if (!n || out.area[norm_(n)] !== undefined) continue;
+    addToMap_(out.map, n); out.area[norm_(n)] = cellText_(vals[i][ai]); out.names.push(n);
+  }
+  return out.names.length ? out : null;
+}
+
+/**
+ * Menu (October 26, 2026): FACE's campus list becomes the list of campuses. Paste it (ShortName and AreaOffice, or Campus and
+ * Area Office) into the Area Office Campuses tab first. For this school year it
+ *   - saves a backup copy first,
+ *   - merges rows that are the same campus under two spellings (for example "White E ES" and "White, Ed. ES"), keeping every document,
+ *     the organization and the officer forms,
+ *   - gives each campus FACE's short name and its Area Office from the list (including 1882, COSO and OOA),
+ *   - renames the campus on the Submission Log, Officers, C1 Assignments and Texas PTA tabs and its Drive folder, so its history follows,
+ *   - removes a campus that is not on the list and has nothing on file, and lists any that has something, for a person to decide,
+ *   - adds every campus on the list that is missing.
+ * Safe to run again.
+ */
+function updateCampusList() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Update the campus list', 'This makes the list on the ' + CFG.TAB_CAMPUSES + ' tab the list of campuses for this school year: every campus gets FACE\'s short name and its Area Office, campuses listed twice under two spellings are merged into one (keeping every document), and missing campuses are added.\n\nPaste FACE\'s list (ShortName and AreaOffice) into that tab first, replacing what is there.\n\nA backup copy of this spreadsheet is saved in your Drive first. Running this again is safe.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  try { var r = applyCampusList_(); ui.alert(r.ok ? 'Campus list updated' : 'Updated, but please check', r.lines.join('\n'), ui.ButtonSet.OK); }
+  catch (err) { ui.alert('Not updated', err.message, ui.ButtonSet.OK); }
+}
+
+function applyCampusList_() {
+  var ss = SpreadsheetApp.getActive(), lines = [];
+  var list = campusList_();
+  if (!list) throw new Error('The ' + CFG.TAB_CAMPUSES + ' tab has no campus list. Paste FACE\'s list (with the headings ShortName and AreaOffice) into cell A1 of that tab, then run this again. Nothing was changed.');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    var tz = ss.getSpreadsheetTimeZone();
+    var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before the campus list update ' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss'));
+    lines.push('Backup saved in your Drive: ' + copy.getName());
+    var year = currentYear_(), t = table_(CFG.TAB_REGISTER), sent = sentThisYear_(year);
+    var RANK = { 'Accepted': 5, 'Not Needed': 4, 'Received': 3, 'Needs Correction': 2, 'Not Received': 1, '': 0 };
+    function onList(name) { return lookup_(list.map, name); }
+    function hasData(v, name) {
+      return !!sent[norm_(name)] || cellText_(v[t.col['Has PTO or PTA']]) === 'Yes' || !!cellText_(v[t.col['Org Name']]) ||
+        CFG.ITEMS.some(function (it) { var x = cellText_(v[t.col[it.key]]); return x && x !== 'Not Received'; });
+    }
+    // 1. this year's rows, by the campus on FACE's list they are
+    var groups = {}, order = [], strays = [], gone = [], renames = {};
+    for (var i = 1; i < t.values.length; i++) {
+      var v = t.values[i], name = cellText_(v[t.col['Campus']]);
+      if (!name || cellText_(v[t.col['School Year']]) !== year) continue;
+      var short = onList(name);
+      if (!short) { (hasData(v, name) ? strays : gone).push({ row: i + 1, name: name }); continue; }
+      if (!groups[short]) { groups[short] = []; order.push(short); }
+      groups[short].push({ row: i + 1, name: name, v: v });
+      if (norm_(name) !== norm_(short)) renames[norm_(name)] = short;
+    }
+    // 2. merge, rename and set the Area Office
+    var merged = [], renamed = 0, areaSet = 0, del = [];
+    order.forEach(function (short) {
+      var g = groups[short];
+      g.sort(function (a, b) { return (hasData(b.v, b.name) ? 1 : 0) - (hasData(a.v, a.name) ? 1 : 0) || (norm_(b.name) === norm_(short) ? 1 : 0) - (norm_(a.name) === norm_(short) ? 1 : 0); });
+      var keep = g[0];
+      if (g.length > 1) {
+        // something received under either spelling means the campus has a PTO/PTA; otherwise a No (FACE's list) wins over a Yes
+        var anySent = g.some(function (x) { return !!sent[norm_(x.name)] || CFG.ITEMS.some(function (it) { var s2 = cellText_(x.v[t.col[it.key]]); return s2 && s2 !== 'Not Received' && s2 !== 'Not Needed'; }); });
+        function anyHas(val) { return g.some(function (x) { return cellText_(x.v[t.col['Has PTO or PTA']]) === val; }); }
+        var has = anySent ? 'Yes' : anyHas('No') ? 'No' : anyHas('Yes') ? 'Yes' : cellText_(keep.v[t.col['Has PTO or PTA']]);
+        CFG.ITEMS.forEach(function (it) {
+          var best = cellText_(keep.v[t.col[it.key]]);
+          g.forEach(function (x) { var s2 = cellText_(x.v[t.col[it.key]]); if ((RANK[s2] || 0) > (RANK[best] || 0)) best = s2; });
+          if (best !== cellText_(keep.v[t.col[it.key]])) setCell_(t, keep.row, it.key, best);
+        });
+        ['Org Type', 'Org Name'].forEach(function (hd) {
+          if (cellText_(keep.v[t.col[hd]])) return;
+          var other = g.filter(function (x) { return cellText_(x.v[t.col[hd]]); })[0];
+          if (other) setCell_(t, keep.row, hd, cellText_(other.v[t.col[hd]]));
+        });
+        if (has && has !== cellText_(keep.v[t.col['Has PTO or PTA']])) setCell_(t, keep.row, 'Has PTO or PTA', has);
+        g.slice(1).forEach(function (x) { del.push(x.row); });
+        merged.push(g.map(function (x) { return x.name; }).join(' + ') + ' = ' + short);
+      }
+      if (keep.name !== short) { setCell_(t, keep.row, 'Campus', short); renamed++; }
+      var area = list.area[norm_(short)];
+      if (area && cellText_(keep.v[t.col['Area Office']]) !== area) { setCell_(t, keep.row, 'Area Office', area); areaSet++; }
+    });
+    gone.forEach(function (x) { del.push(x.row); });
+    del.sort(function (a, b) { return b - a; }).forEach(function (r) { t.sh.deleteRow(r); });
+    if (merged.length) lines.push('Merged ' + plural_(merged.length, 'campus that was', 'campuses that were') + ' listed twice: ' + merged.join('; ') + '.');
+    lines.push(plural_(renamed, 'campus was', 'campuses were') + ' given FACE\'s short name, and ' + plural_(areaSet, 'Area Office was', 'Area Offices were') + ' set from the list.');
+    if (gone.length) lines.push('Removed ' + plural_(gone.length, 'campus', 'campuses') + ' that ' + (gone.length === 1 ? 'is' : 'are') + ' not on the list and had nothing on file: ' + gone.map(function (x) { return x.name; }).join(', ') + '.');
+    if (strays.length) lines.push('Not on the list but with something on file, so left as they are: ' + strays.map(function (x) { return x.name; }).join(', ') + '. Add them to the list, or merge them by hand.');
+    // 3. the campus's history follows its new name: other tabs, other years and the Drive folder
+    var moved = renameEverywhere_(list);
+    if (moved) lines.push('Updated the campus name on ' + plural_(moved, 'other row', 'other rows') + ' (Submission Log, Officers, C1 Assignments, Texas PTA, earlier years).');
+    // 4. every campus on the list
+    var ar = addAreaCampuses_();
+    if (ar.added) lines.push('Added ' + plural_(ar.added, 'campus', 'campuses') + ' from the list that ' + (ar.added === 1 ? 'was' : 'were') + ' missing.');
+    rewriteRegisterFormulas_(true);
+    clearPageCache_();
+  } finally { lock.releaseLock(); }
+  SpreadsheetApp.flush();
+  var bad = scanForErrors_();
+  if (bad.length) lines.push('', 'Please check: these cells show an error: ' + bad.slice(0, 6).join(', ') + '.', 'If anything looks wrong, the backup copy above has everything as it was.');
+  return { ok: !bad.length, lines: lines };
+}
+
+/** Renames old spellings to FACE's short names on the other tabs, earlier years of the register, and campus folders. Returns how many cells changed. */
+function renameEverywhere_(list) {
+  var ss = SpreadsheetApp.getActive(), n = 0;
+  [[CFG.TAB_LOG, 'Campus'], [CFG.TAB_OFFICERS, 'Campus'], [CFG.TAB_C1, 'Campus'], [CFG.TAB_TXPTA, 'Campus'], [CFG.TAB_REGISTER, 'Campus']].forEach(function (p) {
+    var sh = ss.getSheetByName(p[0]);
+    if (!sh) return;
+    var vals = sh.getDataRange().getValues(), head = vals[0].map(function (x) { return norm_(x); }), c = head.indexOf(norm_(p[1]));
+    if (c < 0) return;
+    var yc = head.indexOf('school year'), taken = {};
+    if (p[0] === CFG.TAB_REGISTER) for (var k = 1; k < vals.length; k++) taken[cellText_(vals[k][yc]) + '||' + norm_(vals[k][c])] = 1;
+    for (var i = 1; i < vals.length; i++) {
+      var name = cellText_(vals[i][c]);
+      if (!name) continue;
+      var short = lookup_(list.map, name);
+      if (!short || short === name) continue;
+      if (p[0] === CFG.TAB_REGISTER) {          // an earlier year's row: renamed only if that year has no row with the new name
+        var key = cellText_(vals[i][yc]) + '||' + norm_(short);
+        if (taken[key]) continue;
+        taken[key] = 1;
+      }
+      sh.getRange(i + 1, c + 1).setValue(short); n++;
+    }
+  });
+  // campus folders in Drive: renamed when only the old one exists
+  try {
+    var root = rootFolder_(), seen = {};
+    var it = root.getFolders();
+    while (it.hasNext()) {
+      var f = it.next(), short = lookup_(list.map, f.getName());
+      if (short && safeName_(short) !== f.getName() && !root.getFoldersByName(safeName_(short)).hasNext() && !seen[short]) { f.setName(safeName_(short)); seen[short] = 1; }
+    }
+  } catch (err) { /* folders are a nicety: files keep their links */ }
+  clearPageCache_();
+  return n;
 }
 
 /* ================================================================== one-time update: the October 2026 changes */

@@ -89,20 +89,22 @@ test('the No PTO/PTA list: campuses are marked No, matched through their other s
   g.processSubmission_(sub('Almeda ES', { uploads: [upload(g, 'Bylaws')] }));    // on the list, but it sent something
   var r = g.importNoPto_();
   ok(/^PTO-PTA Tracker backup/.test(r.backup));
-  eq(regRow(g, 'Benavides ES')['Has PTO or PTA'], 'No', 'Benavidez ES on the list');
-  eq(regRow(g, 'Cage ES (@Lantrip ES)')['Has PTO or PTA'], 'No');
+  eq(regRow(g, 'Benavidez ES')['Has PTO or PTA'], 'No');
+  eq(regRow(g, 'Cage ES')['Has PTO or PTA'], 'No');
   eq(regRow(g, 'Energized MS')['Has PTO or PTA'], 'No', '*Energized MS on the list');
+  eq(regRow(g, 'McReynolds MS')['Has PTO or PTA'], 'No', 'Fleming MS on the list finds the old McReynolds MS row');
   ok(r.kept.indexOf('Almeda ES') >= 0, 'a campus that sent something is not changed');
   eq(regRow(g, 'Almeda ES')['Has PTO or PTA'], 'Yes');
-  eq(r.unmatched.slice().sort().join(), 'Ed White ES,Fleming MS,HSLJ,Jones HS,SOAR Center');
+  eq(r.unmatched.join(), '', 'every name on the list is found');
   ok(r.marked > 100, String(r.marked));
   var st = g.__ss.getSheetByName('No PTO-PTA List').values()[0].map(function (x) { return String(x).trim(); });
   ok(st.indexOf('Name in the register') >= 0 && st.indexOf('Status') >= 0, 'columns for fixing names and saying what happened');
   // a name fixed by hand is kept
-  var sh = g.__ss.getSheetByName('No PTO-PTA List'), v = sh.values(), ri = v[0].map(String).indexOf('Name in the register');
-  var at = v.map(function (x) { return x[0]; }).indexOf('Jones HS');
-  sh.getRange(at + 1, ri + 1).setValue('Westbury HS');
-  var again = g.importNoPto_();
-  eq(again.marked, 1, 'only the fixed name is new');
+  var sh = g.__ss.getSheetByName('No PTO-PTA List'), last = sh.getLastRow();
+  sh.getRange(last + 1, 1).setValue('Westbury High'); sh.getRange(last + 1, 4).setValue('No');
+  ok(g.importNoPto_().unmatched.indexOf('Westbury High') >= 0, 'an unknown name is reported');
+  sh.getRange(last + 1, st.indexOf('Name in the register') + 1).setValue('Westbury HS');
+  eq(g.importNoPto_().marked, 1, 'only the fixed name is new');
   eq(regRow(g, 'Westbury HS')['Has PTO or PTA'], 'No');
 });
+

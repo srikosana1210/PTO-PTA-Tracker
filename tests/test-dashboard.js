@@ -22,6 +22,7 @@ function world() {
   newTests.withAreaTab(g);
   var p = base.withPeople(g);
   g.applyOctober2026_({ reset: true });
+  g.applyCampusList_();   // FACE's campus list (2026-10-26): every campus in an Area Office
   var si = g.__ss.getSheetByName('Dashboard Sign-ins'), vals = si.values(), ec = vals[0].indexOf('Email');
   vals.forEach(function (r, i) { if (r[0] === 'Ms. Lee') si.getRange(i + 1, ec + 1).setValue('lee@houstonisd.org'); });
   g.processSubmission_(base.sub('Anderson ES', { orgType: 'PTO', uploads: [base.upload(g, 'Bylaws'), base.upload(g, 'Training Certificate')] }));
@@ -92,8 +93,8 @@ async function signIn(page, name, pass) {
     check('By Area Office has Campuses, Registered, Can Fundraise, In progress, No PTO/PTA', /Area Office\s*▲?\s*Campuses\s*Registered\s*Can Fundraise\s*In progress\s*No PTO\/PTA/.test(await page.textContent('#areas thead')), await page.textContent('#areas thead'));
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
-    check('one row per Area Office (five, plus the two campuses with no Area Office yet)', areas.length === 6, areas.join(' / '));
-    check('area totals add up to 266 campuses', /All Area Offices\s*266/.test(await page.textContent('#areas tfoot')), await page.textContent('#areas tfoot'));
+    check('one row per Area Office, and none for a campus without one (2026-10-26)', areas.length === 7 && !/not set/.test(areas.join()), areas.join(' / '));
+    check('area totals add up to 264 campuses', /All Area Offices\s*264/.test(await page.textContent('#areas tfoot')), await page.textContent('#areas tfoot'));
     await page.click('#defs summary');
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
@@ -301,7 +302,7 @@ async function signIn(page, name, pass) {
     await page.click('[data-tab="overview"]');
     await page.click('details.links summary');
     var links = await page.$$eval('details.links input', function (xs) { return xs.map(function (x) { return x.value; }); });
-    check('staff see a link for each Area Office', links.length === 6 && links.some(function (l) { return /\?ao=NES%20Elementary$/.test(l); }), links.join(' '));
+    check('staff see a link for each Area Office', links.length === 8 && links.some(function (l) { return /\?ao=NES%20Elementary$/.test(l); }), links.join(' '));
     await page.close();
 
     /* ---------- tester feedback (2026-10-20): combined filters, sorting, tooltips, C1 table, progress by month, find a campus ---------- */

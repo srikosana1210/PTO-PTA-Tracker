@@ -60,6 +60,7 @@ Sheet.prototype.getMaxRows = function () { return Math.max(this.maxRows, this.ge
 Sheet.prototype.insertRowsAfter = function (after, n) { this.maxRows = Math.max(this.getMaxRows(), after) + n; };
 Sheet.prototype.hideColumns = function (c) { this.hiddenCols[c] = true; };
 Sheet.prototype.hideRows = function (r) { this.hiddenRows[r] = true; };
+Sheet.prototype.deleteRow = function (r) { this.cells.splice(r - 1, 1); this.maxRows = Math.max(1, this.maxRows - 1); };
 Sheet.prototype.setColumnWidth = function () {};
 Sheet.prototype.clearContents = function () { this.cells.forEach(function (row) { (row || []).forEach(function (x) { if (x) { x.v = ''; delete x.f; } }); }); };
 Sheet.prototype.getRange = function (r, c, nr, nc) {
@@ -111,6 +112,7 @@ DFolder.prototype.getFoldersByName = function (n) { return iter(this.folders.fil
 DFolder.prototype.getFilesByName = function (n) { return iter(this.files.filter(function (f) { return f.name === n; })); };
 DFolder.prototype.getFiles = function () { return iter(this.files.slice()); };
 DFolder.prototype.getFolders = function () { return iter(this.folders.slice()); };
+DFolder.prototype.setName = function (n) { this.name = n; return this; };
 DFolder.prototype.createFolder = function (n) { var f = new DFolder(n); this.folders.push(f); return f; };
 DFolder.prototype.createFile = function (blob) { var f = new DFile(blob.getName(), this); f.size = blob.bytes.length; f.mime = blob.getContentType(); this.files.push(f); return f; };
 DFile.prototype.getSize = function () { return this.size || 0; };

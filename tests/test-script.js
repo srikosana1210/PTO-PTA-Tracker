@@ -118,5 +118,6 @@ if (require.main === module) {
   require('./test-txpta');
   require('./test-feedback');
   require('./test-upload');
+  require('./test-campuslist');
   process.exit(h.report() ? 0 : 1);
 }

@@ -715,12 +715,12 @@ function $(s) { return document.querySelector(s); }
 function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function count(str, ch) { var n = 0; for (var i = 0; i < str.length; i++) if (str[i] === ch) n++; return n; }
 function num(n) { return Number(n).toLocaleString('en-US'); }
-var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Secondary', 'Programs/Charters'];
+var AREA_ORDER = ['NES Elementary', 'NES Secondary', 'EAS Elementary', 'EAS Secondary', '1882', 'COSO', 'OOA', 'Programs/Charters'];
 var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on the Campus Register
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-25a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-26a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
