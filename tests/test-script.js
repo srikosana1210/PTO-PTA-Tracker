@@ -119,5 +119,6 @@ if (require.main === module) {
   require('./test-feedback');
   require('./test-upload');
   require('./test-campuslist');
+  require('./test-ptadocs');
   process.exit(h.report() ? 0 : 1);
 }

@@ -89,7 +89,7 @@ async function signIn(page, name, pass) {
     check('"Where PTO/PTAs stand" is gone', !/Where PTO\/PTAs stand/.test(await page.textContent('#v-overview')));
     check('Documents and Progress by month are for signed-in C1s and FACE staff only', await page.isHidden('#docSec') && await page.isHidden('#histSec'));
     var inprog = await page.textContent('.kpi.k4 .kval');
-    check('In progress counts campuses turning documents in, not registered yet', inprog.trim() === '2', inprog);
+    check('In progress counts campuses turning documents in, not registered yet (two PTOs and the PTAs Texas PTA has documents for)', inprog.trim() === '12', inprog);
     check('By Area Office has Campuses, Registered, Can Fundraise, In progress, No PTO/PTA', /Area Office\s*▲?\s*Campuses\s*Registered\s*Can Fundraise\s*In progress\s*No PTO\/PTA/.test(await page.textContent('#areas thead')), await page.textContent('#areas thead'));
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
@@ -98,7 +98,7 @@ async function signIn(page, name, pass) {
     await page.click('#defs summary');
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
-    check('Can Fundraise list has the bank letter wording and no Articles', /Can Fundraise:/.test(defs) && /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && /PTAs: FACE tracks two documents/.test(defs), defs);
+    check('Can Fundraise list has the bank letter wording and no Articles', /Can Fundraise:/.test(defs) && /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && !/PTAs: FACE tracks two documents|counts as soon as it comes in/.test(defs), defs);
     check('Texas PTA standing is hidden on the Overview (FACE, 2026-10-20)', await page.isHidden('#txSec'));
     await page.screenshot({ path: path.join(SHOTS, 'overview.png'), fullPage: true });
     // campus panel without sign-in: no checklist, no remarks
@@ -174,7 +174,7 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w); page = o.page;
     await signIn(page, 'Ms. Lee', w.p.pass['Ms. Lee']);
     await page.click('[data-tab="campuses"]');
-    await page.click('[data-dim="ty"][data-chip="all"]');
+    await page.click('[data-chip="all"]');
     await page.fill('#q', 'Anderson');
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     await page.click('#panel [data-item="4"] [data-act="upopen"]');
@@ -199,7 +199,7 @@ async function signIn(page, name, pass) {
     /* leadership never gets the upload buttons */
     o = await openPage(browser, w); page = o.page;
     await page.click('[data-tab="campuses"]');
-    await page.click('[data-dim="ty"][data-chip="all"]');
+    await page.click('[data-chip="all"]');
     await page.fill('#q', 'Anderson');
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     check('no upload or move buttons without a C1 or staff sign-in', (await page.$$('#panel [data-act="upopen"], #panel [data-act="mvopen"]')).length === 0);
@@ -221,7 +221,8 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w); page = o.page;
     await page.click('[data-tab="campuses"]');
     var chips = await page.$$eval('#chips .chiprow', function (rows) { return rows.map(function (row) { return [].map.call(row.querySelectorAll('[data-chip]'), function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }).join(','); }); });
-    check('three rows of filters that combine: show, status, waiting on', chips[0] === 'All campuses,All PTO/PTAs,PTOs,PTAs,Nothing received yet,No PTO/PTA' && chips[1] === 'Any status,Not started,In progress,Registered,Can Fundraise' && chips[2] === 'Anyone,Waiting for review,Sent back for correction,Waiting on the PTO/PTA,Nothing needed', JSON.stringify(chips));
+    check('one row of seven filters (FACE, 2026-10-26)', chips.length === 1 && chips[0] === 'All campuses,Registered,Can Fundraise,PTOs,PTAs,All PTO/PTAs,No PTO/PTA', JSON.stringify(chips));
+    check('All campuses is chosen when the tab opens', (await page.getAttribute('[data-chip="all"]', 'aria-pressed')) === 'true' && (await page.$$('#clist .crow')).length === 264);
     check('the table has Org type and Waiting on columns', /Campus\s*Org type\s*Status\s*Documents\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');
     var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
@@ -234,15 +235,15 @@ async function signIn(page, name, pass) {
     await page.screenshot({ path: path.join(SHOTS, 'campuses.png'), fullPage: false });
     await page.click('[data-chip="pta"]');
     var oak = await page.textContent('.crow[data-c="Oak Forest ES"]');
-    check('a PTA is counted on two documents and waits on FACE review', /1\s*of 2/.test(oak) && /FACE review/.test(oak) && /In progress/.test(oak), oak);
-    check('a PTA shows two document icons', (await page.$$('.crow[data-c="Oak Forest ES"] .strip .ic')).length === 2);
+    check('a PTA is counted on every document (Texas PTA fills four) and waits on FACE review', /5\s*of 6/.test(oak) && /FACE review/.test(oak) && /In progress/.test(oak), oak);
+    check('a PTA shows six document icons, like a PTO', (await page.$$('.crow[data-c="Oak Forest ES"] .strip .ic')).length === 6);
     var bg = await page.evaluate(function () { return getComputedStyle(document.querySelector('.hero')).backgroundColor; });
     check('option A: a dark green header', bg === 'rgb(0, 111, 91)', bg);
     /* My campus: for principals and APs, no sign-in */
     await page.click('[data-tab="campus"]');
     await page.selectOption('#pickCampus', 'Oak Forest ES');
     var card = await page.textContent('#campusCard');
-    check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /What FACE tracks for a PTA/.test(card) && /Received from the form/.test(card), card);
+    check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /To be Registered/.test(card) && /Texas PTA shows it/.test(card) && /Received from the form/.test(card), card);
     check('My campus shows the PTA\'s Texas PTA standing', /Texas PTA: Good Standing since 9\/9\/2026\. All five standards are checked\./.test(card), card);
     check('My campus offers the officers and documents, not the checklist, without sign-in', /See officers and documents/.test(await page.textContent('#campusCard')) && !/Open the checklist/.test(await page.textContent('#campusCard')));
     await page.selectOption('#pickCampus', 'Anderson ES');
@@ -314,12 +315,16 @@ async function signIn(page, name, pass) {
     var firstArea = await page.$eval('#areas tbody tr th', function (x) { return x.textContent; });
     check('a column heading sorts the Area Office table, largest first', firstArea === 'NES Elementary', firstArea);
     await page.click('[data-tab="campuses"]');
-    await page.click('[data-dim="ty"][data-chip="pta"]');
-    await page.click('[data-dim="w"][data-chip="review"]');
-    var combo = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
-    check('filters combine: PTAs + Waiting for review', combo.join() === 'Oak Forest ES', combo.join());
-    await page.click('[data-dim="w"][data-chip="review"]');
-    check('pressing a chosen filter again clears it', (await page.$$('#clist .crow')).length === 11);
+    await page.click('[data-chip="regall"]');
+    var regs = (await page.$$('#clist .crow')).length;
+    await page.click('[data-chip="Can Fundraise"]');
+    check('Registered includes the campuses that can fundraise', regs >= (await page.$$('#clist .crow')).length);
+    await page.click('[data-tab="overview"]');
+    await page.click('.kpi.k4');
+    var ex = await page.textContent('#chips .chip.extra');
+    check('the Overview\'s In progress tile shows as one more chip, chosen', /^In progress\s*12$/.test(ex.trim()) && (await page.getAttribute('#chips .chip.extra', 'aria-pressed')) === 'true', ex);
+    await page.click('[data-chip="pta"]');
+    check('choosing a filter replaces it', !(await page.$('#chips .chip.extra')) && (await page.$$('#clist .crow')).length === 11);
     await page.hover('.crow[data-c="Oak Forest ES"] .strip .ic.R');
     await page.waitForSelector('#tip:not([hidden])', { timeout: 1000 });
     check('a document icon explains itself at once', /Training certificate/.test(await page.textContent('#tip')) && /waiting for review/i.test(await page.textContent('#tip')), await page.textContent('#tip'));

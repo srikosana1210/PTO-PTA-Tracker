@@ -67,7 +67,7 @@ test('a PTA sending bylaws: filed and logged, but its checklist is left alone', 
   eq(row['Bylaws'], 'Not Received');
   eq(row['Training Certificate'], 'Received');
   var L = logRows(g);
-  ok(/Filed only: FACE tracks the training certificate and the officer information form for a PTA/.test(L[0][7]), L[0][7]);
+  ok(/Filed only: a PTA sends FACE the training certificate and the officer information form; this box comes from the Texas PTA spreadsheet/.test(L[0][7]), L[0][7]);
   eq(g.waitingByCampus_('2026-27')[g.norm_('Anderson ES')].items.join(), 'Training Certificate');
 });
 
@@ -78,13 +78,13 @@ test('the email to a PTA asks only for its two documents', function () {
   ok(/still needed: Officer Information, Training Certificate\. To: /.test(r.note), r.note);
 });
 
-test('the register formulas: a PTA with both documents is Registered and never Legalized', function () {
+test('the register formulas: a PTA counts the same as a PTO (2026-10-26)', function () {
   var g = h.load();
   g.rewriteRegisterFormulas_(true);
   var t = g.table_('Campus Register'), f = t.sh.getRange(2, t.col['Status'] + 1).getFormulas()[0][0];
-  ok(/="PTA",IF\(AND\(OR\([A-Z]+2="Accepted",[A-Z]+2="Not Needed"\),OR\([A-Z]+2="Accepted",[A-Z]+2="Not Needed"\)\),"Registered"/.test(f), f);
+  ok(f.indexOf('"PTA"') < 0 && /"Legalized"/.test(f), f);
   var n = t.sh.getRange(2, t.col['Not Yet Accepted'] + 1).getFormulas()[0][0];
-  ok(n.indexOf('="PTA"') > 0, n);
+  ok(n.indexOf('"PTA"') < 0, n);
 });
 
 /* ---------- leadership: names of C1s, links ---------- */
@@ -109,7 +109,7 @@ test('a link for an Area Office or a campus reaches the page, escaped', function
 });
 
 /* ---------- the one-time update ---------- */
-test('the October 15 update: officer forms accepted, retired and PTA documents not needed, safe to run twice', function () {
+test('the October 15 update: officer forms accepted, retired documents not needed, a PTA\'s other boxes left to Texas PTA, safe to run twice', function () {
   var g = h.load();
   g.applyOctober2026_({ reset: false });
   setCell(g, 'Anderson ES', 'Officer Information', 'Received');
@@ -123,12 +123,12 @@ test('the October 15 update: officer forms accepted, retired and PTA documents n
   var a = regRow(g, 'Anderson ES'), b = regRow(g, 'Ashford ES');
   eq(a['Officer Information'], 'Accepted');
   eq(a['Articles of Incorporation'], 'Not Needed');
-  eq(b['Bylaws'], 'Not Needed');
+  eq(b['Bylaws'], 'Needs Correction', 'since 2026-10-26 a PTA\'s bylaws box is left to the Texas PTA import');
   eq(b['Training Certificate'], 'Received', 'a PTA document it does track still waits for review');
   var t = g.table_('Campus Register');
   ok(t.sh.hiddenCols[t.col['Articles of Incorporation'] + 1] && t.sh.hiddenCols[t.col['Insurance'] + 1], 'retired columns hidden');
   var start = g.__ss.getSheetByName('Start Here').values().map(function (x) { return String(x[0]); });
-  ok(start.some(function (x) { return /^Registered: .*For a PTA, FACE tracks two documents/.test(x); }), 'Start Here says how PTAs count');
+  ok(start.some(function (x) { return /^Registered: .*A PTA counts the same way/.test(x); }), 'Start Here says how PTAs count');
   ok(start.some(function (x) { return /^3\. Submit\. Each file keeps the name it was sent with/.test(x); }), 'Start Here no longer talks about renaming');
   ok(!start.some(function (x) { return /eight-item checklist|renamed to school year/.test(x); }), 'old wording gone');
   var again = g.applyOctober15_();

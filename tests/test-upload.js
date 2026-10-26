@@ -37,7 +37,7 @@ test('upload: who may, and what is refused, in plain words', function () {
   var big = Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64');
   ok(/larger than 10 MB/.test(threw(function () { g.uploadDocument(p.c1, 'Anderson ES', '2026-27', 'Bylaws', 'b.pdf', big, 'accept'); })), 'too big');
   var t = g.table_('Campus Register'); t.sh.getRange(g.findRow_(t, '2026-27', 'Anderson ES'), t.col['Org Type'] + 1).setValue('PTA');
-  ok(/FACE tracks only the training certificate/.test(threw(function () { g.uploadDocument(p.c1, 'Anderson ES', '2026-27', 'Bylaws', 'b.pdf', PDF, 'accept'); })), 'a PTA document FACE does not track');
+  ok(/comes from the Texas PTA spreadsheet/.test(threw(function () { g.uploadDocument(p.c1, 'Anderson ES', '2026-27', 'Bylaws', 'b.pdf', PDF, 'accept'); })), 'a PTA box that comes from Texas PTA');
 });
 
 test('wrong document: the file moves to the right one, which is accepted; the wrong one is not there after all', function () {

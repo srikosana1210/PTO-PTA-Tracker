@@ -221,7 +221,6 @@ details.defs p { margin-top: 8px; }
 .chip[aria-pressed="true"] b { color: var(--chip-on-n); }
 .chip.sep { margin-left: 8px; }
 .chiprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
-.chiplab { min-width: 78px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
 .legend > span { display: inline-flex; gap: 6px; align-items: center; }
 .legend .ic { width: 20px; height: 20px; border-radius: 5px; }
@@ -720,7 +719,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-26b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-26c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -737,7 +736,7 @@ function applyLink() {
   if (LINK.campus) { var c = nk(LINK.campus); yearRows().some(function (r) { if (nk(r.campus) === c) { state.pick = r.campus; state.tab = 'campus'; return true; } return false; }); }
   LINK = { ao: '', campus: '' };
 }                      // live page: the numbers have not arrived yet
-var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', w: '', ty: '', mine: false, pick: '', sorts: {}, rq: '', rsort: 'name' };
+var state = { tab: 'overview', area: '', year: '', sort: 'name', q: '', st: '', w: '', ty: 'all', mine: false, pick: '', sorts: {}, rq: '', rsort: 'name' };
 var session = { token: '' };
 var memTok = '';
 
@@ -771,22 +770,29 @@ function nReg() { return nOf(isReg); }
 function nReq() { return nOf(isReq); }
 /* an item is done when it is Accepted, or Not needed for this PTO/PTA (a reviewer decided it does not need it) */
 function isDone(c) { return c === 'A' || c === 'X'; }
-/* FACE tracks two documents for a PTA: the training certificate and the officer information form. A PTA with both is Registered;
-   a PTA is never Legalized here. Every other document is left out of a PTA's counts, lists and emails. */
+/* A PTA counts on every document, the same as a PTO (FACE, 2026-10-26). It sends FACE only the training certificate and the officer
+   information form; its bylaws, budget, 501(c) and bank boxes are filled from the Texas PTA spreadsheet each week (TX_KEYS). */
 var PTA_KEYS = ['Training Certificate', 'Officer Information'];
+var TX_KEYS = ['Bylaws', 'Budget or Financial Report', 'Proof of 501c Status', 'Bank Verification Letter'];
 function isPta(r) { return r.ot === 'PTA'; }
-function tracked(r, i) { return !isPta(r) || PTA_KEYS.indexOf(DOCS[i].key) >= 0; }
-function docsOf(r) { return shown().filter(function (i) { return tracked(r, i); }); }
-function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (tracked(r, i) && test(i) && isDone(r.d[i])) n++; return n; }
-function nRegOf(r) { return isPta(r) ? docsOf(r).length : nReg(); }
-function nReqOf(r) { return isPta(r) ? docsOf(r).length : nReq(); }
-function accReg(r) { return isPta(r) ? accIn(r, function () { return true; }) : accIn(r, isReg); }
-function accReq(r) { return isPta(r) ? accReg(r) : accIn(r, isReq); }
-function accOpt(r) { return isPta(r) ? 0 : accIn(r, function (i) { return !isReq(i); }); }
-function regDone(r) { return accReg(r) === nRegOf(r); }
-function legDone(r) { return !isPta(r) && accReq(r) === nReq(); }
+/** Whether this box comes from the Texas PTA spreadsheet for this campus (a PTA), rather than from what the campus sends. */
+function fromTx(r, i) { return !!r && isPta(r) && TX_KEYS.indexOf(DOCS[i].key) >= 0; }
+/** Whether the campus sends FACE this document (a PTA sends only PTA_KEYS). */
+function sends(r, i) { return !isPta(r) || PTA_KEYS.indexOf(DOCS[i].key) >= 0; }
+function tracked(r, i) { return true; }
+/** For a box that comes from Texas PTA: what it says, in plain words ('' for any other box). */
+function txText(r, i) { return fromTx(r, i) ? (isDone(r.d[i]) ? 'Texas PTA shows it' : 'Texas PTA does not show it yet') : ''; }
+function docsOf(r) { return shown(); }
+function accIn(r, test) { var n = 0; for (var i = 0; i < DOCS.length; i++) if (test(i) && isDone(r.d[i])) n++; return n; }
+function nRegOf(r) { return nReg(); }
+function nReqOf(r) { return nReq(); }
+function accReg(r) { return accIn(r, isReg); }
+function accReq(r) { return accIn(r, isReq); }
+function accOpt(r) { return accIn(r, function (i) { return !isReq(i); }); }
+function regDone(r) { return accReg(r) === nReg(); }
+function legDone(r) { return accReq(r) === nReq(); }
 function anyIn(r) { return docsOf(r).some(function (i) { return r.d[i] !== 'N' && r.d[i] !== 'X'; }); }
-function grpOf(i, r) { return r && isPta(r) ? 0 : isReg(i) ? 0 : isReq(i) ? 1 : 2; }
+function grpOf(i) { return isReg(i) ? 0 : isReq(i) ? 1 : 2; }
 
 function statusOf(r) {
   if (r.pto === 'No') return 'No PTO/PTA';
@@ -953,9 +959,7 @@ function renderDefs() {
   function list(test) { return '<ul>' + shown().filter(test).map(function (i) { return '<li>' + esc(DOCS[i].label) + '</li>'; }).join('') + '</ul>'; }
   var other = shown().filter(function (i) { return !isReq(i); }).map(function (i) { return DOCS[i].label.toLowerCase(); });
   $('#defsBody').innerHTML = '<p><b>Registration:</b></p>' + list(isReg) + '<p><b>Can Fundraise:</b></p>' + list(isReq) +
-    (other.length ? '<p>Not required: ' + esc(other.join(' and ')) + '. They are tracked when a PTO/PTA sends them.</p>' : '') +
-    '<p><b>PTAs:</b> FACE tracks two documents for a PTA, the training certificate and the officer information form. A PTA with both is Registered.</p>' +
-    '<p>The officer information form counts as soon as it comes in; nobody needs to review it. "Waiting for review" means an uploaded document has arrived and has not been checked yet. A document counts when a reviewer accepts it, or marks it not needed for that PTO/PTA.</p>';
+    (other.length ? '<p>Not required: ' + esc(other.join(' and ')) + '. They are tracked when a PTO/PTA sends them.</p>' : '');
 }
 
 function renderOverview(s) {
@@ -1055,14 +1059,18 @@ function txLine(r) {
 }
 
 /* campuses */
-/* Three rows of filters that combine (tester feedback, 2026-10-20): who to show, their status, and who the next step is waiting on.
-   For example: PTOs + Not started, or All PTO/PTAs + Waiting on FACE. The Show row keeps FACE's order from October 2026. */
-var FILTERS = {
-  ty: [{ k: 'all', n: 'All campuses' }, { k: '', n: 'All PTO/PTAs' }, { k: 'pto', n: 'PTOs' }, { k: 'pta', n: 'PTAs' }, { k: 'nyc', n: 'Nothing received yet' }, { k: 'no', n: 'No PTO/PTA' }],
-  st: [{ k: '', n: 'Any status' }, { k: 'Not started', n: 'Not started' }, { k: 'In progress', n: 'In progress' }, { k: 'Registered', n: 'Registered' }, { k: 'Can Fundraise', n: 'Can Fundraise' }],
-  w: [{ k: '', n: 'Anyone' }, { k: 'review', n: 'Waiting for review' }, { k: 'fix', n: 'Sent back for correction' }, { k: 'wpto', n: 'Waiting on the PTO/PTA' }, { k: 'done', n: 'Nothing needed' }]
-};
-var FILTER_LABEL = { ty: 'Show', st: 'Status', w: 'Waiting on' };
+/* One row of filters (FACE, 2026-10-26: three rows were confusing). Each is a type (ty) and a stage (st); Registered includes the
+   campuses that can fundraise. A link from the Overview (In progress, waiting for review) shows as one more chip, already chosen. */
+var FILTERS = [
+  { k: 'all', n: 'All campuses', ty: 'all', st: '' },
+  { k: 'regall', n: 'Registered', ty: '', st: 'regall', tip: 'Includes the campuses that can fundraise' },
+  { k: 'Can Fundraise', n: 'Can Fundraise', ty: '', st: 'Can Fundraise' },
+  { k: 'pto', n: 'PTOs', ty: 'pto', st: '' },
+  { k: 'pta', n: 'PTAs', ty: 'pta', st: '' },
+  { k: '', n: 'All PTO/PTAs', ty: '', st: '' },
+  { k: 'no', n: 'No PTO/PTA', ty: 'no', st: '' }
+];
+var EXTRA_LABEL = { 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, cannot fundraise yet', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet' };
 function passTy(r, k) {
   switch (k) {
     case 'all': return true;
@@ -1112,10 +1120,10 @@ function waitOn(r) {
   var org = r.ot === 'PTA' || r.ot === 'PTO' ? 'the ' + r.ot : 'the PTO/PTA';
   if (r.pto !== 'Yes') return { who: 'none', short: '', text: r.pto === 'No' ? 'This campus reported that it has no PTO/PTA.' : 'Nothing has been received from this campus yet. If it has a PTO/PTA, ask it to send its documents to ' + (payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.' };
   var st = statusOf(r);
-  var need = docsOf(r).filter(function (i) { return (r.d[i] === 'N' && (isPta(r) || isReq(i))) || r.d[i] === 'C'; });
+  var need = docsOf(r).filter(function (i) { return (r.d[i] === 'N' && isReq(i)) || r.d[i] === 'C'; });
   var rev = docsOf(r).filter(function (i) { return r.d[i] === 'R'; });
-  if (st === 'Can Fundraise' || (isPta(r) && st === 'Registered') || (!need.length && !rev.length)) return { who: 'done', short: 'Nobody, all done', text: 'All done for this year. Nothing is needed.' };
-  var needTxt = need.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1) + (r.d[i] === 'C' ? ' (sent back to fix)' : ''); }).join(', ');
+  if (st === 'Can Fundraise' || (!need.length && !rev.length)) return { who: 'done', short: 'Nobody, all done', text: 'All done for this year. Nothing is needed.' };
+  var needTxt = need.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1) + (r.d[i] === 'C' ? ' (sent back to fix)' : fromTx(r, i) ? ' (from Texas PTA)' : ''); }).join(', ');
   var revTxt = rev.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1); }).join(', ');
   if (need.length && rev.length) return { who: 'both', short: org.charAt(0).toUpperCase() + org.slice(1) + ' and FACE', text: 'Waiting on ' + org + ': ' + needTxt + '. FACE is also reviewing: ' + revTxt + '.' };
   if (need.length) return { who: 'pto', short: org.charAt(0).toUpperCase() + org.slice(1), text: 'Waiting on ' + org + ': ' + needTxt + '.' };
@@ -1124,16 +1132,15 @@ function waitOn(r) {
 function campusBase() { var rows = scoped(); if (state.mine) rows = rows.filter(isMine); return rows; }
 
 function renderChips(base) {
-  var html = ['ty', 'st', 'w'].map(function (dim) {
-    var list = FILTERS[dim].slice();
-    if (dim === 'st' && state.st === 'regall') list.push({ k: 'regall', n: 'Registered (including Can Fundraise)' });
-    return '<div class="chiprow" role="group" aria-label="' + FILTER_LABEL[dim] + '"><span class="chiplab">' + FILTER_LABEL[dim] + '</span>' + list.map(function (f) {
-      var other = { ty: state.ty, st: state.st, w: state.w }; other[dim] = f.k;
-      var n = base.filter(function (r) { return inFilter(r, other); }).length, on = state[dim] === f.k;
-      return '<button type="button" class="chip" data-dim="' + dim + '" data-chip="' + esc(f.k) + '" aria-pressed="' + on + '">' + esc(f.n) + ' <b>' + num(n) + '</b></button>';
-    }).join('') + (dim === 'ty' && payload.me && (payload.me.role === 'c1' || isViewer()) ? '<button type="button" class="chip sep" data-mine="1" aria-pressed="' + state.mine + '">My campuses <b>' + num(scoped().filter(isMine).length) + '</b></button>' : '') + '</div>';
-  }).join('');
-  $('#chips').innerHTML = html;
+  function chip(f, extra) {
+    var on = extra || (state.ty === f.ty && state.st === f.st && !state.w);
+    var n = base.filter(function (r) { return inFilter(r, { ty: f.ty, st: f.st, w: f.w || '' }); }).length;
+    return '<button type="button" class="chip' + (extra ? ' extra' : '') + '" data-chip="' + esc(f.k) + '" aria-pressed="' + on + '"' + (f.tip ? ' title="' + esc(f.tip) + '"' : '') + '>' + esc(f.n) + ' <b>' + num(n) + '</b></button>';
+  }
+  var known = FILTERS.some(function (f) { return state.ty === f.ty && state.st === f.st && !state.w; });
+  var extra = known ? '' : chip({ k: '@now', n: EXTRA_LABEL[state.w || state.st || state.ty] || 'This list', ty: state.ty, st: state.st, w: state.w }, true);
+  $('#chips').innerHTML = '<div class="chiprow" role="group" aria-label="Show">' + FILTERS.map(function (f) { return chip(f); }).join('') + extra +
+    (payload.me && (payload.me.role === 'c1' || isViewer()) ? '<button type="button" class="chip sep" data-mine="1" aria-pressed="' + state.mine + '">My campuses <b>' + num(scoped().filter(isMine).length) + '</b></button>' : '') + '</div>';
   $('#legend').innerHTML = '<span><span class="ic A">' + ICON.A + '</span>Accepted</span><span><span class="ic R">' + ICON.R + '</span>Waiting for review (not late)</span><span><span class="ic C">' + ICON.C + '</span>Sent back to fix</span><span><span class="ic N">' + ICON.N + '</span>Not received</span><span><span class="ic X">' + ICON.X + '</span>Not needed</span>';
 }
 
@@ -1163,7 +1170,7 @@ function renderCampuses() {
   $('#ccount').textContent = (q ? plural(rows.length, 'campus matches', 'campuses match') + ' your search' : 'Showing ' + plural(rows.length, 'campus', 'campuses')) + (state.mine ? ', yours only' : '') + (q ? '. ' + num(total) + ' in this list' : '') + '.';
   $('.chead').hidden = !rows.length;
   if (!rows.length) {
-    var more = q && (state.ty !== 'all' || state.st || state.w) ? ' <button type="button" class="linkbtn" data-dim="ty" data-chip="all" data-keepq="1">Search all ' + num(base.length) + ' campuses</button>' : '';
+    var more = q && (state.ty !== 'all' || state.st || state.w) ? ' <button type="button" class="linkbtn" data-chip="all" data-keepq="1">Search all ' + num(base.length) + ' campuses</button>' : '';
     $('#clist').innerHTML = '<li class="empty">' + (q ? 'No campus in this list matches "' + esc(state.q.trim()) + '".' + more : 'No campuses to show here.') + '</li>';
     return;
   }
@@ -1202,12 +1209,11 @@ function renderCampusCard() {
   sel.innerHTML = rows.map(function (r) { return '<option' + (r.campus === state.pick ? ' selected' : '') + '>' + esc(r.campus) + '</option>'; }).join('');
   var r = rows.filter(function (x) { return x.campus === state.pick; })[0], st = statusOf(r), w = waitOn(r);
   function li(i) {
-    var c = r.d[i], t = DOCS[i].key === 'Officer Information' && c === 'A' ? 'Received from the form' : CTXT[c];
+    var c = r.d[i], t = DOCS[i].key === 'Officer Information' && c === 'A' ? 'Received from the form' : txText(r, i) || CTXT[c];
     return '<li><span class="ic ' + c + '" aria-hidden="true">' + ICON[c] + '</span><span>' + esc(DOCS[i].nm) + '</span><span class="cst">' + esc(t) + '</span></li>';
   }
   var list = docsOf(r), body;
-  if (isPta(r)) body = '<p class="cgrp">What FACE tracks for a PTA</p><ul class="cdocs">' + list.map(li).join('') + '</ul>';
-  else body = '<p class="cgrp">To be Registered</p><ul class="cdocs">' + list.filter(isReg).map(li).join('') + '</ul>' +
+  body = '<p class="cgrp">To be Registered</p><ul class="cdocs">' + list.filter(isReg).map(li).join('') + '</ul>' +
     '<p class="cgrp">Also needed to fundraise</p><ul class="cdocs">' + list.filter(function (i) { return !isReg(i) && isReq(i); }).map(li).join('') + '</ul>';
   var org = [r.ot, r.area].filter(Boolean).join(' · ');
   $('#campusCard').innerHTML = '<article class="ccard"><div class="ctop"><h3>' + esc(r.campus) + '</h3><span class="pill ' + st.replace(/[^A-Za-z]+/g, '-') + '">' + esc(st) + '</span>' +
@@ -1380,7 +1386,6 @@ function ensureDetail(r) { payload.detail = payload.detail || {}; var k = r.camp
 function headline(r, st, hasAny) {
   if (r.pto === 'No') return 'This campus reported that it has no PTO/PTA.';
   if (r.pto !== 'Yes') return 'Nothing has been received from this campus yet. It counts as a PTO/PTA once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
-  if (isPta(r)) return st === 'Registered' ? 'Registered. A PTA needs the training certificate and the officer information form, and both are done.' : 'Not registered yet.' + (hasAny ? '' : ' Nothing has been received.');
   if (st === 'Can Fundraise') return 'Can fundraise. All ' + words(nReq()) + ' documents are done.';
   if (st === 'Registered') return 'Registered. The other documents are still needed before it can fundraise.';
   return 'Not registered yet.' + (hasAny ? '' : ' Nothing has been received.');
@@ -1391,9 +1396,9 @@ function panelStatus(r, st) {
   var counts = [];
   if (r.pto === 'Yes') {
     counts.push('<span>Registration: <b>' + accReg(r) + ' of ' + nRegOf(r) + '</b> done</span>');
-    if (!isPta(r)) counts.push('<span>Can Fundraise: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
+    counts.push('<span>Can Fundraise: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
   }
-  var miss = docsOf(r).filter(function (i) { return (isPta(r) || isReq(i)) && r.d[i] === 'N'; }).length;
+  var miss = docsOf(r).filter(function (i) { return isReq(i) && r.d[i] === 'N'; }).length;
   var pend = [['R', 'waiting for review', 'waiting for review'], ['C', 'needs correction', 'need correction']].filter(function (x) { return count(r.d, x[0]) && r.pto === 'Yes'; })
     .map(function (x) { var n = count(r.d, x[0]); return '<span><b>' + n + '</b> ' + (n === 1 ? x[1] : x[2]) + '</span>'; });
   if (miss && r.pto === 'Yes') pend.push('<span><b>' + miss + '</b> still needed</span>');
@@ -1452,6 +1457,7 @@ function panelDocs(r, d) {
     });
     var out = '<li data-item="' + i + '"' + (rev && isEdited(r, i) ? ' class="edited"' : '') + '><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div>' +
       '<div class="meta">' + esc(meta.join(' · ')) + '</div>' + (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '');
+    if (fromTx(r, i)) return out + '<div class="meta txsrc">' + esc(txText(r, i)) + '. For a PTA this box is filled from the Texas PTA spreadsheet each week.</div></div></li>';
     if (!rev) return out + (x.m ? '<div class="rnote">Remark: ' + esc(x.m) + '</div>' : '') + '</div></li>';
     var dis = panel.busy ? ' disabled' : '';
     out += '<div class="seg" role="group" aria-label="' + esc('Check off: ' + DOCS[i].label) + '">' + CHOICES.map(function (ch) {
@@ -1466,11 +1472,11 @@ function panelDocs(r, d) {
     return out + '</div></li>';
   }
   var groups = [[], [], []];
-  docsOf(r).forEach(function (i) { groups[grpOf(i, r)].push(item(i)); });
+  docsOf(r).forEach(function (i) { groups[grpOf(i)].push(item(i)); });
   var help = rev ? '<p class="pnote rhelp">Open each file, then check off each document: it\'s there, it needs correction, it\'s not there, or it\'s not needed for this PTO/PTA. ' +
     'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registered and Can Fundraise. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you. ' +
     'Got the right file from the PTO/PTA yourself? Use <b>Upload a file</b> under a document. A file under the wrong document? Use <b>Wrong document?</b> next to it.</p>' : '';
-  var out = '<section class="psec" id="pChecklist"><h3>' + (isPta(r) ? 'Registration<small>a PTA needs these two</small>' : 'Registration') + '</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
+  var out = '<section class="psec" id="pChecklist"><h3>' + 'Registration' + '</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
     (groups[1].length ? '<section class="psec"><h3>Can Fundraise<small>also needed before it can fundraise</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' : '') +
     (groups[2].length ? '<section class="psec"><h3>Other documents<small>not required</small></h3><ul class="plist chk">' + groups[2].join('') + '</ul></section>' : '');
   if (other.length) out += '<section class="psec"><h3>Other files<small>several documents in one file, or anything else</small></h3><p class="pnote">Open each file and check off above what it contains.</p><ul class="plist act">' +
@@ -1559,10 +1565,10 @@ function modeRadios(name) {
     '<label><input type="radio" name="' + name + '" value="review"> Upload for review</label></div>';
 }
 function uploadHtml(r, i) {
-  if (!canUpload(i)) return '';
+  if (!canUpload(i) || !sends(r, i)) return '';
   var busy = panel.upBusy ? ' disabled' : '';
   if (panel.mv && panel.mv.i === i) {
-    var opts = docsOf(r).filter(function (j) { return j !== i && canUpload(j); }).map(function (j) { return '<option value="' + j + '">' + esc(DOCS[j].nm) + '</option>'; }).join('');
+    var opts = docsOf(r).filter(function (j) { return j !== i && canUpload(j) && sends(r, j); }).map(function (j) { return '<option value="' + j + '">' + esc(DOCS[j].nm) + '</option>'; }).join('');
     return '<div class="upl"><p class="uph">This file was filed under the wrong document. It is really:</p><select id="mvTo">' + opts + '</select>' + modeRadios('mvm').replace('Upload and accept', 'Move and accept').replace('Upload for review', 'Move for review') +
       '<div class="rctl"><button type="button" class="btn sm primary" data-act="mvgo" data-i="' + i + '"' + busy + '>' + (panel.upBusy ? 'Moving…' : 'Move the file') + '</button><button type="button" class="btn sm" data-act="upcancel"' + busy + '>Cancel</button></div>' +
       (panel.upErr ? '<p class="rerr" role="alert">' + esc(panel.upErr) + '</p>' : '') + '</div>';
@@ -1810,7 +1816,7 @@ function mailParts(r) {
   var rm = remarksOf(r), need = [], fix = [];
   docsOf(r).forEach(function (i) {
     if (r.d[i] === 'C') fix.push({ i: i, m: rm.items[i] || '' });
-    else if (r.d[i] === 'N' && (isPta(r) || isReq(i))) need.push({ i: i, m: rm.items[i] || '' });
+    else if (r.d[i] === 'N' && sends(r, i) && (isPta(r) || isReq(i))) need.push({ i: i, m: rm.items[i] || '' });
   });
   return { need: need, fix: fix, remarks: rm.campus || '' };
 }
@@ -2089,11 +2095,11 @@ $('#app').addEventListener('click', function (e) {
   if ((el = t.closest('[data-tab]'))) { setTab(el.getAttribute('data-tab')); return; }
   if ((el = t.closest('[data-clear]'))) { state.area = ''; render(); return; }
   if ((el = t.closest('[data-st]'))) { toCampuses(el.getAttribute('data-st')); return; }
-  if ((el = t.closest('[data-area]'))) { state.area = el.getAttribute('data-area'); toCampuses(''); return; }
+  if ((el = t.closest('[data-area]'))) { state.area = el.getAttribute('data-area'); toCampuses('all'); return; }
   if ((el = t.closest('[data-chip]'))) {
-    var dim = el.getAttribute('data-dim') || 'ty', ck = el.getAttribute('data-chip');
-    if (el.getAttribute('data-keepq')) { state.ty = 'all'; state.st = ''; state.w = ''; }
-    else state[dim] = dim !== 'ty' && state[dim] === ck ? '' : ck;     // pressing a chosen status or waiting chip again clears it
+    var ck = el.getAttribute('data-chip'), f = FILTERS.filter(function (x) { return x.k === ck; })[0];
+    if (el.getAttribute('data-keepq')) f = FILTERS[0];
+    if (f) { state.ty = f.ty; state.st = f.st; state.w = ''; }
     renderCampuses(); return;
   }
   if ((el = t.closest('[data-mine]'))) { state.mine = !state.mine; renderCampuses(); return; }
@@ -2249,7 +2255,7 @@ function loadText(text, name, modified) {
   closePanel(true);
   state.area = ''; state.year = years().slice(-1)[0] || '';
   var n = $('#notice'); n.dataset.keep = '';
-  state.tab = 'overview'; state.ty = ''; state.st = ''; state.w = ''; state.q = ''; $('#q').value = '';
+  state.tab = 'overview'; state.ty = 'all'; state.st = ''; state.w = ''; state.q = ''; $('#q').value = '';
   render();
   if (bad) { n.className = 'notice warn'; n.hidden = false; n.dataset.keep = '1'; n.textContent = num(bad) + ' cell' + (bad === 1 ? '' : 's') + ' had a value that was not recognized and ' + (bad === 1 ? 'was' : 'were') + ' treated as Not received (or Not yet confirmed).'; }
   else n.hidden = true;

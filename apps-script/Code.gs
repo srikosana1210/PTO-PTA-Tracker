@@ -65,7 +65,7 @@ var CFG = {
   TAB_TXPTA_PASTE: 'Texas PTA Paste',
   TAB_TXPTA: 'Texas PTA',
   TXPTA_HEADERS: ['Campus', 'Texas PTA Name', 'Texas PTA ID', 'PTA Status', 'Good Standing Date', 'SOA Officers', 'SOA Membership', 'SOA Bylaws',
-    'SOA Standing Rules', 'SOA 990', 'Current Members', 'Membership Goal', 'Active Status Date', 'Bylaws Approved', 'Note', 'Texas PTA Updated', 'Imported'],
+    'SOA Standing Rules', 'SOA 990', 'JoinPTA Activation', 'Current Members', 'Membership Goal', 'Active Status Date', 'Bylaws Approved', 'Note', 'Texas PTA Updated', 'Imported'],
   // Texas PTA names the tracker cannot work out by itself (lower case, spacing ignored) -> the Campus Register's name
   TXPTA_ALIASES: { 'south early community': 'South EC HS' },
   REMINDER_HEADERS: ['Send', 'C1', 'Email', 'Campuses', 'Waiting', 'Subject', 'Body', 'Text', 'Note', 'Updated'],
@@ -110,8 +110,17 @@ var CFG = {
   // A file question starting with this holds several documents in one file, or anything else. The file is filed in the campus folder
   // and logged, and changes no item: a reviewer opens it and checks off on the dashboard what it contains.
   Q_OTHER: 'Other documents',
-  // FACE tracks only these two for a PTA (2026-10-15). A PTA with both is Registered; a PTA is never Legalized in this tracker.
+  // What a PTA sends FACE (2026-10-15). Anything else it sends is filed only. A PTA counts on every document, like a PTO (2026-10-26):
+  // the boxes below come from the Texas PTA spreadsheet instead (TXPTA_ITEMS).
   PTA_ITEMS: ['Training Certificate', 'Officer Information'],
+  // For a PTA, these boxes are set from the Texas PTA spreadsheet on every import (FACE, 2026-10-26): a tick there means Accepted,
+  // anything else Not Received. from = the Texas PTA tab heading; ok = the values that count (default: Yes, a tick).
+  TXPTA_ITEMS: [
+    { key: 'Bylaws', from: 'SOA Bylaws', label: 'SOA Bylaws' },
+    { key: 'Bank Verification Letter', from: 'JoinPTA Activation', label: 'JoinPTA.org activation' },
+    { key: 'Budget or Financial Report', from: 'SOA 990', label: 'SOA 990' },
+    { key: 'Proof of 501c Status', from: 'PTA Status', label: 'PTA status', ok: ['good standing', 'active', 'inactive'] }
+  ],
   // Names the tracker used before 2026-10-02 (see updateDocumentList).
   OLD_BANK_HEADER: 'Bank Account Info',
   OLD_TAX_HEADER: 'Tax ID EIN Letter',
@@ -132,7 +141,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-26b (campus list update: rows are removed by name and checked afterwards)';
+var VERSION = 'Script version 2026-10-26c (PTAs count on every document, four of them from Texas PTA; one row of Campuses filters)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -145,6 +154,7 @@ function onOpen() {
     .addItem('Update to the new document list (run once)', 'updateDocumentList')
     .addItem('Update the tracker: October 2026 changes (run once)', 'updateOctober2026')
     .addItem('Update the tracker: officer form, PTAs and documents (run once)', 'updateOctober15')
+    .addItem('Update the tracker: PTAs on every document, from Texas PTA (run once)', 'updatePtaDocs')
     .addSeparator()
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Update the campus list: FACE\'s short names, Area Offices, duplicates merged (run once)', 'updateCampusList')
@@ -384,12 +394,12 @@ function processSubmission_(sub) {
   var pta = orgTypeFrom_(sub.orgType || t.values[rowNum - 1][t.col['Org Type']]) === 'PTA';
 
   sub.uploads.forEach(function (u) {
-    // a PTA is tracked on two documents only; anything else it sends is filed and logged, and its checklist is left alone
-    var skip = pta && CFG.PTA_ITEMS.indexOf(u.item.key) < 0;
+    // a PTA sends two documents; anything else it sends is filed and logged, and its checklist is left alone (Texas PTA fills the rest)
+    var skip = !sendsItem_(u.item, pta);
     u.ids.forEach(function (id) {
       anything = true;
       var f = fileIntoCampus_(id, sub.campus, year, u.item.key, dateStr);
-      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, f.name, f.link, year, f.note || (skip ? 'Filed only: FACE tracks the training certificate and the officer information form for a PTA.' : '')]);
+      logRows.push([sub.timestamp, sub.email, sub.campus, u.item.key, f.name, f.link, year, f.note || (skip ? 'Filed only: a PTA sends FACE the training certificate and the officer information form; this box comes from the Texas PTA spreadsheet.' : '')]);
     });
     if (u.ids.length && !skip) setCell_(t, rowNum, u.item.key, 'Received');   // a new file always goes back to review
   });
@@ -1034,6 +1044,7 @@ function texasPtaSummary_(r) {
   if (r.otherType.length) L.push('Check the Org Type on the Campus Register: ' + r.otherType.join(', ') + '. Texas PTA lists them, but the register says something else, so nothing was changed.');
   if (r.shorter.length) L.push('Matched by a shorter name, please check the Campus column: ' + r.shorter.join(', ') + '.');
   if (r.unmatched.length) L.push('No campus found for: ' + r.unmatched.join(', ') + '. On the Texas PTA tab, type the campus name as it is in the Campus Register; it is kept next time.');
+  if (r.docs) L.push(plural_(r.docs, 'PTA document box was', 'PTA document boxes were') + ' updated on the Campus Register from Texas PTA (bylaws, bank account, budget and 501(c) status).');
   if (r.unPta.length) L.push('No longer marked as PTAs, because their charter is withdrawn: ' + r.unPta.join(', ') + '. Those that have sent nothing this year are back to Not Yet Confirmed.');
   L.push('', 'Next week, paste the new spreadsheet over this one (select all on the Texas PTA Paste tab first) and run this again.');
   return L.join('\n');
@@ -1062,6 +1073,7 @@ function importTexasPtaLocked_() {
   var c = {
     name: at(is('pta')), id: at(is('texas pta id')), status: at(is('pta status')), gs: at(is('good standing date')),
     off: at(is('soa officers')), mem: at(is('soa membership')), byl: at(is('soa bylaws')), rules: at(is('soa standing rules')), f990: at(is('soa 990')),
+    join: at(function (x) { return x.indexOf('joinpta.org activation') === 0; }),
     count: at(function (x) { return /current membership count$/.test(x); }), goal: at(is('membership goal')),
     active: at(function (x) { return x.indexOf('active status date') === 0; }), approved: at(is('bylaws approved'))
   };
@@ -1087,7 +1099,7 @@ function importTexasPtaLocked_() {
       if (m.shorter) { note = 'Matched by a shorter name. Check the campus.'; res.shorter.push(name + ' = ' + campus); }
       if (!campus) { note = 'No campus found. Type the campus name as it is in the Campus Register.'; res.unmatched.push(name); }
     }
-    rows.push([campus, name, id, st, get(v, 'gs'), tick(v, 'off'), tick(v, 'mem'), tick(v, 'byl'), tick(v, 'rules'), tick(v, 'f990'),
+    rows.push([campus, name, id, st, get(v, 'gs'), tick(v, 'off'), tick(v, 'mem'), tick(v, 'byl'), tick(v, 'rules'), tick(v, 'f990'), tick(v, 'join'),
       get(v, 'count'), get(v, 'goal'), get(v, 'active'), get(v, 'approved'), note, res.asOf, now]);
     if (campus) ptaCampuses.push(campus);
   }
@@ -1116,7 +1128,38 @@ function importTexasPtaLocked_() {
     if (cellText_(t.values[row - 1][t.col['Has PTO or PTA']]) === 'Yes' && !sent[norm_(campus)]) setCell_(t, row, 'Has PTO or PTA', 'Not Yet Confirmed');
     res.unPta.push(campus);
   });
+  // a PTA's bylaws, bank, budget and 501(c) boxes follow the Texas PTA spreadsheet (FACE, 2026-10-26)
+  var byCampus = {};
+  rows.forEach(function (x) { if (x[0]) byCampus[norm_(x[0])] = x; });
+  res.docs = applyTexasDocs_(byCampus, res.asOf);
   return res;
+}
+
+/**
+ * Sets each PTA's Texas PTA boxes (CFG.TXPTA_ITEMS) from this week's Texas PTA rows (normalised campus -> Texas PTA tab row): Accepted
+ * when Texas PTA shows it, Not Received when it does not (or the PTA is not on the spreadsheet). Each change is logged, by "Texas PTA".
+ * Returns how many boxes changed.
+ */
+function applyTexasDocs_(byCampus, asOf) {
+  var t = table_(CFG.TAB_REGISTER), year = currentYear_(), now = new Date(), logs = [], n = 0;
+  var hc = {}; CFG.TXPTA_HEADERS.forEach(function (h, i) { hc[h] = i; });
+  for (var i = 1; i < t.values.length; i++) {
+    var v = t.values[i], campus = cellText_(v[t.col['Campus']]);
+    if (!campus || cellText_(v[t.col['School Year']]) !== year || !isPtaRow_(v, t)) continue;
+    var tx = byCampus[norm_(campus)];
+    CFG.TXPTA_ITEMS.forEach(function (x) {
+      if (t.col[x.key] === undefined) return;
+      var val = tx ? cellText_(tx[hc[x.from]]) : '';
+      var has = x.ok ? x.ok.indexOf(norm_(val)) >= 0 : val === 'Yes';
+      var want = has ? 'Accepted' : 'Not Received', cur = cellText_(v[t.col[x.key]]) || 'Not Received';
+      if (want === cur) return;
+      setCell_(t, i + 1, x.key, want); v[t.col[x.key]] = want; n++;
+      var why = 'From the Texas PTA spreadsheet' + (asOf ? ' (updated ' + asOf + ')' : '') + ': ' + x.label + ' ' + (!tx ? 'not listed' : x.ok ? val : has ? 'checked' : 'not checked');
+      logs.push([now, 'Texas PTA', campus, '', '', '', year, checkNote_(want, x.key, why, true)]);
+    });
+  }
+  if (logs.length) appendLog_(logs);
+  return n;
 }
 
 /** Texas PTA's name for a school -> the Campus Register's name. { campus, shorter: true when found only after dropping leading words }. */
@@ -1459,6 +1502,7 @@ function saveChecklist(token, campus, year, changes, campusRemark) {
       if (status && CHECK_STATUSES.indexOf(status) < 0) throw new Error('That status cannot be set here.');
       var cur = cellText_(t.values[row - 1][t.col[item.key]]) || 'Not Received';
       var next = status || cur;
+      if (next !== cur && txItem_(item.key) && isPtaRow_(t.values[row - 1], t)) throw new Error('For a PTA, ' + item.key + ' comes from the Texas PTA spreadsheet each week, so it cannot be checked off here.');
       if (next === 'Needs Correction' && !remark) throw new Error('Say what needs to be corrected in ' + item.key + '.');
       if (next === 'Not Needed' && !remark) throw new Error('Say why ' + item.key + ' is not needed.');
       var statusChanged = next !== cur, remarkChanged = remark !== (known.items[item.key] || '');
@@ -1558,7 +1602,7 @@ function logResendRequest(token, campus, year, sentTo) {
 function emailAsks_(t, row, campus, year) {
   var flags = itemFlags_(), need = [], fix = [], parts = [], pta = isPtaRow_(t.values[row - 1], t);
   CFG.ITEMS.forEach(function (it, i) {
-    if (!tracksItem_(it, pta)) return;
+    if (!sendsItem_(it, pta)) return;
     var st = cellText_(t.values[row - 1][t.col[it.key]]) || 'Not Received';
     if (st === 'Needs Correction') fix.push(it.key);
     else if (st === 'Not Received' && (flags.req[i] || pta)) need.push(it.key);
@@ -1602,7 +1646,7 @@ function uploadDocument(token, campus, year, itemKey, fileName, base64, mode) {
     var t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
     if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
     var canon = cellText_(t.values[row - 1][t.col['Campus']]);
-    if (!tracksItem_(item, isPtaRow_(t.values[row - 1], t))) throw new Error('FACE tracks only the training certificate and the officer information form for a PTA, so ' + item.key + ' cannot be uploaded for ' + canon + '.');
+    if (!sendsItem_(item, isPtaRow_(t.values[row - 1], t))) throw new Error('For a PTA, ' + item.key + ' comes from the Texas PTA spreadsheet, so it cannot be uploaded for ' + canon + '.');
     var name = cleanText_(fileName, 150).replace(/[\\/:*?"<>|]+/g, '-') || 'document';
     var ext = (name.match(/\.([A-Za-z0-9]+)$/) || ['', ''])[1].toLowerCase();
     if (!UPLOAD_TYPES[ext]) throw new Error('That kind of file cannot be uploaded. Use a PDF, a Word document or a picture (JPG, PNG, HEIC, TIFF).');
@@ -1642,7 +1686,7 @@ function refileDocument(token, campus, year, fileLink, fromKey, toKey, mode) {
     var t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
     if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
     var canon = cellText_(t.values[row - 1][t.col['Campus']]);
-    if (!tracksItem_(to, isPtaRow_(t.values[row - 1], t))) throw new Error('FACE tracks only the training certificate and the officer information form for a PTA, so the file cannot be moved to ' + to.key + '.');
+    if (!sendsItem_(to, isPtaRow_(t.values[row - 1], t))) throw new Error('For a PTA, ' + to.key + ' comes from the Texas PTA spreadsheet, so the file cannot be moved there.');
     var link = cellText_(fileLink), lt = table_(CFG.TAB_LOG), c = lt.col, moved = 0, name = '';
     for (var i = 1; i < lt.values.length; i++) {
       var v = lt.values[i];
@@ -2125,7 +2169,7 @@ function waitingByCampus_(year) {
     var v = t.values[i], campus = cellText_(v[t.col['Campus']]);
     if (!campus || cellText_(v[t.col['School Year']]) !== year) continue;
     var pta = isPtaRow_(v, t);
-    var items = CFG.ITEMS.filter(function (it) { return tracksItem_(it, pta) && cellText_(v[t.col[it.key]]) === 'Received'; }).map(function (it) { return it.key; });
+    var items = CFG.ITEMS.filter(function (it) { return sendsItem_(it, pta) && cellText_(v[t.col[it.key]]) === 'Received'; }).map(function (it) { return it.key; });
     out[norm_(campus)] = { campus: campus, items: items, other: false };
   }
   // "Other documents" files that arrived after the last time anyone checked the campus off
@@ -2698,11 +2742,7 @@ function rewriteRegisterFormulas_(fillMissing) {
   var campusVals = sh.getRange(2, t.col['Campus'] + 1, nrows, 1).getValues();
   function build(r) {
     var g = fl + r + ':' + ll + r, camp = '$' + h['Campus'] + r, pto = '$' + h['Has PTO or PTA'] + r, ot = '$' + h['Org Type'] + r;
-    // a PTA is tracked on two documents (CFG.PTA_ITEMS): with both done it is Registered, and it is never Legalized
-    var pc = CFG.PTA_ITEMS.map(function (k) { return colLetter_(t.col[k]) + r; });
-    var ptaOk = 'AND(' + pc.map(function (c) { return 'OR(' + c + '="Accepted",' + c + '="Not Needed")'; }).join(',') + ')';
-    var ptaAny = 'OR(' + pc.map(function (c) { return 'OR(' + c + '="Accepted",' + c + '="Received",' + c + '="Needs Correction")'; }).join(',') + ')';
-    var ptaParts = CFG.PTA_ITEMS.map(function (k) { var cl = colLetter_(t.col[k]); return 'IF(AND(' + cl + r + '<>"Accepted",' + cl + r + '<>"Not Needed"),", "&' + cl + '$1,"")'; }).join('&');
+    // a PTA counts the same as a PTO (FACE, 2026-10-26): its Texas PTA boxes are filled by the weekly import
     var P = '$' + h['Items Received'] + r, Q = '$' + h['Registration Items Accepted'] + r, R = '$' + h['Legalization Items Accepted'] + r;
     var parts = CFG.ITEMS.map(function (it) {
       var cl = colLetter_(t.col[it.key]);
@@ -2714,11 +2754,11 @@ function rewriteRegisterFormulas_(fillMissing) {
     // Not Needed (a reviewer decided this PTO/PTA does not need the document) counts the same as Accepted
     f['Registration Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(((' + g + '="Accepted")+(' + g + '="Not Needed"))*(' + flagsReg + '="Yes")))';
     f['Legalization Items Accepted'] = '=IF(' + camp + '="","",SUMPRODUCT(((' + g + '="Accepted")+(' + g + '="Not Needed"))*(' + flagsReq + '="Yes")))';
-    f['Status'] = '=IF(' + camp + '="","",IF(' + pto + '="No","No PTO/PTA",IF(' + pto + '<>"Yes","Not Yet Confirmed",IF(' + ot + '="PTA",IF(' + ptaOk + ',"Registered",IF(' + ptaAny + ',"In Progress","Not Started")),' +
-      'IF(' + R + '>=' + sLeg + ',"Legalized",IF(' + Q + '>=' + sReg + ',"Registered",IF(' + P + '>0,"In Progress","Not Started")))))))';
+    f['Status'] = '=IF(' + camp + '="","",IF(' + pto + '="No","No PTO/PTA",IF(' + pto + '<>"Yes","Not Yet Confirmed",' +
+      'IF(' + R + '>=' + sLeg + ',"Legalized",IF(' + Q + '>=' + sReg + ',"Registered",IF(' + P + '>0,"In Progress","Not Started"))))))';
     f['Items Awaiting Review'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Received"))';
     f['Items Needing Correction'] = '=IF(' + camp + '="","",COUNTIF(' + g + ',"Needs Correction"))';
-    f['Not Yet Accepted'] = '=IF(' + camp + '="","",IF(' + pto + '<>"Yes","",IF(' + ot + '="PTA",IF(' + ptaOk + ',"None",MID(' + ptaParts + ',3,400)),IF(' + R + '>=' + sLeg + ',"None",MID(' + parts + ',3,400)))))';
+    f['Not Yet Accepted'] = '=IF(' + camp + '="","",IF(' + pto + '<>"Yes","",IF(' + R + '>=' + sLeg + ',"None",MID(' + parts + ',3,400))))';
     return f;
   }
   var calc = ['Items Received', 'Registration Items Accepted', 'Legalization Items Accepted', 'Status', 'Items Awaiting Review', 'Items Needing Correction', 'Not Yet Accepted'];
@@ -3258,7 +3298,7 @@ function applyOctober15_() {
         var st = cellText_(v[t.col[it.key]]);
         if (st !== 'Received' && st !== 'Needs Correction') return;
         if (it.retired) { setCell_(t, i + 1, it.key, 'Not Needed'); oldN++; }
-        else if (pta && CFG.PTA_ITEMS.indexOf(it.key) < 0) { setCell_(t, i + 1, it.key, 'Not Needed'); ptaN++; }
+        // since 2026-10-26 a PTA's other boxes come from the Texas PTA import, so they are left alone here
       });
     }
     lines.push(off ? plural_(off, 'officer information form that was waiting for review is', 'officer information forms that were waiting for review are') + ' now Accepted.' : 'No officer information form was waiting for review.');
@@ -3270,7 +3310,7 @@ function applyOctober15_() {
     CFG.ITEMS.forEach(function (it) { if (it.retired) { t.sh.hideColumns(t.col[it.key] + 1); hid++; } });
     if (hid) lines.push('Campus Register: the Articles of Incorporation and Insurance columns are hidden (not deleted).');
     var nf = rewriteRegisterFormulas_(true);
-    lines.push('Campus Register: recalculated Status and the counts for ' + nf + ' rows. A PTA with the training certificate and the officer form is Registered.');
+    lines.push('Campus Register: recalculated Status and the counts for ' + nf + ' rows.');
 
     // 4. the Summary rows of the retired items
     var sum = ss.getSheetByName('Summary');
@@ -3296,12 +3336,86 @@ function applyOctober15_() {
 }
 
 /** Start Here wording for the October 15, 2026 changes. Returns how many cells changed. Safe to run again. */
+/** The Start Here lines about Registered, Legalized and the Texas PTA import, as of 2026-10-26 (a PTA counts on every document). */
+function ptaWording_() {
+  return {
+    registered: 'Registered: these three are accepted for the school year: ' + defsList_(true) + '. A PTA counts the same way: it sends the training certificate and the officer information form, and its bylaws box is filled from the Texas PTA spreadsheet.',
+    legalized: 'Legalized: these are all accepted: ' + defsList_(false) + '. The dashboard calls this Can Fundraise. For a PTA, the bylaws, budget (SOA 990), 501(c) status (PTA status) and bank account (JoinPTA.org activation) boxes come from the Texas PTA spreadsheet each week. A reviewer can mark any document Not Needed for a PTO/PTA; it then counts as done.',
+    txStep: ' For a PTA, the import also sets the bylaws (SOA Bylaws), budget (SOA 990), bank account (JoinPTA.org activation) and 501(c) status (PTA status) boxes on the Campus Register: a tick, or Good Standing, Active or Inactive for the status, means Accepted; anything else means Not Received. Do not change these four boxes by hand: the next import sets them again.'
+  };
+}
+
+/**
+ * Menu (October 26, 2026): a PTA counts on every document, like a PTO. Its bylaws, bank account, budget and 501(c) boxes come from the
+ * Texas PTA spreadsheet. Saves a backup, rewrites the Campus Register formulas, imports the Texas PTA Paste tab again (so the new
+ * JoinPTA.org column is read) and updates the Start Here wording. Safe to run again.
+ */
+function updatePtaDocs() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Update the tracker: PTAs on every document',
+    'From now on a PTA counts on every document, the same as a PTO, so a PTA can be Registered and Can Fundraise.\n\n' +
+    '- A PTA still sends FACE the training certificate and the officer information form.\n' +
+    '- Its bylaws, bank account, budget and 501(c) boxes are filled from the Texas PTA spreadsheet each week (SOA Bylaws, JoinPTA.org activation, SOA 990, PTA status).\n' +
+    '- The Campus Register formulas and the Start Here tab are updated, and the Texas PTA Paste tab is imported again.\n\n' +
+    'A backup copy of this spreadsheet is saved in your Drive first. Running this again is safe.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  var res;
+  try { res = applyPtaDocs_(); }
+  catch (err) { ui.alert('Not updated', err.message, ui.ButtonSet.OK); return; }
+  ui.alert(res.ok ? 'Updated' : 'Updated, but please check', res.lines.join('\n'), ui.ButtonSet.OK);
+}
+
+function applyPtaDocs_() {
+  var ss = SpreadsheetApp.getActive(), lines = [];
+  if (!ss.getSheetByName(CFG.TAB_REGISTER)) throw new Error('The tab "' + CFG.TAB_REGISTER + '" was not found. Nothing was changed.');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    var tz = ss.getSpreadsheetTimeZone();
+    var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before the PTA documents update ' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss'));
+    lines.push('Backup saved in your Drive: ' + copy.getName());
+    var nf = rewriteRegisterFormulas_(true);
+    lines.push('Campus Register: recalculated Status for ' + nf + ' rows. A PTA now counts on every document, like a PTO.');
+    var paste = ss.getSheetByName(CFG.TAB_TXPTA_PASTE), r = null;
+    if (paste && paste.getLastRow() > 1) {
+      r = importTexasPtaLocked_();
+      lines.push('Imported the Texas PTA Paste tab again: ' + plural_(r.listed, 'PTA', 'PTAs') + '. ' + plural_(r.docs || 0, 'PTA document box was', 'PTA document boxes were') + ' updated from Texas PTA.');
+    } else {
+      var n = applyTexasDocs_({}, '');
+      lines.push('The Texas PTA Paste tab is empty, so every PTA\'s bylaws, bank account, budget and 501(c) boxes are Not Received for now (' + n + ' changed). Paste this week\'s Texas PTA spreadsheet and run the import.');
+    }
+    var w = updateWordingPtaDocs_();
+    lines.push(w ? 'Start Here: ' + plural_(w, 'line', 'lines') + ' updated.' : 'Start Here was already up to date.');
+    clearPageCache_();
+  } finally { lock.releaseLock(); }
+  SpreadsheetApp.flush();
+  var bad = scanForErrors_();
+  if (bad.length) lines.push('', 'Please check: these cells show an error: ' + bad.slice(0, 6).join(', ') + '.', 'If anything looks wrong, the backup copy above has everything as it was.');
+  return { ok: !bad.length, lines: lines };
+}
+
+/** Start Here: the Registered, Legalized and Texas PTA lines for the 2026-10-26 PTA rule. Returns how many lines changed. */
+function updateWordingPtaDocs_() {
+  var start = SpreadsheetApp.getActive().getSheetByName('Start Here');
+  if (!start) return 0;
+  var w = ptaWording_(), v = start.getDataRange().getValues(), changed = 0;
+  for (var i = 0; i < v.length; i++) {
+    var cell = v[i][0], s = cell;
+    if (typeof cell !== 'string' || !cell) continue;
+    if (cell.indexOf('Registered:') === 0) s = w.registered;
+    else if (cell.indexOf('Legalized:') === 0) s = w.legalized;
+    else if (cell.indexOf('3. Choose PTO/PTA Tracker > Import the Texas PTA spreadsheet') === 0 && cell.indexOf(w.txStep.trim()) < 0) s = cell + w.txStep;
+    if (s !== cell) { start.getRange(i + 1, 1).setValue(s); changed++; }
+  }
+  return changed;
+}
+
 function updateWordingOctober15_() {
   var start = SpreadsheetApp.getActive().getSheetByName('Start Here');
   if (!start) return 0;
   var byStart = [
-    ['Registered:', 'Registered: these three are accepted for the school year: ' + defsList_(true) + '. For a PTA, FACE tracks two documents, the training certificate and the officer information form; a PTA with both is Registered.'],
-    ['Legalized:', 'Legalized: these are all accepted: ' + defsList_(false) + '. A PTA is not tracked for Legalized. A reviewer can mark any document Not Needed for a PTO/PTA; it then counts as done.'],
+    ['Registered:', ptaWording_().registered],
+    ['Legalized:', ptaWording_().legalized],
     ['Item status:', 'Item status: Not Received, Received (waiting for review), Accepted, Needs Correction, or Not Needed. Accepted and Not Needed count. An uploaded document is set to Received, and a reviewer checks it off on the dashboard (or in the Campus Register tab). The officer information form is set to Accepted as soon as it comes in: nobody reviews it.'],
     ['4. Google does not let a script add file-upload questions', '4. Google does not let a script add file-upload questions, so add them by hand. Open the form editor (the link is in the message from step 3, or use Show form and dashboard links). Add a File upload question for each of the five lines below, with exactly this wording. For each one allow PDF, Document and Image, maximum 5 files, 100 MB, and leave Required off.'],
     ['      Articles of Incorporation', ''],
@@ -3430,7 +3544,7 @@ function logStats_() {
       continue;
     }
     var rv = reviewOf_(v[c['Notes']]);
-    if (!rv) continue;
+    if (!rv || cellText_(v[c['Submitted By']]) === 'Texas PTA') continue;   // the weekly Texas PTA import is not a reviewer
     if (rv.s === 'Sent back') { var sb = out.sentBack[year] = out.sentBack[year] || {}; sb[rv.key] = (sb[rv.key] || 0) + 1; }
     var k = campus + '||' + year + '||' + rv.key, from = arrived[k];
     if (from && when && (rv.s === 'Accepted' || rv.s === 'Sent back' || rv.s === 'Not needed')) {
@@ -3443,17 +3557,17 @@ function logStats_() {
   return out;
 }
 
-/** The stage of one register row, the way the dashboard counts it (a PTA: two documents, never Legalized). */
+/** The stage of one register row, the way the dashboard counts it (a PTA the same as a PTO since 2026-10-26). */
 function stageOf_(v, t, flags) {
   var pto = cellText_(v[t.col['Has PTO or PTA']]);
   if (pto !== 'Yes') return pto === 'No' ? 'No PTO/PTA' : 'Nothing received yet';
-  var pta = isPtaRow_(v, t), regDone = true, legDone = !pta, any = false;
+  var regDone = true, legDone = true, any = false;
   CFG.ITEMS.forEach(function (it, i) {
-    if (!tracksItem_(it, pta)) return;
+    if (it.retired) return;
     var st = cellText_(v[t.col[it.key]]), done = st === 'Accepted' || st === 'Not Needed';
     if (st && st !== 'Not Received' && st !== 'Not Needed') any = true;
-    if ((pta || flags.reg[i]) && !done) regDone = false;
-    if (!pta && (flags.req[i] || flags.reg[i]) && !done) legDone = false;
+    if (flags.reg[i] && !done) regDone = false;
+    if ((flags.req[i] || flags.reg[i]) && !done) legDone = false;
   });
   return legDone && regDone ? 'Legalized' : regDone ? 'Registered' : any ? 'In progress' : 'Not started';
 }
@@ -3471,7 +3585,7 @@ function saveSnapshot_(now) {
     if (st === 'Nothing received yet') n.nyc++;
     else if (st !== 'No PTO/PTA') { n.yes++; n[st]++; }
     var pta = isPtaRow_(v, t), w = 0, f = 0;
-    CFG.ITEMS.forEach(function (it) { if (!tracksItem_(it, pta)) return; var x = cellText_(v[t.col[it.key]]); if (x === 'Received') w++; if (x === 'Needs Correction') f++; });
+    CFG.ITEMS.forEach(function (it) { if (!sendsItem_(it, pta)) return; var x = cellText_(v[t.col[it.key]]); if (x === 'Received') w++; if (x === 'Needs Correction') f++; });
     n.docs += w; if (w) n.wait++; if (f) n.fix++;
   }
   var sh = ensureTab_(CFG.TAB_HISTORY, CFG.HISTORY_HEADERS);
@@ -3694,7 +3808,10 @@ function sentThisYear_(year) {
   var ss = SpreadsheetApp.getActive(), active = {};
   if (ss.getSheetByName(CFG.TAB_LOG)) {
     var lt = table_(CFG.TAB_LOG);
-    for (var i = 1; i < lt.values.length; i++) if (cellText_(lt.values[i][lt.col['School Year']]) === year) active[norm_(lt.values[i][lt.col['Campus']])] = 1;
+    for (var i = 1; i < lt.values.length; i++) {
+      // a box set by the weekly Texas PTA import is not something the campus sent
+      if (cellText_(lt.values[i][lt.col['School Year']]) === year && cellText_(lt.values[i][lt.col['Submitted By']]) !== 'Texas PTA') active[norm_(lt.values[i][lt.col['Campus']])] = 1;
+    }
   }
   if (ss.getSheetByName(CFG.TAB_OFFICERS)) {
     var ot = table_(CFG.TAB_OFFICERS);
@@ -3795,8 +3912,10 @@ function uploadItems_() { return CFG.ITEMS.filter(function (i) { return i.upload
 function activeItems_() { return CFG.ITEMS.filter(function (i) { return !i.retired; }); }
 /** Whether a register row (its values array) belongs to a PTA. */
 function isPtaRow_(v, t) { return orgTypeFrom_(v[t.col['Org Type']]) === 'PTA'; }
-/** Whether this item counts for a campus: never when retired, and for a PTA only the two in CFG.PTA_ITEMS. */
-function tracksItem_(it, pta) { return !it.retired && (!pta || CFG.PTA_ITEMS.indexOf(it.key) >= 0); }
+/** Whether the campus sends FACE this item: never when retired, and a PTA only the two in CFG.PTA_ITEMS (the rest come from Texas PTA). */
+function sendsItem_(it, pta) { return !it.retired && (!pta || CFG.PTA_ITEMS.indexOf(it.key) >= 0); }
+/** The Texas PTA source of this item for a PTA, or null. */
+function txItem_(key) { return CFG.TXPTA_ITEMS.filter(function (x) { return x.key === key; })[0] || null; }
 /** Words a form question may start with to mean this item: its key, and the names the form used before the items were combined. */
 function itemNames_(it) { return [it.key].concat(it.formAliases || []); }
 function titleIsItem_(title, it) { return itemNames_(it).some(function (n) { return startsWith_(title, n); }); }
