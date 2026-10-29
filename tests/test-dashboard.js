@@ -84,13 +84,13 @@ async function signIn(page, name, pass) {
     var page = o.page;
     var kpiText = await page.textContent('#kpis');
     check('no percentages on the overview', !/%/.test(await page.textContent('#v-overview')), kpiText);
-    check('tiles: Registered, Can Fundraise, In progress, No PTO/PTA (FACE, 2026-10-25)', /^Registered/.test(kpiText.trim()) && /Can Fundraise/.test(kpiText) && /In progress/.test(kpiText) && /No PTO\/PTA/.test(kpiText) && !/Waiting for review/.test(kpiText), kpiText);
+    check('tiles: Registered, Eligible to Fundraise, In progress, No PTO/PTA (FACE, 2026-10-25)', /^Registered/.test(kpiText.trim()) && /Eligible to Fundraise/.test(kpiText) && /In progress/.test(kpiText) && /No PTO\/PTA/.test(kpiText) && !/Waiting for review/.test(kpiText), kpiText);
     check('the title is the school year and HISD PTO/PTAs', /^2026–27 HISD PTO\/PTAs$/.test((await page.textContent('#h1')).trim()), await page.textContent('#h1'));
     check('"Where PTO/PTAs stand" is gone', !/Where PTO\/PTAs stand/.test(await page.textContent('#v-overview')));
     check('Documents and Progress by month are for signed-in C1s and FACE staff only', await page.isHidden('#docSec') && await page.isHidden('#histSec'));
     var inprog = await page.textContent('.kpi.k4 .kval');
     check('In progress counts campuses turning documents in, not registered yet (two PTOs and the PTAs Texas PTA has documents for)', inprog.trim() === '12', inprog);
-    check('By Area Office has Campuses, Registered, Can Fundraise, In progress, No PTO/PTA', /Area Office\s*▲?\s*Campuses\s*Registered\s*Can Fundraise\s*In progress\s*No PTO\/PTA/.test(await page.textContent('#areas thead')), await page.textContent('#areas thead'));
+    check('By Area Office has Campuses, Registered, Eligible to Fundraise, In progress, No PTO/PTA', /Area Office\s*▲?\s*Campuses\s*Registered\s*Eligible to Fundraise\s*In progress\s*No PTO\/PTA/.test(await page.textContent('#areas thead')), await page.textContent('#areas thead'));
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
     check('one row per Area Office, and none for a campus without one (2026-10-26)', areas.length === 7 && !/not set/.test(areas.join()), areas.join(' / '));
@@ -98,7 +98,7 @@ async function signIn(page, name, pass) {
     await page.click('#defs summary');
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
-    check('Can Fundraise list has the bank letter wording and no Articles', /Can Fundraise:/.test(defs) && /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && !/PTAs: FACE tracks two documents|counts as soon as it comes in/.test(defs), defs);
+    check('Eligible to Fundraise list has the bank letter wording and no Articles', /Eligible to Fundraise:/.test(defs) && /Bank account verification letter from financial institution listing two authorized account signers/.test(defs) && !/articles of incorporation|insurance/i.test(defs) && !/PTAs: FACE tracks two documents|counts as soon as it comes in/.test(defs), defs);
     check('Texas PTA standing is hidden on the Overview (FACE, 2026-10-20)', await page.isHidden('#txSec'));
     await page.screenshot({ path: path.join(SHOTS, 'overview.png'), fullPage: true });
     // campus panel without sign-in: no checklist, no remarks
@@ -119,7 +119,7 @@ async function signIn(page, name, pass) {
     await page.click('#reviewBody [data-c="Anderson ES"] .campbtn');
     await page.waitForSelector('#panel .seg');
     var pb = await page.textContent('#pBody');
-    check('checklist shows Registration and Can Fundraise, and no retired documents', /Registration[\s\S]*Can Fundraise/.test(pb) && !/Articles of incorporation|insurance/i.test(pb), pb.slice(0, 300));
+    check('checklist shows Registration and Eligible to Fundraise, and no retired documents', /Registration[\s\S]*Eligible to Fundraise/.test(pb) && !/Articles of incorporation|insurance/i.test(pb), pb.slice(0, 300));
     // Bylaws: needs correction with a remark; training: it's there; bank letter: not needed; budget: remark only
     await page.click('#panel [data-item="0"] [data-v="C"]');
     await page.fill('#rmk0', 'Please send the signed copy.');
@@ -231,9 +231,9 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w); page = o.page;
     await page.click('[data-tab="campuses"]');
     var chips = await page.$$eval('#chips .chiprow', function (rows) { return rows.map(function (row) { return [].map.call(row.querySelectorAll('[data-chip]'), function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }).join(','); }); });
-    check('one row of seven filters (FACE, 2026-10-26)', chips.length === 1 && chips[0] === 'All campuses,Registered,Can Fundraise,PTOs,PTAs,All PTO/PTAs,No PTO/PTA', JSON.stringify(chips));
+    check('one row of seven filters (FACE, 2026-10-26)', chips.length === 1 && chips[0] === 'All campuses,Registered,Eligible to Fundraise,PTOs,PTAs,All PTO/PTAs,No PTO/PTA', JSON.stringify(chips));
     check('All campuses is chosen when the tab opens', (await page.getAttribute('[data-chip="all"]', 'aria-pressed')) === 'true' && (await page.$$('#clist .crow')).length === 264);
-    check('the table has Org type and Waiting on columns', /Campus\s*Org type\s*Status\s*Documents\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
+    check('the table has Org type, the document names and Waiting on columns', /Campus\s*Org type\s*Status\s*Training\s*Bylaws\s*Officers\s*Budget\s*501\(c\)\s*Bank\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');
     var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
     check('PTAs lists the Texas PTA campuses, with PTA in the Org type column', ptas.length === 11 && ptas.every(function (x) { return /:PTA$/.test(x); }), ptas.join(', '));
@@ -255,6 +255,8 @@ async function signIn(page, name, pass) {
     var card = await page.textContent('#campusCard');
     check('My campus says who it waits on, in plain words', /Waiting on FACE to review: training certificate/.test(card) && /To be Registered/.test(card) && /Confirmed by Texas PTA/.test(card) && /Received from the form/.test(card), card);
     check('My campus shows the PTA\'s Texas PTA standing', /Texas PTA: Good Standing since 9\/9\/2026\. All five standards are checked\./.test(card), card);
+    await page.click('#campusCard .cmore p');
+    check('clicking the text next to the button does not open the campus', await page.isHidden('#panel'));
     check('My campus offers the officers and documents, not the checklist, without sign-in', /See officers and documents/.test(await page.textContent('#campusCard')) && !/Open the checklist/.test(await page.textContent('#campusCard')));
     await page.selectOption('#pickCampus', 'Anderson ES');
     card = await page.textContent('#campusCard');
@@ -327,7 +329,7 @@ async function signIn(page, name, pass) {
     await page.click('[data-tab="campuses"]');
     await page.click('[data-chip="regall"]');
     var regs = (await page.$$('#clist .crow')).length;
-    await page.click('[data-chip="Can Fundraise"]');
+    await page.click('[data-chip="Eligible to Fundraise"]');
     check('Registered includes the campuses that can fundraise', regs >= (await page.$$('#clist .crow')).length);
     await page.click('[data-tab="overview"]');
     await page.click('.kpi.k4');
@@ -402,6 +404,52 @@ async function signIn(page, name, pass) {
     var cl = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
     check('a number in Principal confirmation lists those campuses', cl.join() === 'Anderson ES' && /Principal reported a problem/.test(await page.textContent('#chips .chip.extra')), cl.join());
     check('no page errors (confirmation)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
+    /* ---------- flagged organizations (2026-10-29): FACE staff flag and unflag; everyone sees it ---------- */
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
+    await page.click('[data-tab="campuses"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    var pbox = await (await page.$('#panel')).boundingBox();
+    check('the campus opens across the whole screen', pbox && pbox.x === 0 && pbox.width >= 1270, JSON.stringify(pbox));
+    await page.click('#panel [data-flag="on"]');
+    await page.click('#panel [data-flag-go="on"]');
+    check('a flag needs a reason', /Say why this PTO\/PTA is flagged/.test(await page.textContent('#panel')));
+    await page.fill('#flagNote', 'Complaint about fundraising, under review');
+    await page.click('#panel [data-flag-go="on"]');
+    await page.waitForFunction(function () { return /Flagged: operations paused/.test(document.querySelector('#panel .pflag') ? document.querySelector('#panel .pflag').textContent : ''); }, null, { timeout: 10000 });
+    await page.screenshot({ path: path.join(SHOTS, 'panel-flagged.png') });
+    check('flagged: the reason shows, with an Unflag button', /Complaint about fundraising/.test(await page.textContent('#panel .pflag')) && !!(await page.$('#panel [data-flag="off"]')));
+    await page.click('#pClose');
+    await page.click('[data-tab="overview"]');
+    check('the Flagged Organizations tile counts it', (await page.textContent('.kpi.k5 .kval')).trim() === '1', await page.textContent('.kpi.k5'));
+    await page.close();
+    o = await openPage(browser, w); page = o.page;
+    await page.setViewportSize({ width: 1500, height: 900 });
+    await page.screenshot({ path: path.join(SHOTS, 'overview-tiles.png') });
+    await page.click('[data-tab="campuses"]');
+    await page.screenshot({ path: path.join(SHOTS, 'campuses-wide.png') });
+    await page.click('[data-tab="overview"]');
+    check('everyone sees the Flagged tile', (await page.textContent('.kpi.k5 .kval')).trim() === '1');
+    await page.click('.kpi.k5');
+    var fl = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.pill').textContent; }); });
+    check('the tile lists the flagged campus, marked Flagged, with its reason', fl.join() === 'Anderson ES:Flagged' && /Flagged: Complaint about fundraising/.test(await page.textContent('#clist')), fl.join());
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    check('without staff sign-in: the reason, but no Flag or Unflag button', /Complaint about fundraising/.test(await page.textContent('#panel')) && !(await page.$('#panel [data-flag]')));
+    await page.close();
+    o = await openPage(browser, w); page = o.page;
+    await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
+    await page.click('[data-tab="campuses"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    await page.click('#panel [data-flag="off"]');
+    await page.fill('#flagNote', 'Reviewed, OK to continue');
+    await page.click('#panel [data-flag-go="off"]');
+    await page.waitForFunction(function () { return !document.querySelector('#panel .pflag'); }, null, { timeout: 10000 });
+    check('unflagged: back to its own status', !/Flagged/.test(await page.textContent('.crow[data-c="Anderson ES"] .pill')));
+    check('no page errors (flag)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
 
     /* ---------- phone width ---------- */

@@ -73,3 +73,28 @@ test('the menu: show to everyone, back to testing, and ask again', function () {
   g.confirmNewRound();
   ok(/^\d{4}-\d{2}-\d{2}$/.test(g.__props.CONFIRM_ROUND), g.__props.CONFIRM_ROUND);
 });
+
+/* ---------- flagged organizations (2026-10-29) ---------- */
+test('only FACE staff flag and unflag; a reason each time; everyone sees the flag and its reason', function () {
+  var g = h.load(), p = withPeople(g);
+  ok(/Only FACE staff/.test(threw(function () { g.flagCampus(p.c1, 'Anderson ES', '2026-27', true, 'x'); })), 'a C1 cannot');
+  ok(/sign-in has ended/.test(threw(function () { g.flagCampus('', 'Anderson ES', '2026-27', true, 'x'); })), 'no sign-in');
+  ok(/Say why/.test(threw(function () { g.flagCampus(p.staff, 'Anderson ES', '2026-27', true, ' '); })), 'a reason is needed');
+  ok(/is not flagged/.test(threw(function () { g.flagCampus(p.staff, 'Anderson ES', '2026-27', false, 'ok'); })));
+  var r = g.flagCampus(p.staff, 'Anderson ES', '2026-27', true, 'Fundraising complaint');
+  eq(r.flag[1], 'Fundraising complaint');
+  ok(/already flagged/.test(threw(function () { g.flagCampus(p.staff, 'Anderson ES', '2026-27', true, 'again'); })));
+  var pub = g.getPayload_(null).rows.filter(function (x) { return x.campus === 'Anderson ES'; })[0];
+  eq(pub.flag.length, 2, 'everyone: date and reason');
+  eq(pub.flag[1], 'Fundraising complaint');
+  var st = g.getPayload_({ staff: true, name: 'Pat Staff' }).rows.filter(function (x) { return x.campus === 'Anderson ES'; })[0];
+  eq(st.flag[2], 'Pat Staff (FACE)', 'staff also see who flagged it');
+  var c1 = g.getPayload_({ c1: { name: 'Ms. Lee', campuses: { 'anderson es': 'Anderson ES' } } }).rows.filter(function (x) { return x.campus === 'Anderson ES'; })[0];
+  eq(c1.flag[2], 'Pat Staff (FACE)', 'and the campus\'s C1');
+  g.flagCampus(p.staff, 'Anderson ES', '2026-27', false, 'Reviewed, OK');
+  eq(g.getPayload_(null).rows.filter(function (x) { return x.campus === 'Anderson ES'; })[0].flag, null, 'unflagged');
+  var tab = g.__ss.getSheetByName('Flagged Organizations').values().slice(1).filter(function (x) { return x.join('') !== ''; });
+  eq(tab.map(function (x) { return x[3]; }).join(), 'Flagged,Unflagged', 'the history is kept');
+  var acts = g.openDetail_(g.buildDetail_(true, 'America/Chicago'))['Anderson ES||2026-27'].a.map(function (e) { return e[4] || ''; });
+  ok(acts.some(function (x) { return /^Flagged: operations paused while FACE reviews\. Reason: Fundraising complaint$/.test(x); }), acts.join(' / '));
+});

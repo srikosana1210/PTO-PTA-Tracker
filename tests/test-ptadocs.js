@@ -40,7 +40,7 @@ test('the import fills a PTA\'s bylaws, bank, budget and 501(c) boxes from Texas
   eq(g.importTexasPta_().docs, 0, 'importing the same spreadsheet again changes nothing');
 });
 
-test('a PTA with every document is Can Fundraise; Texas PTA log lines are not "sent something" or a review', function () {
+test('a PTA with every document is Eligible to Fundraise; Texas PTA log lines are not "sent something" or a review', function () {
   var g = tracker();
   paste(g, roster.rows());
   g.importTexasPta_();

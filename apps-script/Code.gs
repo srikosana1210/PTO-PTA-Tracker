@@ -48,6 +48,9 @@ var CFG = {
   // Principals and APs confirm their campus's PTO/PTA details (FACE, 2026-10-26): one row per answer, newest last
   TAB_CONFIRM: 'Campus Confirmations',
   CONFIRM_HEADERS: ['Submitted', 'School Year', 'Campus', 'Answer', 'Note', 'Email', 'Signed In As'],
+  // FACE staff flag a PTO/PTA to pause its operations while they review it (FACE, 2026-10-29): one row per flag or unflag, newest last
+  TAB_FLAGS: 'Flagged Organizations',
+  FLAG_HEADERS: ['Date', 'School Year', 'Campus', 'Action', 'Reason', 'By'],
   HISTORY_HEADERS: ['Month', 'School Year', 'Saved', 'Campuses', 'PTO/PTAs', 'Legalized', 'Registered, not yet legalized', 'In progress', 'Not started', 'Nothing received yet',
     'Documents waiting for review', 'Campuses waiting for review', 'Campuses with documents sent back'],
   // FACE's list of campuses that do not have a PTO or a PTA (Campus Name, Division, FACE Coordinator 1, PTO/PTA), pasted in when it changes
@@ -148,7 +151,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-26f (principals confirm their PTO/PTA details on My campus; FACE staff only while testing)';
+var VERSION = 'Script version 2026-10-29a (Eligible to Fundraise, flagged organizations, full-screen campus view, wider pages)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -1989,6 +1992,8 @@ function getPayload_(access) {
   // each campus's C1 coordinator by name (no email or phone), so a principal knows whom to ask
   var c1Of = {};
   try { var asg = c1Assignments_(); asg.order.forEach(function (k) { var rec = asg.names[k]; Object.keys(rec.campuses).forEach(function (c) { c1Of[c] = rec.name; }); }); } catch (err) { c1Of = {}; }
+  var flags = {};
+  try { flags = flags_(SpreadsheetApp.getActive().getSpreadsheetTimeZone()); } catch (err) { flags = {}; }
   for (var i = 1; i < t.values.length; i++) {
     var v = t.values[i], campus = String(v[t.col['Campus']] || '').trim();
     if (!campus) continue;
@@ -2002,7 +2007,8 @@ function getPayload_(access) {
       on: String(v[t.col['Org Name']] || '').trim(),
       d: act.map(function (it) { return CFG.STATUS_CODE[String(v[t.col[it.key]] || '').trim()] || 'N'; }).join(''),
       c1: c1Of[norm_(campus)] || '',
-      tx: tx.by[norm_(campus)] || null
+      tx: tx.by[norm_(campus)] || null,
+      flag: flagRow_(flags, campus, String(v[t.col['School Year']] || '').trim(), staff || !!(c1 && c1.campuses[norm_(campus)]))
     });
   }
   var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
@@ -3351,7 +3357,7 @@ function applyOctober15_() {
 function ptaWording_() {
   return {
     registered: 'Registered: these three are accepted for the school year: ' + defsList_(true) + '. A PTA counts the same way: it sends the training certificate and the officer information form, and its bylaws box is filled from the Texas PTA spreadsheet.',
-    legalized: 'Legalized: these are all accepted: ' + defsList_(false) + '. The dashboard calls this Can Fundraise. For a PTA, the bylaws, budget (SOA 990), 501(c) status (PTA status) and bank account (JoinPTA.org activation) boxes come from the Texas PTA spreadsheet each week. A reviewer can mark any document Not Needed for a PTO/PTA; it then counts as done.',
+    legalized: 'Legalized: these are all accepted: ' + defsList_(false) + '. The dashboard calls this Eligible to Fundraise. For a PTA, the bylaws, budget (SOA 990), 501(c) status (PTA status) and bank account (JoinPTA.org activation) boxes come from the Texas PTA spreadsheet each week. A reviewer can mark any document Not Needed for a PTO/PTA; it then counts as done.',
     txStep: ' For a PTA, the import also sets the bylaws (SOA Bylaws), budget (SOA 990), bank account (JoinPTA.org activation) and 501(c) status (PTA status) boxes on the Campus Register: a tick, or Good Standing, Active or Inactive for the status, means Accepted; anything else means Not Received. Do not change these four boxes by hand: the next import sets them again.'
   };
 }
@@ -3364,7 +3370,7 @@ function ptaWording_() {
 function updatePtaDocs() {
   var ui = SpreadsheetApp.getUi();
   var go = ui.alert('Update the tracker: PTAs on every document',
-    'From now on a PTA counts on every document, the same as a PTO, so a PTA can be Registered and Can Fundraise.\n\n' +
+    'From now on a PTA counts on every document, the same as a PTO, so a PTA can be Registered and Eligible to Fundraise.\n\n' +
     '- A PTA still sends FACE the training certificate and the officer information form.\n' +
     '- Its bylaws, bank account, budget and 501(c) boxes are filled from the Texas PTA spreadsheet each week (SOA Bylaws, JoinPTA.org activation, SOA 990, PTA status).\n' +
     '- The Campus Register formulas and the Start Here tab are updated, and the Texas PTA Paste tab is imported again.\n\n' +
@@ -3669,6 +3675,64 @@ function cachedPublicPayload_(fresh) {
   return p;
 }
 
+/* ================================================================== flagged organizations */
+
+/*
+ * FACE, 2026-10-29: FACE staff can flag a PTO/PTA to pause its operations while they review it, with a reason, and unflag it again.
+ * Everyone who opens the dashboard sees that a campus is flagged, when, and why; who flagged it is shown to FACE staff and the campus's
+ * C1. Only a signed-in FACE staff member can flag or unflag. A flag never changes the documents: unflagged, the campus is back where it was.
+ */
+var FLAG_REASON_MAX = 500;
+
+/** The newest flag action for each campus and school year: { 'normalised campus||year': { on, d, why, by } }. */
+function flags_(tz) {
+  var out = {}, sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_FLAGS);
+  if (!sh) return out;
+  var t = table_(CFG.TAB_FLAGS), c = t.col;
+  for (var i = 1; i < t.values.length; i++) {
+    var v = t.values[i], campus = cellText_(v[c['Campus']]), year = cellText_(v[c['School Year']]);
+    if (!campus || !year) continue;
+    var d = isDate_(v[c['Date']]) ? Utilities.formatDate(v[c['Date']], tz, 'yyyy-MM-dd') : cellText_(v[c['Date']]).slice(0, 10);
+    out[norm_(campus) + '||' + year] = { on: cellText_(v[c['Action']]) === 'Flagged', d: d, why: cellText_(v[c['Reason']]), by: cellText_(v[c['By']]) };
+  }
+  return out;
+}
+
+/** For the page: [date, reason] while flagged (who flagged it too for FACE staff and the campus's C1), else null. */
+function flagRow_(flags, campus, year, priv) {
+  var f = flags[norm_(campus) + '||' + year];
+  if (!f || !f.on) return null;
+  return priv ? [f.d, f.why, f.by] : [f.d, f.why];
+}
+
+/** Called from the page by a signed-in FACE staff member. on: true to flag (a reason is required), false to unflag (a note is required). */
+function flagCampus(token, campus, year, on, reason) {
+  var who = sessionFrom_(token);
+  if (!who) throw new Error('Your sign-in has ended. Sign in again.');
+  if (who.role !== 'staff') throw new Error('Only FACE staff can flag or unflag a PTO/PTA.');
+  campus = cellText_(campus); year = cellText_(year); on = !!on;
+  reason = cleanText_(reason, FLAG_REASON_MAX);
+  if (!reason) throw new Error(on ? 'Say why this PTO/PTA is flagged. Everyone who opens the dashboard sees the reason.' : 'Say why the flag is removed, for example: reviewed, OK to continue.');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
+    if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
+    var canon = cellText_(t.values[row - 1][t.col['Campus']]), tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+    var cur = flags_(tz)[norm_(canon) + '||' + year];
+    if (on && cur && cur.on) throw new Error(canon + ' is already flagged. Unflag it first to change the reason.');
+    if (!on && !(cur && cur.on)) throw new Error(canon + ' is not flagged.');
+    var sh = ensureTab_(CFG.TAB_FLAGS, CFG.FLAG_HEADERS), now = new Date(), by = who.name + ' (FACE)';
+    var at = Math.max(sh.getLastRow(), 1) + 1;
+    if (at > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), at - sh.getMaxRows());
+    sh.getRange(at, 2, 1, 1).setNumberFormat('@');   // School Year, so 2026-27 is not turned into a date
+    sh.getRange(at, 1, 1, CFG.FLAG_HEADERS.length).setValues([[now, year, canon, on ? 'Flagged' : 'Unflagged', reason, by]]);
+    appendLog_([[now, by, canon, '', '', '', year, (on ? 'Flagged: operations paused while FACE reviews. Reason: ' : 'Flag removed: ') + reason]]);
+    clearPageCache_();
+    return { ok: true, campus: canon, flag: on ? [Utilities.formatDate(now, tz, 'yyyy-MM-dd'), reason, by] : null };
+  } finally { lock.releaseLock(); }
+}
+
 /* ================================================================== principals confirm their campus's PTO/PTA details */
 
 /*
@@ -3825,6 +3889,7 @@ function publicNote_(note, by) {
   }
   if (n.indexOf('Emailed the PTO/PTA') === 0) return 'Emailed the PTO/PTA about what is still needed.';
   if (n.indexOf('Marked as having a PTO/PTA') === 0) return 'Marked as having a PTO/PTA.';
+  if (n.indexOf('Flagged: ') === 0 || n.indexOf('Flag removed: ') === 0) return n;   // the reason is public (FACE, 2026-10-29)
   return '';
 }
 

@@ -73,7 +73,7 @@ body {
   border-top: 6px solid var(--teal);
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 1480px; margin: 0 auto; padding: 0 24px; }
 h1, h2, h3, p, ul { margin: 0; }
 button, select, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -84,6 +84,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn:hover { background: var(--hover); border-color: var(--teal); }
 .btn.primary { background: var(--btn-bg); border-color: var(--btn-bg); color: var(--btn-ink); font-weight: 600; }
 .btn.primary:hover { background: var(--btn-bg); filter: brightness(1.12); }
+.btn.danger { background: var(--fix); border-color: var(--fix); color: var(--on-fix); font-weight: 600; }
 .btn.sm { padding: 4px 11px; font-size: 13px; min-height: 30px; }
 .btn[disabled] { opacity: .55; cursor: progress; }
 
@@ -141,11 +142,12 @@ select, input[type=search], input[type=password], input[type=text] { background:
 .scope { margin-top: 16px; color: var(--ink2); }
 
 /* KPI cards */
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding-top: 20px; }
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; padding-top: 20px; }
 .kpi { --kc: var(--k1); position: relative; display: flex; flex-direction: column; text-align: left; background: var(--surface); border: 1px solid var(--grid); border-top: 7px solid var(--kc); border-radius: 12px; padding: 16px 18px 16px; cursor: pointer; box-shadow: 0 1px 2px var(--ring), 0 8px 20px -10px var(--shadow); transition: transform .12s ease, box-shadow .12s ease; }
 .kval small { font-size: 16px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .kpi:hover { transform: translateY(-2px); box-shadow: 0 1px 2px var(--ring), 0 14px 26px -10px var(--shadow); }
-.kpi.k2 { --kc: var(--k2); } .kpi.k3 { --kc: var(--k3); } .kpi.k4 { --kc: var(--k4); }
+.kpi.k2 { --kc: var(--k2); } .kpi.k3 { --kc: var(--k3); } .kpi.k4 { --kc: var(--k4); } .kpi.k5 { --kc: var(--fix); }
+.kpi.k5 .klabel, .kpi.k5 .kval { color: var(--err-ink); }
 .khead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .klabel { font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
 .kico { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--kc) 22%, transparent); color: var(--ink); }
@@ -241,7 +243,7 @@ details.defs p { margin-top: 8px; }
 .mylist h3 small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
 .mylist tr.on th, .mylist tr.on td { background: var(--lt1); }
 .ccount { margin: 12px 0 6px; color: var(--muted); font-size: 13px; }
-.chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 72px 140px 180px 130px 66px; gap: 6px 16px; align-items: center; }
+.chead, .crow { display: grid; grid-template-columns: minmax(0, 1.5fr) 72px 170px 300px 150px 66px; gap: 6px 16px; align-items: center; }
 .cw { font-size: 13px; color: var(--ink2); line-height: 1.3; }
 .cw b { color: var(--ink); font-weight: 600; }
 .cw.done, .cw.none { color: var(--muted); }
@@ -284,11 +286,13 @@ details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .ao { display: block; color: var(--muted); font-size: 12.5px; }
 .flag { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; vertical-align: 1px; white-space: nowrap; }
 .flag.R { background: var(--prog-bg); color: var(--prog-ink); } .flag.C { background: var(--err-bg); color: var(--err-ink); }
-.strip { display: inline-flex; gap: 3px; }
-.strip .ic { width: 20px; height: 20px; border-radius: 5px; }
+.strip { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 50px; justify-items: center; align-items: center; }
+.strip .ic { width: 22px; height: 22px; border-radius: 5px; }
 .strip .ic svg { width: 12px; height: 12px; }
-.strip .ic:nth-child(3) { margin-right: 8px; }
-.strip .ic.opt { margin-left: 5px; border-style: dashed; }
+.strip .ic.opt { border-style: dashed; }
+.strip.names span { font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 600; white-space: nowrap; }
+.strip.names .opt { font-weight: 400; }
+.flagwhy { color: var(--err-ink); font-weight: 600; }
 .cc { text-align: right; color: var(--ink2); font-variant-numeric: tabular-nums; font-size: 13.5px; }
 .cc b { color: var(--ink); font-size: 16px; }
 .ic { display: inline-grid; place-items: center; width: 30px; height: 22px; border-radius: 4px; }
@@ -298,7 +302,8 @@ details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .ic.C { background: var(--fix); color: var(--on-fix); }
 .ic.N { border: 1px solid var(--axis); color: var(--muted); }
 .pill { display: inline-block; padding: 2px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-.pill.Legalized, .pill.Can-Fundraise { background: var(--leg-bg); color: var(--leg-ink); }
+.pill.Flagged { background: var(--fix); color: var(--on-fix); }
+.pill.Legalized, .pill.Eligible-to-Fundraise { background: var(--leg-bg); color: var(--leg-ink); }
 .pill.Registered { background: var(--reg-bg); color: var(--reg-ink); }
 .pill.In-progress { background: var(--prog-bg); color: var(--prog-ink); }
 .pill.Not-started { background: var(--ns-bg); color: var(--ns-ink); }
@@ -368,13 +373,24 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
 /* campus detail panel */
 .badge { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: var(--prog-bg); color: var(--prog-ink); vertical-align: 1px; }
 #scrim { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 20; }
-#panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(580px, 100vw); background: var(--page); border-left: 1px solid var(--axis); box-shadow: -10px 0 30px rgba(0,0,0,.22); z-index: 21; overflow-y: auto; overscroll-behavior: contain; }
+#panel { position: fixed; inset: 0; background: var(--page); z-index: 21; overflow-y: auto; overscroll-behavior: contain; }
+#panel .phead > *, #pBody { max-width: 1480px; }
+.phead { padding-left: max(24px, calc((100vw - 1480px) / 2 + 24px)) !important; padding-right: max(24px, calc((100vw - 1480px) / 2 + 24px)) !important; }
+#pBody { margin: 0 auto; }
+.pcols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0 40px; align-items: start; }
+@media (max-width: 900px) { .pcols { display: flex; flex-direction: column; } .pcols.ofirst .pside { order: -1; } }
+.pflag { margin-top: 18px; border-radius: 10px; padding: 12px 16px; background: var(--err-bg); color: var(--err-ink); }
+.pflag b { display: block; font-size: 15px; }
+.pflag .meta { color: var(--err-ink); opacity: .85; font-size: 12.5px; margin-top: 2px; }
+.pflag .rctl, .pflagbtn { margin-top: 10px; }
+.pflag textarea, .pflagask textarea { width: 100%; box-sizing: border-box; margin-top: 6px; }
+.pflagask { margin-top: 18px; border: 1px solid var(--grid); border-radius: 10px; padding: 12px 16px; background: var(--surface); }
 #panel[hidden], #scrim[hidden] { display: none; }
 #panel:focus { outline: none; }
 .phead { position: sticky; top: 0; z-index: 1; display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; padding: 18px 20px 14px; background: var(--page); border-bottom: 1px solid var(--grid); border-top: 5px solid var(--teal); }
 .phead h2 { font-size: 20px; line-height: 1.25; }
 .psub { color: var(--ink2); font-size: 13px; margin-top: 3px; }
-#pBody { padding: 2px 20px 36px; }
+#pBody { padding: 2px 24px 36px; }
 .psec { padding-top: 22px; }
 .psec h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--ink); }
 .psec h3 small { font-weight: 400; font-size: 12.5px; color: var(--muted); margin-left: 8px; }
@@ -463,6 +479,9 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
 .act .nt { color: var(--ink2); font-style: italic; }
 .more { margin-top: 10px; }
 
+@media (max-width: 1200px) {
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 900px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -589,7 +608,7 @@ a.btn.primary { color: var(--btn-ink); }
       <div class="kpis" id="kpis"></div>
       <div class="sec">
         <h2>By Area Office</h2>
-        <p class="hint">Whole numbers for each Area Office. Registered includes the campuses that can fundraise. Select an Area Office to see its campuses, or a column heading to sort.</p>
+        <p class="hint">Whole numbers for each Area Office. Registered includes the campuses that are eligible to fundraise. Select an Area Office to see its campuses, or a column heading to sort.</p>
         <div id="areas"></div>
       </div>
       <div class="sec" id="confSec" hidden>
@@ -618,7 +637,7 @@ a.btn.primary { color: var(--btn-ink); }
         <div id="docs"></div>
       </div>
       <details class="defs" id="defs">
-        <summary>What Registered and Can Fundraise mean</summary>
+        <summary>What Registered and Eligible to Fundraise mean</summary>
         <div id="defsBody"></div>
       </details>
     </section>
@@ -641,14 +660,14 @@ a.btn.primary { color: var(--btn-ink); }
       <div class="chips" id="chips"></div>
       <p class="legend" id="legend" aria-label="What the document icons mean"></p>
       <p class="ccount" id="ccount" aria-live="polite"></p>
-      <div class="chead" aria-hidden="true"><span>Campus</span><span>Org type</span><span>Status</span><span>Documents</span><span>Waiting on</span><span style="text-align:right">Done</span></div>
+      <div class="chead" aria-hidden="true"><span>Campus</span><span>Org type</span><span>Status</span><span id="cheadDocs">Documents</span><span>Waiting on</span><span style="text-align:right">Done</span></div>
       <ul class="clist" id="clist"></ul>
     </section>
 
     <section id="v-campus" role="tabpanel" aria-labelledby="tab-campus" tabindex="-1" hidden>
       <div id="myList"></div>
       <div class="pick"><label for="pickFind">Find</label><input type="search" id="pickFind" placeholder="Type part of a name, for example HSPVA" autocomplete="off"><label for="pickCampus">Campus</label><select id="pickCampus"></select></div>
-      <p class="hint">For principals and assistant principals: pick your campus to see what is done, what is still needed, and whether it is waiting on your PTO/PTA or on FACE.</p>
+      <p class="hint">Select your campus to see its registration progress, the documents still outstanding, and whether the next step is with your PTO/PTA or with FACE.</p>
       <div id="campusCard"></div>
     </section>
 
@@ -669,7 +688,7 @@ a.btn.primary { color: var(--btn-ink); }
 <aside id="panel" role="dialog" aria-modal="true" aria-labelledby="pTitle" tabindex="-1" hidden>
   <div class="phead">
     <div><h2 id="pTitle"></h2><p class="psub" id="pSub"></p></div>
-    <button class="btn" id="pClose" type="button">Close</button>
+    <button class="btn" id="pClose" type="button">&larr; Back</button>
   </div>
   <div id="pBody"></div>
   <div id="pLive" class="sr" role="status" aria-live="polite"></div>
@@ -718,7 +737,7 @@ var DOCS = [
   { nm: 'Training certificate', key: 'Training Certificate', label: 'Training certificate', short: 'Training', reg: true, alias: ['training certificate', 'training proof'] },
   { nm: 'Budget report or minutes', key: 'Budget or Financial Report', label: 'Annual budget report or meeting minutes showing budget approval', short: 'Budget', alias: ['budget or financial report', 'proof of budget', 'budget treasurer s report or audit', 'budget'] },
   { nm: 'Proof of 501(c) status', key: 'Proof of 501c Status', label: 'Proof of 501(c) status', short: '501(c)', alias: ['proof of 501c status', 'proof of 501 c status', '501c proof', '501 c proof'] },
-  { nm: 'Bank verification letter', key: 'Bank Verification Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank letter', alias: ['bank verification letter', 'bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] }
+  { nm: 'Bank verification letter', key: 'Bank Verification Letter', label: 'Bank account verification letter from financial institution listing two authorized account signers', short: 'Bank', alias: ['bank verification letter', 'bank and ein letter', 'bank account info', 'bank account information', 'bank info', 'proof of bank account'] }
 ];
 /* FACE lists the training certificate first; DOCS stays in the register's column order, so the page shows them in this order */
 var SHOW = [2, 0, 1, 3, 4, 5];
@@ -741,7 +760,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-26f';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-29a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -817,9 +836,10 @@ function anyIn(r) { return docsOf(r).some(function (i) { return r.d[i] !== 'N' &
 function grpOf(i) { return isReg(i) ? 0 : isReq(i) ? 1 : 2; }
 
 function statusOf(r) {
+  if (r.flag) return 'Flagged';        // operations paused while FACE reviews (2026-10-29); the documents are unchanged
   if (r.pto === 'No') return 'No PTO/PTA';
   if (r.pto !== 'Yes') return 'Nothing received yet';
-  if (legDone(r)) return 'Can Fundraise';     // FACE's word for Legalized (2026-10-25)
+  if (legDone(r)) return 'Eligible to Fundraise';     // FACE's word for Legalized (2026-10-25)
   if (regDone(r)) return 'Registered';
   return anyIn(r) ? 'In progress' : 'Not started';
 }
@@ -827,8 +847,10 @@ function yearRows() { return payload.rows.filter(function (r) { return (r.year |
 function scoped() { return yearRows().filter(function (r) { return !state.area || r.area === state.area; }); }
 
 function stats(rows) {
+  var flagged = rows.filter(function (r) { return !!r.flag; }).length;
+  rows = rows.filter(function (r) { return !r.flag; });     // a flagged campus counts only under Flagged Organizations
   var yes = rows.filter(function (r) { return r.pto === 'Yes'; });
-  var s = { roster: rows.length, yes: yes.length,
+  var s = { roster: rows.length + flagged, flagged: flagged, yes: yes.length,
     no: rows.filter(function (r) { return r.pto === 'No'; }).length,
     nyc: rows.filter(function (r) { return r.pto === 'NYC'; }).length };
   s.started = yes.filter(anyIn).length;
@@ -856,7 +878,8 @@ var KICON = {
   pto: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 19c.4-3.2 2.7-5 5.5-5s5.1 1.8 5.5 5M15 14.2c.7-.3 1.4-.4 2-.4 2.2 0 3.7 1.4 4 4.2"/></svg>',
   reg: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16" rx="2"/><path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5M8.8 12.8l2.2 2.2 4.2-4.4"/></svg>',
   leg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.8v5.4c0 4.4-2.9 8-7 9.8-4.1-1.8-7-5.4-7-9.8V5.8z"/><path d="M8.8 12.2l2.3 2.3 4.3-4.6"/></svg>',
-  wait: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/></svg>'
+  wait: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4"/><path d="M6 4.5h11l-2.2 4 2.2 4H6"/></svg>'
 };
 
 function renderHero() {
@@ -934,13 +957,14 @@ function kpi(cls, ico, label, val, tag, sub, frac, st, goText) {
 function renderKpis(s) {
   if (!s.roster) { $('#kpis').innerHTML = '<p class="empty">No campuses match this view.</p>'; return; }
   var wsub = s.waitDocs ? plural(s.waitDocs, 'document is', 'documents are') + ' waiting for FACE to check.' : 'nothing is waiting.';
-  /* FACE, 2026-10-25: Registered (including those that can fundraise), Can Fundraise, In progress (turning documents in, not registered
+  /* FACE, 2026-10-25: Registered (including those eligible to fundraise), Eligible to Fundraise, In progress (turning documents in, not registered
      yet) and No PTO/PTA (campuses FACE has marked as having none). A PTO/PTA that has sent nothing yet is in none of the four. */
   $('#kpis').innerHTML =
-    kpi('k2', 'reg', 'Registered', s.registered, '', 'Training certificate, bylaws and officer form done. Includes the ' + num(s.legalized) + ' that can fundraise.', null, 'regall', 'See the campuses') +
-    kpi('k3', 'leg', 'Can Fundraise', s.legalized, '', 'All ' + words(nReq()) + ' documents done.', null, 'Can Fundraise', 'See the campuses') +
+    kpi('k2', 'reg', 'Registered', s.registered, '', 'Training certificate, bylaws and officer form done.', null, 'regall', 'See the campuses') +
+    kpi('k3', 'leg', 'Eligible to Fundraise', s.legalized, '', 'Meets 501(c) district requirements.', null, 'Eligible to Fundraise', 'See the campuses') +
     kpi('k4', 'wait', 'In progress', s.inprog, '', 'Turning in their documents, not registered yet.', null, 'In progress', 'See the campuses') +
-    kpi('k1', 'pto', 'No PTO/PTA', s.no, '', 'Campuses that do not have a PTO or a PTA.', null, 'no', 'See the list');
+    kpi('k1', 'pto', 'No PTO/PTA', s.no, '', 'Campuses that do not have a PTO or a PTA.', null, 'no', 'See the list') +
+    kpi('k5', 'flag', 'Flagged Organizations', s.flagged, '', 'Operations paused while FACE reviews.', null, 'Flagged', 'See the list');
 }
 
 
@@ -951,7 +975,7 @@ function renderAreas() {
   if (!names.length) { $('#areas').innerHTML = '<p class="empty">No data.</p>'; return; }
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
   var all = stats(rows);
-  var cols = [{ k: 'name', n: 'Area Office' }, { k: 'roster', n: 'Campuses' }, { k: 'registered', n: 'Registered' }, { k: 'legalized', n: 'Can Fundraise' }, { k: 'inprog', n: 'In progress' }, { k: 'no', n: 'No PTO/PTA' }];
+  var cols = [{ k: 'name', n: 'Area Office' }, { k: 'roster', n: 'Campuses' }, { k: 'registered', n: 'Registered' }, { k: 'legalized', n: 'Eligible to Fundraise' }, { k: 'inprog', n: 'In progress' }, { k: 'no', n: 'No PTO/PTA' }];
   var list = names.map(function (a, i) { var x = stats(map[a]); x.name = a; x.order = i; return x; });
   $('#areas').innerHTML = sortTable('area', cols, list, function (x) {
     return '<tr><th scope="row"><button type="button" class="linkbtn" data-area="' + esc(x.name) + '">' + esc(x.name) + '</button></th>' + cell(x.roster) + cell(x.registered) + cell(x.legalized) + cell(x.inprog) + cell(x.no) + '</tr>';
@@ -971,16 +995,16 @@ function renderDocs(s) {
   box.innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Document</th><th scope="col">Accepted</th><th scope="col">Waiting for review</th><th scope="col">Needs correction</th><th scope="col">Not needed</th><th scope="col">Not received</th><th scope="col">Times sent back</th></tr></thead><tbody>' +
     shown().map(function (i) {
       var o = s.docs[i], g = grpOf(i), head = '';
-      if (g !== last) { head = '<tr class="grprow"><td colspan="7">' + ['Registration', 'Can Fundraise', 'Other documents (not required)'][g] + '</td></tr>'; last = g; }
+      if (g !== last) { head = '<tr class="grprow"><td colspan="7">' + ['Registration', 'Eligible to Fundraise', 'Other documents (not required)'][g] + '</td></tr>'; last = g; }
       return head + '<tr><th scope="row" class="ind">' + esc(DOCS[i].label) + '</th>' + cell(o.A) + cell(o.R) + cell(o.C) + cell(o.X || 0) + cell(o.N) + cell(sb[(payload.itemKeys || [])[i] || DOCS[i].key] || 0) + '</tr>';
     }).join('') + '</tbody></table></div>';
 }
 
-/** "What Registered and Can Fundraise mean", in FACE's wording, from the same list the counts use. */
+/** "What Registered and Eligible to Fundraise mean", in FACE's wording, from the same list the counts use. */
 function renderDefs() {
   function list(test) { return '<ul>' + shown().filter(test).map(function (i) { return '<li>' + esc(DOCS[i].label) + '</li>'; }).join('') + '</ul>'; }
   var other = shown().filter(function (i) { return !isReq(i); }).map(function (i) { return DOCS[i].label.toLowerCase(); });
-  $('#defsBody').innerHTML = '<p><b>Registration:</b></p>' + list(isReg) + '<p><b>Can Fundraise:</b></p>' + list(isReq) +
+  $('#defsBody').innerHTML = '<p><b>Registration:</b></p>' + list(isReg) + '<p><b>Eligible to Fundraise:</b></p>' + list(isReq) +
     (other.length ? '<p>Not required: ' + esc(other.join(' and ')) + '. They are tracked when a PTO/PTA sends them.</p>' : '');
 }
 
@@ -1028,7 +1052,7 @@ function renderC1s() {
   Object.keys(by).forEach(function (k) { var t = turn[k]; if (t && t.n) { by[k].avg = Math.round(t.days / t.n); by[k].n = t.n; } });
   var others = Object.keys(turn).filter(function (k) { return !by[k]; }).map(function (k) { var t = turn[k]; return esc(k) + ': ' + plural(t.n, 'review', 'reviews') + ', ' + plural(Math.round(t.days / t.n), 'day', 'days') + ' on average'; });
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
-  var cols = [{ k: 'name', n: 'C1 coordinator' }, { k: 'campuses', n: 'Campuses' }, { k: 'yes', n: 'PTO/PTAs' }, { k: 'leg', n: 'Can Fundraise' }, { k: 'reg', n: 'Registered' },
+  var cols = [{ k: 'name', n: 'C1 coordinator' }, { k: 'campuses', n: 'Campuses' }, { k: 'yes', n: 'PTO/PTAs' }, { k: 'leg', n: 'Eligible to Fundraise' }, { k: 'reg', n: 'Registered' },
     { k: 'wait', n: 'Documents to review' }, { k: 'oldest', n: 'Oldest waiting (days)' }, { k: 'fix', n: 'Sent back (campuses)' }, { k: 'avg', n: 'Average days to review' }];
   $('#c1tab').innerHTML = sortTable('c1', cols, Object.keys(by).map(function (k) { return by[k]; }), function (x) {
     return '<tr><th scope="row">' + esc(x.name) + '</th>' + cell(x.campuses) + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.wait) + cell(x.oldest) + cell(x.fix) +
@@ -1043,14 +1067,14 @@ function renderHist() {
   $('#histSec').hidden = !h.length;
   if (!h.length) return;
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
-  $('#hist').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Month</th><th scope="col">PTO/PTAs</th><th scope="col">Can Fundraise</th><th scope="col">Registered, cannot fundraise yet</th><th scope="col">In progress</th><th scope="col">Not started</th><th scope="col">Documents waiting for review</th></tr></thead><tbody>' +
+  $('#hist').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Month</th><th scope="col">PTO/PTAs</th><th scope="col">Eligible to Fundraise</th><th scope="col">Registered, not yet eligible to fundraise</th><th scope="col">In progress</th><th scope="col">Not started</th><th scope="col">Documents waiting for review</th></tr></thead><tbody>' +
     h.map(function (x) { var p = x.m.split('-'); return '<tr><th scope="row">' + esc((MONTHS[Number(p[1]) - 1] || p[1]) + ' ' + p[0]) + '</th>' + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.prog) + cell(x.ns) + cell(x.docs) + '</tr>'; }).join('') +
     '</tbody></table></div>';
 }
 
 /* Texas PTA standing, from the Texas PTA spreadsheet FACE pastes in each week. Charter withdrawals are not imported. */
 var SOA = ['Officers', 'Membership', 'Bylaws', 'Standing rules', '990'];
-function txCls(st) { return /good standing/i.test(st) ? 'Can-Fundraise' : /^active/i.test(st) ? 'Registered' : 'In-progress'; }
+function txCls(st) { return /good standing/i.test(st) ? 'Eligible-to-Fundraise' : /^active/i.test(st) ? 'Registered' : 'In-progress'; }
 function txTick(x) { return x === 1 ? '<span class="ic A" role="img" aria-label="Yes">' + ICON.A + '</span>' : x === 0 ? '<span class="ic C" role="img" aria-label="No">' + ICON.C + '</span>' : '<span class="zero">—</span>'; }
 function txPta(r) { return r.tx && r.tx.s ? r.tx : null; }
 /* FACE, 2026-10-20: the Texas PTA standing table is hidden on the Overview. Set this to true to bring it back; each PTA's standing still
@@ -1082,17 +1106,17 @@ function txLine(r) {
 
 /* campuses */
 /* One row of filters (FACE, 2026-10-26: three rows were confusing). Each is a type (ty) and a stage (st); Registered includes the
-   campuses that can fundraise. A link from the Overview (In progress, waiting for review) shows as one more chip, already chosen. */
+   campuses that are eligible to fundraise. A link from the Overview (In progress, waiting for review) shows as one more chip, already chosen. */
 var FILTERS = [
   { k: 'all', n: 'All campuses', ty: 'all', st: '' },
-  { k: 'regall', n: 'Registered', ty: '', st: 'regall', tip: 'Includes the campuses that can fundraise' },
-  { k: 'Can Fundraise', n: 'Can Fundraise', ty: '', st: 'Can Fundraise' },
+  { k: 'regall', n: 'Registered', ty: '', st: 'regall', tip: 'Includes the campuses that are eligible to fundraise' },
+  { k: 'Eligible to Fundraise', n: 'Eligible to Fundraise', ty: '', st: 'Eligible to Fundraise' },
   { k: 'pto', n: 'PTOs', ty: 'pto', st: '' },
   { k: 'pta', n: 'PTAs', ty: 'pta', st: '' },
   { k: '', n: 'All PTO/PTAs', ty: '', st: '' },
   { k: 'no', n: 'No PTO/PTA', ty: 'no', st: '' }
 ];
-var EXTRA_LABEL = { 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, cannot fundraise yet', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet',
+var EXTRA_LABEL = { Flagged: 'Flagged Organizations', 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, not yet eligible to fundraise', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet',
   'conf:ok': 'Principal confirmed', 'conf:wrong': 'Principal reported a problem', 'conf:due': 'Principal confirmation due again', 'conf:not': 'Principal has not answered',
   'conf:has': 'Principal says it has a PTO/PTA', 'conf:none': 'Principal says it has none' };
 function passTy(r, k) {
@@ -1105,7 +1129,11 @@ function passTy(r, k) {
     default: return r.pto === 'Yes';
   }
 }
-function passSt(r, k) { return !k || (k === 'regall' ? r.pto === 'Yes' && regDone(r) : r.pto === 'Yes' && statusOf(r) === k); }
+function passSt(r, k) {
+  if (!k) return true;
+  if (k === 'Flagged') return !!r.flag;
+  return !r.flag && r.pto === 'Yes' && (k === 'regall' ? regDone(r) : statusOf(r) === k);
+}
 function passW(r, k) {
   if (!k) return true;
   if (k === 'review') return docsOf(r).some(function (i) { return r.d[i] === 'R'; });
@@ -1147,7 +1175,7 @@ function waitOn(r) {
   var st = statusOf(r);
   var need = docsOf(r).filter(function (i) { return (r.d[i] === 'N' && isReq(i)) || r.d[i] === 'C'; });
   var rev = docsOf(r).filter(function (i) { return r.d[i] === 'R'; });
-  if (st === 'Can Fundraise' || (!need.length && !rev.length)) return { who: 'done', short: 'Nobody, all done', text: 'All done for this year. Nothing is needed.' };
+  if (st === 'Eligible to Fundraise' || (!need.length && !rev.length)) return { who: 'done', short: 'Nothing pending', text: 'All done for this year. Nothing is pending.' };
   var needTxt = need.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1) + (r.d[i] === 'C' ? ' (sent back to fix)' : fromTx(r, i) ? ' (from Texas PTA)' : ''); }).join(', ');
   var revTxt = rev.map(function (i) { return DOCS[i].nm.charAt(0).toLowerCase() + DOCS[i].nm.slice(1); }).join(', ');
   if (need.length && rev.length) return { who: 'both', short: org.charAt(0).toUpperCase() + org.slice(1) + ' and FACE', text: 'Waiting on ' + org + ': ' + needTxt + '. FACE is also reviewing: ' + revTxt + '.' };
@@ -1194,6 +1222,7 @@ function renderCampuses() {
   var total = base.filter(function (r) { return inFilter(r); }).length;
   $('#ccount').textContent = (q ? plural(rows.length, 'campus matches', 'campuses match') + ' your search' : 'Showing ' + plural(rows.length, 'campus', 'campuses')) + (state.mine ? ', yours only' : '') + (q ? '. ' + num(total) + ' in this list' : '') + '.';
   $('.chead').hidden = !rows.length;
+  $('#cheadDocs').innerHTML = '<span class="strip names">' + shown().map(function (i) { return '<span class="' + (isReq(i) ? '' : 'opt') + '">' + esc(DOCS[i].short) + '</span>'; }).join('') + '</span>';
   if (!rows.length) {
     var more = q && (state.ty !== 'all' || state.st || state.w) ? ' <button type="button" class="linkbtn" data-chip="all" data-keepq="1">Search all ' + num(base.length) + ' campuses</button>' : '';
     $('#clist').innerHTML = '<li class="empty">' + (q ? 'No campus in this list matches "' + esc(state.q.trim()) + '".' + more : 'No campuses to show here.') + '</li>';
@@ -1203,7 +1232,7 @@ function renderCampuses() {
     var st = statusOf(r), cls = st.replace(/[^A-Za-z]+/g, '-'), w = count(r.d, 'R'), f = count(r.d, 'C');
     return '<li class="crow" data-c="' + esc(r.campus) + '"><div class="cn"><button type="button" class="campbtn" aria-haspopup="dialog">' + esc(r.campus) + '</button>' +
       (w ? '<span class="flag R">' + w + ' waiting' + (waitDays(r) > 0 ? ' · ' + plural(waitDays(r), 'day', 'days') : '') + '</span>' : '') + (f ? '<span class="flag C">' + f + ' sent back</span>' : '') +
-      '<span class="ao">' + esc(r.area) + (r.pto === 'Yes' && heardDays(r) >= 0 ? ' · last heard from ' + heardText(r) : '') + '</span></div>' +
+      '<span class="ao">' + esc(r.area) + '</span>' + (r.flag ? '<span class="ao flagwhy">Flagged: ' + esc(r.flag[1]) + '</span>' : '') + '</div>' +
       '<div class="co' + (r.ot ? '' : ' none') + '" title="Org type">' + esc(r.ot || '—') + '</div>' +
       '<div class="cs"><span class="pill ' + cls + '">' + esc(st) + '</span></div><div class="cd">' + stripOf(r) + '</div>' +
       cwCell(r) + '<div class="cc"><b>' + acc(r) + '</b> of ' + nReqOf(r) + '</div></li>';
@@ -1240,15 +1269,15 @@ function renderCampusCard() {
   }
   var list = docsOf(r), body;
   body = '<p class="cgrp">To be Registered</p><ul class="cdocs">' + list.filter(isReg).map(li).join('') + '</ul>' +
-    '<p class="cgrp">Also needed to fundraise</p><ul class="cdocs">' + list.filter(function (i) { return !isReg(i) && isReq(i); }).map(li).join('') + '</ul>';
+    '<p class="cgrp">Also needed to be eligible to fundraise</p><ul class="cdocs">' + list.filter(function (i) { return !isReg(i) && isReq(i); }).map(li).join('') + '</ul>';
   var org = [r.ot, r.area].filter(Boolean).join(' · ');
   $('#campusCard').innerHTML = '<article class="ccard"><div class="ctop"><h3>' + esc(r.campus) + '</h3><span class="pill ' + st.replace(/[^A-Za-z]+/g, '-') + '">' + esc(st) + '</span>' +
-    (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div><p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
+    (org ? '<span class="cmeta">' + esc(org) + '</span>' : '') + '</div>' + (r.flag ? '<div class="pflag" role="status">' + flagBanner(r) + '</div>' : '') + '<p class="cnext ' + w.who + '">' + esc(w.text) + '</p>' + (r.pto === 'Yes' ? body : '') +
     (txLine(r) ? '<p class="cgrp">Texas PTA</p><p class="ctx">' + esc(txLine(r)) + '</p>' : '') +
     '<p class="ccontact">' + (r.c1 ? 'Questions, or something wrong or out of date? Contact this campus\'s C1 coordinator, <b>' + esc(r.c1) + '</b>, or email ' : 'Questions, or something wrong or out of date? Email ') +
       '<a href="mailto:' + esc(payload.contact || 'FACE@houstonisd.org') + '?subject=' + encodeURIComponent('PTO/PTA dashboard: ' + r.campus) + '">' + esc(payload.contact || 'FACE@houstonisd.org') + '</a>.</p>' + confHtml(r) +
-    (seesDetail(r) ? '<div class="cmore" data-c="' + esc(r.campus) + '"><p>' + (canReview(r) ? 'Check off documents, see the files and email the PTO/PTA.' : 'Officer names, emails and phone numbers, and the documents this ' + esc(r.ot || 'PTO/PTA') + ' has sent in.') + '</p>' +
-      '<button type="button" class="btn campbtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>' +
+    (seesDetail(r) ? '<div class="cmore"><p>' + (canReview(r) ? 'Check off documents, see the files and email the PTO/PTA.' : 'Officer names, emails and phone numbers, and the documents this ' + esc(r.ot || 'PTO/PTA') + ' has sent in.') + '</p>' +
+      '<button type="button" class="btn campbtn" data-c="' + esc(r.campus) + '" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>' +
       (canReview(r) ? 'Open the checklist and files' : 'See officers and documents') + '</button></div>' : '') + '</article>';
 }
 
@@ -1517,8 +1546,8 @@ function ensureDetail(r) { payload.detail = payload.detail || {}; var k = r.camp
 function headline(r, st, hasAny) {
   if (r.pto === 'No') return 'This campus reported that it has no PTO/PTA.';
   if (r.pto !== 'Yes') return 'Nothing has been received from this campus yet. It counts as a PTO/PTA once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
-  if (st === 'Can Fundraise') return 'Can fundraise. All ' + words(nReq()) + ' documents are done.';
-  if (st === 'Registered') return 'Registered. The other documents are still needed before it can fundraise.';
+  if (st === 'Eligible to Fundraise') return 'Eligible to fundraise. All ' + words(nReq()) + ' documents are done.';
+  if (st === 'Registered') return 'Registered. The other documents are still needed before it is eligible to fundraise.';
   return 'Not registered yet.' + (hasAny ? '' : ' Nothing has been received.');
 }
 
@@ -1527,7 +1556,7 @@ function panelStatus(r, st) {
   var counts = [];
   if (r.pto === 'Yes') {
     counts.push('<span>Registration: <b>' + accReg(r) + ' of ' + nRegOf(r) + '</b> done</span>');
-    counts.push('<span>Can Fundraise: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
+    counts.push('<span>Eligible to Fundraise: <b>' + accReq(r) + ' of ' + nReq() + '</b> done</span>');
   }
   var miss = docsOf(r).filter(function (i) { return isReq(i) && r.d[i] === 'N'; }).length;
   var pend = [['R', 'waiting for review', 'waiting for review'], ['C', 'needs correction', 'need correction']].filter(function (x) { return count(r.d, x[0]) && r.pto === 'Yes'; })
@@ -1605,10 +1634,10 @@ function panelDocs(r, d) {
   var groups = [[], [], []];
   docsOf(r).forEach(function (i) { groups[grpOf(i)].push(item(i)); });
   var help = rev ? '<p class="pnote rhelp">Open each file, then check off each document: it\'s there, it needs correction, it\'s not there, or it\'s not needed for this PTO/PTA. ' +
-    'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registered and Can Fundraise. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you. ' +
+    'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registered and Eligible to Fundraise. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you. ' +
     'Got the right file from the PTO/PTA yourself? Use <b>Upload a file</b> under a document. A file under the wrong document? Use <b>Wrong document?</b> next to it.</p>' : '';
   var out = '<section class="psec" id="pChecklist"><h3>' + 'Registration' + '</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
-    (groups[1].length ? '<section class="psec"><h3>Can Fundraise<small>also needed before it can fundraise</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' : '') +
+    (groups[1].length ? '<section class="psec"><h3>Eligible to Fundraise<small>also needed to be eligible to fundraise</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' : '') +
     (groups[2].length ? '<section class="psec"><h3>Other documents<small>not required</small></h3><ul class="plist chk">' + groups[2].join('') + '</ul></section>' : '');
   if (other.length) out += '<section class="psec"><h3>Other files<small>several documents in one file, or anything else</small></h3><p class="pnote">Open each file and check off above what it contains.</p><ul class="plist act">' +
     other.slice(0, 10).map(function (a) { return '<li><span class="d">' + esc(fmtDay(a[0])) + '</span><span>' + link(a[3], a[2] || 'file') + '</span></li>'; }).join('') + '</ul></section>';
@@ -1804,15 +1833,57 @@ function renderPanel(all) {
   var d = detailFor(r), st = statusOf(r);
   $('#pTitle').textContent = r.campus;
   $('#pSub').textContent = [r.on, r.ot, r.area, state.year ? state.year.replace('-', '–') : ''].filter(Boolean).join(' · ');
-  // staff come for the people to contact, so officers go above the checklist for them
-  var mid = payload.live && seesDetail(r) ? panelOfficers(r, d) + panelDocs(r, d) : panelDocs(r, d) + panelOfficers(r, d);
-  $('#pBody').innerHTML = panelStatus(r, st) + panelResend(r, d) + mid + panelActivity(r, d, all) + panelEarlier(r);
+  // the whole screen (FACE, 2026-10-29): the checklist on the left; officers, activity and earlier years on the right.
+  // On a narrow screen they stack, officers first for those who see them (they come for the people to contact).
+  var side = panelOfficers(r, d) + panelActivity(r, d, all) + panelEarlier(r);
+  $('#pBody').innerHTML = panelFlag(r) + panelStatus(r, st) + panelResend(r, d) +
+    '<div class="pcols' + (payload.live && seesDetail(r) ? ' ofirst' : '') + '"><div class="pmain">' + panelDocs(r, d) + '</div><div class="pside">' + side + '</div></div>';
   return true;
+}
+
+/* ---------- flagged organizations (FACE, 2026-10-29): everyone sees the flag and its reason; only FACE staff flag or unflag ---------- */
+var flagUI = { ask: '', busy: false, err: '' };
+function isStaff() { return !!(payload.me && payload.me.role === 'staff'); }
+function flagBanner(r) {
+  if (!r.flag) return '';
+  return '<b>Flagged: operations paused while FACE reviews</b><p>Reason: ' + esc(r.flag[1]) + '</p><p class="meta">Flagged ' + esc(fmtDay(r.flag[0])) + (r.flag[2] ? ' by ' + esc(r.flag[2]) : '') + '. Its documents are unchanged; it returns to its status when FACE removes the flag.</p>';
+}
+function panelFlag(r) {
+  var can = isStaff() && payload.live && hasGas(), dis = flagUI.busy ? ' disabled' : '';
+  var err = flagUI.err ? '<p class="rerr" role="alert">' + esc(flagUI.err) + '</p>' : '';
+  if (r.flag) {
+    var out = '<section class="pflag" role="status">' + flagBanner(r);
+    if (can) out += flagUI.ask === 'off'
+      ? '<label for="flagNote">Why is the flag removed? (for example: reviewed, OK to continue)</label><textarea id="flagNote" rows="2" maxlength="500"' + dis + '></textarea><div class="rctl"><button type="button" class="btn sm primary" data-flag-go="off"' + dis + '>' + (flagUI.busy ? 'Saving…' : 'Remove the flag') + '</button><button type="button" class="btn sm" data-flag-cancel="1"' + dis + '>Cancel</button></div>' + err
+      : '<div class="pflagbtn"><button type="button" class="btn sm" data-flag="off"' + dis + '>Unflag</button></div>' + err;
+    return out + '</section>';
+  }
+  if (!can) return '';
+  if (flagUI.ask === 'on') return '<section class="pflagask"><label for="flagNote"><b>Flag this PTO/PTA.</b> Why? Everyone who opens the dashboard sees the reason.</label><textarea id="flagNote" rows="2" maxlength="500"' + dis + '></textarea>' +
+    '<div class="rctl"><button type="button" class="btn sm danger" data-flag-go="on"' + dis + '>' + (flagUI.busy ? 'Saving…' : 'Flag it') + '</button><button type="button" class="btn sm" data-flag-cancel="1"' + dis + '>Cancel</button></div>' + err + '</section>';
+  return '<div class="pflagbtn"><button type="button" class="btn sm" data-flag="on">Flag this PTO/PTA</button></div>';
+}
+function flagGo(on) {
+  var r = currentRow(), note = $('#flagNote') ? $('#flagNote').value.trim() : '';
+  if (!r || flagUI.busy) return;
+  if (!note) { flagUI.err = on ? 'Say why this PTO/PTA is flagged.' : 'Say why the flag is removed.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (!hasGas() || !session.token) { flagUI.err = 'Your sign-in has ended. Sign in again.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  flagUI.busy = true; flagUI.err = ''; keepScroll(function () { renderPanel(panel.all); });
+  google.script.run
+    .withSuccessHandler(function (res) {
+      flagUI.busy = false; flagUI.ask = '';
+      var row = rowFor(res.campus, r.year || '');
+      if (row) row.flag = res.flag;
+      $('#pLive').textContent = res.flag ? r.campus + ' is flagged.' : 'The flag on ' + r.campus + ' is removed.';
+      keepScroll(function () { renderPanel(panel.all); }); render();
+    })
+    .withFailureHandler(function (e) { flagUI.busy = false; flagUI.err = e && e.message ? e.message : 'Not saved. Try again.'; keepScroll(function () { renderPanel(panel.all); }); })
+    .flagCampus(session.token, r.campus, r.year || '', on, note);
 }
 
 /* edit: the checklist changes not saved yet, by item ({ s: status letter, m: remark }); cr: the overall remarks being typed (null = untouched) */
 var panel = { campus: '', open: false, all: false, edit: {}, cr: null, showRm: {}, busy: false, err: '', saved: false, ask: false, mailBusy: false, mailErr: '', up: null, mv: null, upBusy: false, upErr: '' };
-function resetChecklist() { panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
+function resetChecklist() { flagUI.ask = ''; flagUI.err = ''; flagUI.busy = false; panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
 function openCampus(campus, opener) {
   if (panel.open && panel.campus !== campus && !leaveOk()) return;
   panel.campus = campus; resetChecklist(); panel.mailBusy = false; panel.mailErr = '';
@@ -2279,6 +2350,13 @@ $('#pClose').addEventListener('click', function () { closePanel(); });
 $('#scrim').addEventListener('click', function () { closePanel(); });
 $('#pBody').addEventListener('click', function (e) {
   if (e.target.id === 'pMore') { var y = $('#panel').scrollTop; renderPanel(true); $('#panel').scrollTop = y; return; }
+  var fb = e.target.closest('button[data-flag], button[data-flag-go], button[data-flag-cancel]');
+  if (fb && !fb.disabled) {
+    if (fb.hasAttribute('data-flag')) { flagUI.ask = fb.getAttribute('data-flag'); flagUI.err = ''; keepScroll(function () { renderPanel(panel.all); }); var ta = $('#flagNote'); if (ta) ta.focus(); }
+    else if (fb.hasAttribute('data-flag-go')) flagGo(fb.getAttribute('data-flag-go') === 'on');
+    else { flagUI.ask = ''; flagUI.err = ''; keepScroll(function () { renderPanel(panel.all); }); }
+    return;
+  }
   var b = e.target.closest('button[data-act]');
   if (!b || b.disabled) return;
   var act = b.getAttribute('data-act'), i = Number(b.getAttribute('data-i'));
