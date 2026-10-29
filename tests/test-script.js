@@ -121,5 +121,6 @@ if (require.main === module) {
   require('./test-campuslist');
   require('./test-ptadocs');
   require('./test-confirm');
+  require('./test-feed');
   process.exit(h.report() ? 0 : 1);
 }

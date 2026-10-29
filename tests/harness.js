@@ -48,6 +48,7 @@ Sheet.prototype.cell = function (r, c) { var row = this.cells[r] || (this.cells[
 Sheet.prototype.peek = function (r, c) { var row = this.cells[r]; return row && row[c] ? row[c] : null; };
 Sheet.prototype.getName = function () { return this.name; };
 Sheet.prototype.setName = function (n) { this.name = n; return this; };
+Sheet.prototype.setFrozenRows = function (n) { this.frozen = n; return this; };
 Sheet.prototype.getLastRow = function () {
   for (var r = this.cells.length - 1; r >= 0; r--) { var row = this.cells[r] || []; for (var c = 0; c < row.length; c++) if (row[c] && (row[c].f || (row[c].v !== '' && row[c].v != null))) return r + 1; }
   return 0;
@@ -191,14 +192,14 @@ function load(opts) {
       openById: function (id) { if (!books[id]) throw new Error('No spreadsheet ' + id); return books[id]; } },
     PropertiesService: { getScriptProperties: function () { return { getProperty: function (k) { return props[k] === undefined ? null : props[k]; }, setProperty: function (k, v) { props[k] = String(v); }, deleteProperty: function (k) { delete props[k]; } }; } },
     CacheService: { getScriptCache: function () { return { get: function (k) { return cache[k] === undefined ? null : cache[k]; }, put: function (k, v) { cache[k] = String(v); }, remove: function (k) { delete cache[k]; } }; } },
-    LockService: { getScriptLock: function () { return { waitLock: function () {}, releaseLock: function () {} }; } },
+    LockService: { getScriptLock: function () { return { waitLock: function () {}, tryLock: function () { return true; }, releaseLock: function () {} }; } },
     Utilities: Utilities,
     DriveApp: DriveApp,
     ScriptApp: { getService: function () { return { getUrl: function () { return opts.url === undefined ? 'https://script.google.com/a/macros/houstonisd.org/s/TEST/exec' : opts.url; } }; }, getProjectTriggers: function () { return triggers.slice(); },
       deleteTrigger: function (t) { triggers.splice(triggers.indexOf(t), 1); },
       newTrigger: function (fn) {
         var tr = { fn: fn, getHandlerFunction: function () { return fn; } }, b = {
-          timeBased: function () { tr.kind = 'time'; return b; }, everyDays: function (n) { tr.days = n; return b; }, atHour: function (h) { tr.hour = h; return b; }, onMonthDay: function (d) { tr.monthDay = d; return b; },
+          timeBased: function () { tr.kind = 'time'; return b; }, everyDays: function (n) { tr.days = n; return b; }, everyHours: function (n) { tr.hours = n; return b; }, atHour: function (h) { tr.hour = h; return b; }, onMonthDay: function (d) { tr.monthDay = d; return b; },
           forForm: function () { tr.kind = 'form'; return b; }, onFormSubmit: function () { return b; }, create: function () { triggers.push(tr); return tr; } };
         return b;
       } },

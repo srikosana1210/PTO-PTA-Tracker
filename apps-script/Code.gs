@@ -31,6 +31,8 @@ var CFG = {
   TAB_SETTINGS: 'Settings',
   TAB_OFFICERS: 'Officers',
   TAB_PASTE: 'Officer Form Paste',
+  // Power Automate adds one row here for each new response to the officer Microsoft Form (FACE, 2026-10-29); imported every hour
+  TAB_FEED: 'Officer Form Feed',
   TAB_C1: 'C1 Assignments',
   TAB_SIGNINS: 'Dashboard Sign-ins',
   TAB_PASS: 'New Passcodes',
@@ -151,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-29a (Eligible to Fundraise, flagged organizations, full-screen campus view, wider pages)';
+var VERSION = 'Script version 2026-10-29b (officer form imported every hour from Power Automate; Eligible to Fundraise, flagged organizations, full-screen campus view)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -169,6 +171,8 @@ function onOpen() {
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Update the campus list: FACE\'s short names, Area Offices, duplicates merged (run once)', 'updateCampusList')
     .addItem('Import officers from the Officer Form Paste tab', 'importOfficers')
+    .addItem('Officer form: import automatically every hour (turn on)', 'turnOnOfficerFeed')
+    .addItem('Officer form: stop the automatic import', 'turnOffOfficerFeed')
     .addItem('Import the Texas PTA spreadsheet from the Texas PTA Paste tab', 'importTexasPta')
     .addItem('Mark the campuses with no PTO/PTA (from the No PTO-PTA List tab)', 'importNoPto')
     .addItem('PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed', 'resetUnstarted')
@@ -539,22 +543,82 @@ function officerSummary_(r) {
   return L.join('\n');
 }
 
-/** The work of the import, separated from the dialog so it can be tested. */
-function importOfficers_() {
+/* ---------- the officer form, automatically (FACE, 2026-10-29) ---------- */
+/*
+ * A Power Automate flow ("When a new response is submitted" on the officer Microsoft Form, then "Get response details", then Google Sheets
+ * "Insert row") adds one row per response to the Officer Form Feed tab. Every hour the tracker imports the new ones, exactly like the
+ * menu import does with a paste. Setup: docs/power-automate-officer-form.md.
+ */
+var FEED_RUN = 'autoImportOfficers';
+
+/** The hourly trigger. Never shows a dialog; it keeps a one-line note of the last run in Script Properties (FEED_LAST). */
+function autoImportOfficers() {
   var lock = LockService.getScriptLock();
-  lock.waitLock(60000);
-  try { return importOfficersLocked_(); } finally { lock.releaseLock(); }
+  if (!lock.tryLock(30000)) return;     // someone is importing or saving right now: the next hour picks it up
+  var note;
+  try {
+    var r = importOfficersLocked_('feed');
+    note = r.added ? r.added + ' new form ' + (r.added === 1 ? 'response' : 'responses') + ', ' + plural_(r.officers, 'officer', 'officers') + ' added.' : 'Nothing new.';
+    if (r.pick) note += ' ' + plural_(r.pick, 'form needs', 'forms need') + ' a campus picked on the Officers tab.';
+  } catch (err) { note = 'Not imported: ' + err.message; }
+  finally { lock.releaseLock(); }
+  try { PropertiesService.getScriptProperties().setProperty('FEED_LAST', Utilities.formatDate(new Date(), SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm') + ': ' + note); } catch (err2) { /* a note is a nicety */ }
 }
 
-function importOfficersLocked_() {
+/** Adds the Officer Form Feed tab with its column titles (if it is not there) and the hourly import. Safe to run again. */
+function officerFeedOn_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(CFG.TAB_FEED), heads = feedHeaders_(), made = false;
+  if (!sh) { sh = ss.insertSheet(CFG.TAB_FEED); made = true; }
+  if (sh.getLastRow() < 1 || !cellText_(sh.getRange(1, 1).getValue())) {
+    sh.getRange(1, 1, 1, heads.length).setValues([heads]).setFontWeight('bold');
+    sh.getRange(2, 1, Math.max(sh.getMaxRows() - 1, 1), heads.length).setNumberFormat('@');   // phones and IDs stay as typed
+    sh.setFrozenRows(1);
+    made = true;
+  }
+  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === FEED_RUN) ScriptApp.deleteTrigger(tr); });
+  ScriptApp.newTrigger(FEED_RUN).timeBased().everyHours(1).create();
+  return { made: made };
+}
+
+function turnOnOfficerFeed() {
+  var ui = SpreadsheetApp.getUi(), r = officerFeedOn_();
+  ui.alert('Officer form: automatic import is on', (r.made ? 'The ' + CFG.TAB_FEED + ' tab was added, with one column for each answer on the officer form. ' : 'The ' + CFG.TAB_FEED + ' tab is ready. ') +
+    'Every hour the tracker imports the new rows on that tab, the same way "Import officers" does with a paste.\n\n' +
+    'Next: build the Power Automate flow that adds a row there for each new form response (docs/power-automate-officer-form.md). Do not rename the tab or its column titles.\n\n' +
+    'You can still paste the Excel export into ' + CFG.TAB_PASTE + ' and import by hand at any time: nothing is imported twice.', ui.ButtonSet.OK);
+}
+
+function turnOffOfficerFeed() {
+  var ui = SpreadsheetApp.getUi(), n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === FEED_RUN) { ScriptApp.deleteTrigger(tr); n++; } });
+  ui.alert('Officer form: automatic import is off', n ? 'The hourly import is stopped. The ' + CFG.TAB_FEED + ' tab is kept; "Import officers" still reads it.' : 'The automatic import was not on.', ui.ButtonSet.OK);
+}
+
+/** The work of the import, separated from the dialog so it can be tested. */
+function importOfficers_(only) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try { return importOfficersLocked_(only); } finally { lock.releaseLock(); }
+}
+
+/** only = 'feed': just the Officer Form Feed tab (the hourly import). Otherwise the Officer Form Paste tab, and the feed when it is there. */
+function importOfficersLocked_(only) {
   var ss = SpreadsheetApp.getActive();
   var tz = ss.getSpreadsheetTimeZone();
   var settings = readSettings_();
   var res = { read: 0, added: 0, officers: 0, already: 0, registerSet: 0, pick: 0, bad: 0, noPto: 0, madeYes: 0, empty: 0, booster: 0, newCampuses: [], formSynced: -1 };
 
-  var paste = ss.getSheetByName(CFG.TAB_PASTE);
-  if (!paste) { ensureTab_(CFG.TAB_PASTE, null); throw new Error('The tab "' + CFG.TAB_PASTE + '" was missing, so it has been added. Paste the Excel export of the officer update form into it, starting at cell A1 with the column titles, then run the import again.'); }
-  var recs = parsePaste_(paste.getDataRange().getValues());
+  // the feed from Power Automate (one row per response, under the column titles) is read when it has any response
+  var recs = [], feed = ss.getSheetByName(CFG.TAB_FEED);
+  if (feed && feed.getLastRow() > 1) recs = parsePaste_(feed.getDataRange().getValues());
+  if (only !== 'feed') {
+    var paste = ss.getSheetByName(CFG.TAB_PASTE);
+    if (!paste) { ensureTab_(CFG.TAB_PASTE, null); if (!recs.length) throw new Error('The tab "' + CFG.TAB_PASTE + '" was missing, so it has been added. Paste the Excel export of the officer update form into it, starting at cell A1 with the column titles, then run the import again.'); }
+    else {
+      var pv = paste.getDataRange().getValues(), pasted = pv.some(function (row) { return row.some(function (c) { return String(c).trim() !== ''; }); });
+      if (pasted || !recs.length) recs = parsePaste_(pv).concat(recs);
+    }
+  }
   res.read = recs.length;
 
   ensureTab_(CFG.TAB_OFFICERS, CFG.OFFICER_HEADERS);
@@ -890,6 +954,12 @@ var PASTE_FIELDS = [
   ['byPhone', [/^your phone number/]]
 ];
 var PASTE_SLOTS = 5;
+/** The column titles of the Officer Form Feed tab: the same titles as the form's Excel export, so the import reads both alike. */
+function feedHeaders_() {
+  var h = ['ID', 'Completion time', 'What school is your organization associated with?', 'What is the name of your organization?', 'What type of organization is it?'];
+  for (var n = 1; n <= PASTE_SLOTS; n++) ['Name', 'Position', 'Email', 'Phone'].forEach(function (f) { h.push('Officer #' + n + ': ' + f); });
+  return h.concat(['If you need to submit additional officer information, add it here', 'Your name', 'Your email address', 'Your phone number']);
+}
 
 /** Turns the pasted export (array of rows) into one record per form response. Throws a readable error if it is not the officer update form. */
 function parsePaste_(values) {
