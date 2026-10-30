@@ -153,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-29b (officer form imported every hour from Power Automate; Eligible to Fundraise, flagged organizations, full-screen campus view)';
+var VERSION = 'Script version 2026-10-30a (Officer Form Feed keeps spare columns for Power Automate)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -575,6 +575,9 @@ function officerFeedOn_() {
     sh.setFrozenRows(1);
     made = true;
   }
+  // Power Automate's Google Sheets connector keeps its own hidden ID in the column after the last title, so leave empty columns there
+  var cols = heads.length + 5;
+  if (sh.getMaxColumns() < cols) sh.insertColumnsAfter(sh.getMaxColumns(), cols - sh.getMaxColumns());
   ScriptApp.getProjectTriggers().forEach(function (tr) { if (tr.getHandlerFunction() === FEED_RUN) ScriptApp.deleteTrigger(tr); });
   ScriptApp.newTrigger(FEED_RUN).timeBased().everyHours(1).create();
   return { made: made };

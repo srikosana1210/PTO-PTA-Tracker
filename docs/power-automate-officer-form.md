@@ -82,5 +82,6 @@ Go to **make.powerautomate.com** and sign in with the Houston ISD Microsoft acco
 |---|---|
 | The flow's run says **429 Too many requests** (Google) | Power Automate tries again by itself. If a run still fails, open it and click **Resubmit**. If it keeps happening, paste the Excel export and run **Import officers** as before. Nothing is lost. |
 | The row is on the feed, but no officers appear after an hour | Check that the automatic import is on (part A). Then choose **Import officers** to run it now; its message says what is wrong, for example a form with no campus. |
+| **"Range ('Officer Form Feed'!AD2:AD) exceeds grid limits"** | The tab needs empty columns after the last title (Power Automate keeps a hidden ID there). Run part A again, or right-click column AC and choose **Insert 1 column right** a few times. Then pick the worksheet again in **Insert row**. |
 | **Insert row** does not show the column boxes | Choose the **Officer Form Feed** worksheet again. If the boxes are still missing, check that row 1 of that tab still has the column titles (run part A again: it puts them back on an empty tab). |
 | Officers appear under the wrong campus | On the Officers tab, type the right campus in the Campus column, then run **Import officers**. |

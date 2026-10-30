@@ -27,6 +27,7 @@ test('turning it on adds the feed tab with the form\'s column titles and an hour
   g.officerFeedOn_();
   eq(g.__triggers.filter(function (t) { return t.fn === 'autoImportOfficers' || t.handler === 'autoImportOfficers'; }).length, 1, 'still one trigger');
   eq(g.officerFeedOn_().made, false, 'the titles are kept');
+  ok(sh.getMaxColumns() >= g.feedHeaders_().length + 1, 'a spare column after the titles, for Power Automate\'s hidden ID: ' + sh.getMaxColumns());
 });
 
 test('the hourly import adds a new response once, and marks Officer Information', function () {

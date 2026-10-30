@@ -49,6 +49,8 @@ Sheet.prototype.peek = function (r, c) { var row = this.cells[r]; return row && 
 Sheet.prototype.getName = function () { return this.name; };
 Sheet.prototype.setName = function (n) { this.name = n; return this; };
 Sheet.prototype.setFrozenRows = function (n) { this.frozen = n; return this; };
+Sheet.prototype.getMaxColumns = function () { var w = this.maxCols || 26; this.cells.forEach(function (r) { if (r && r.length > w) w = r.length; }); return w; };
+Sheet.prototype.insertColumnsAfter = function (after, n) { this.maxCols = Math.max(this.getMaxColumns(), after) + n; };
 Sheet.prototype.getLastRow = function () {
   for (var r = this.cells.length - 1; r >= 0; r--) { var row = this.cells[r] || []; for (var c = 0; c < row.length; c++) if (row[c] && (row[c].f || (row[c].v !== '' && row[c].v != null))) return r + 1; }
   return 0;
