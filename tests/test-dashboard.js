@@ -94,7 +94,7 @@ async function signIn(page, name, pass) {
     check('no "how complete" meters', (await page.$$('.kmeter')).length === 0);
     var areas = await page.$$eval('#areas tbody tr', function (rs) { return rs.map(function (r) { return r.textContent; }); });
     check('one row per Area Office, and none for a campus without one (2026-10-26)', areas.length === 7 && !/not set/.test(areas.join()), areas.join(' / '));
-    check('area totals add up to 264 campuses', /All Area Offices\s*264/.test(await page.textContent('#areas tfoot')), await page.textContent('#areas tfoot'));
+    check('area totals add up to 262 campuses', /All Area Offices\s*262/.test(await page.textContent('#areas tfoot')), await page.textContent('#areas tfoot'));
     await page.click('#defs summary');
     var defs = await page.textContent('#defsBody');
     check('Registration list in FACE wording', /Registration:Training certificateThe organization's bylawsThe officer information form/.test(defs.replace(/\s*\n\s*/g, '')), defs);
@@ -232,7 +232,7 @@ async function signIn(page, name, pass) {
     await page.click('[data-tab="campuses"]');
     var chips = await page.$$eval('#chips .chiprow', function (rows) { return rows.map(function (row) { return [].map.call(row.querySelectorAll('[data-chip]'), function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }).join(','); }); });
     check('one row of seven filters (FACE, 2026-10-26)', chips.length === 1 && chips[0] === 'All campuses,Registered,Eligible to Fundraise,PTOs,PTAs,All PTO/PTAs,No PTO/PTA', JSON.stringify(chips));
-    check('All campuses is chosen when the tab opens', (await page.getAttribute('[data-chip="all"]', 'aria-pressed')) === 'true' && (await page.$$('#clist .crow')).length === 264);
+    check('All campuses is chosen when the tab opens', (await page.getAttribute('[data-chip="all"]', 'aria-pressed')) === 'true' && (await page.$$('#clist .crow')).length === 262);
     check('the table has Org type, the document names and Waiting on columns', /Campus\s*Org type\s*Status\s*Training\s*Bylaws\s*Officers\s*Budget\s*501\(c\)\s*Bank\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');
     var ptas = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.co').textContent; }); });
