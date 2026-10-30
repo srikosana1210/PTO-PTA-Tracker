@@ -760,7 +760,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-30a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-30b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1148,6 +1148,7 @@ function setFilter(k) {
   if (k === 'review' || k === 'fix' || k.indexOf('conf:') === 0) { state.ty = 'all'; state.st = ''; state.w = k; }
   else if (k === 'w:pto') { state.ty = ''; state.st = ''; state.w = 'wpto'; }
   else if (['all', '', 'pto', 'pta', 'nyc', 'no'].indexOf(k) >= 0) { state.ty = k; state.st = ''; state.w = ''; }
+  else if (k === 'Flagged') { state.ty = 'all'; state.st = k; state.w = ''; }   // any campus can be flagged, not only those marked Yes
   else { state.ty = ''; state.st = k; state.w = ''; }
 }
 /* days, from the Submission Log dates the page already has (detail.a: newest first) */

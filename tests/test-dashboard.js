@@ -407,6 +407,7 @@ async function signIn(page, name, pass) {
     await page.close();
 
     /* ---------- flagged organizations (2026-10-29): FACE staff flag and unflag; everyone sees it ---------- */
+    w.g.flagCampus(w.p.staff, 'Askew ES', '2026-27', true, 'Test flag on a campus with nothing received yet');
     o = await openPage(browser, w); page = o.page;
     await signIn(page, 'Pat Staff', w.p.pass['Pat Staff']);
     await page.click('[data-tab="campuses"]');
@@ -424,7 +425,7 @@ async function signIn(page, name, pass) {
     check('flagged: the reason shows, with an Unflag button', /Complaint about fundraising/.test(await page.textContent('#panel .pflag')) && !!(await page.$('#panel [data-flag="off"]')));
     await page.click('#pClose');
     await page.click('[data-tab="overview"]');
-    check('the Flagged Organizations tile counts it', (await page.textContent('.kpi.k5 .kval')).trim() === '1', await page.textContent('.kpi.k5'));
+    check('the Flagged Organizations tile counts both', (await page.textContent('.kpi.k5 .kval')).trim() === '2', await page.textContent('.kpi.k5'));
     await page.close();
     o = await openPage(browser, w); page = o.page;
     await page.setViewportSize({ width: 1500, height: 900 });
@@ -432,10 +433,10 @@ async function signIn(page, name, pass) {
     await page.click('[data-tab="campuses"]');
     await page.screenshot({ path: path.join(SHOTS, 'campuses-wide.png') });
     await page.click('[data-tab="overview"]');
-    check('everyone sees the Flagged tile', (await page.textContent('.kpi.k5 .kval')).trim() === '1');
+    check('everyone sees the Flagged tile', (await page.textContent('.kpi.k5 .kval')).trim() === '2');
     await page.click('.kpi.k5');
     var fl = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.pill').textContent; }); });
-    check('the tile lists the flagged campus, marked Flagged, with its reason', fl.join() === 'Anderson ES:Flagged' && /Flagged: Complaint about fundraising/.test(await page.textContent('#clist')), fl.join());
+    check('the tile lists the flagged campus, marked Flagged, with its reason', fl.join() === 'Anderson ES:Flagged,Askew ES:Flagged' && /Flagged Organizations\s*2/.test(await page.textContent('#chips')) && /Flagged: Complaint about fundraising/.test(await page.textContent('#clist')), fl.join());
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
     check('without staff sign-in: the reason, but no Flag or Unflag button', /Complaint about fundraising/.test(await page.textContent('#panel')) && !(await page.$('#panel [data-flag]')));
     await page.close();
@@ -449,6 +450,7 @@ async function signIn(page, name, pass) {
     await page.click('#panel [data-flag-go="off"]');
     await page.waitForFunction(function () { return !document.querySelector('#panel .pflag'); }, null, { timeout: 10000 });
     check('unflagged: back to its own status', !/Flagged/.test(await page.textContent('.crow[data-c="Anderson ES"] .pill')));
+    w.g.flagCampus(w.p.staff, 'Askew ES', '2026-27', false, 'Test over');
     check('no page errors (flag)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
 
