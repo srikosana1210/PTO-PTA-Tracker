@@ -153,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-30d (Rogers T H H S is part of Rogers T H; Collaborative For Children Pre-K is a program, not a campus)';
+var VERSION = 'Script version 2026-10-30e (a campus can be marked No C1 needed on C1 Assignments; Rogers T H H S is part of Rogers T H)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -1316,12 +1316,13 @@ function c1Checks_() {
   if (a.unknown.length) out.push('On C1 Assignments, ' + plural_(a.unknown.length, 'campus name is', 'campus names are') + ' not on the Campus Register: ' + a.unknown.slice(0, 15).join(', ') + (a.unknown.length > 15 ? ', and ' + (a.unknown.length - 15) + ' more' : '') + '. Type each one as it is spelled on the Campus Register.');
   var assigned = {};
   a.order.forEach(function (k) { Object.keys(a.names[k].campuses).forEach(function (c) { assigned[c] = 1; }); });
+  Object.keys(a.none).forEach(function (c) { assigned[c] = 1; });     // marked "No C1 needed" on purpose
   var t = table_(CFG.TAB_REGISTER), year = currentYear_(), none = [];
   for (var r = 1; r < t.values.length; r++) {
     var v = t.values[r], cp = cellText_(v[t.col['Campus']]);
     if (cp && cellText_(v[t.col['School Year']]) === year && !assigned[norm_(cp)]) none.push(cp);
   }
-  if (none.length) out.push(plural_(none.length, 'campus has', 'campuses have') + ' no C1 on C1 Assignments: ' + none.slice(0, 15).join(', ') + (none.length > 15 ? ', and ' + (none.length - 15) + ' more' : '') + '. Add a row for each, with its C1.');
+  if (none.length) out.push(plural_(none.length, 'campus has', 'campuses have') + ' no C1 on C1 Assignments: ' + none.slice(0, 15).join(', ') + (none.length > 15 ? ', and ' + (none.length - 15) + ' more' : '') + '. Add a row for each, with its C1, or with "No C1 needed" for a program or a campus that is part of another.');
   return out;
 }
 
@@ -1337,8 +1338,10 @@ function editDistance_(a, b) {
   return prev[b.length];
 }
 
+// On C1 Assignments, a campus that needs no C1 (a program, or part of another campus) has one of these as its C1 Coordinator (FACE, 2026-10-30)
+var NO_C1_NAMES = ['no c1 needed', 'no c1', 'none', 'n/a', 'na'];
 function c1Assignments_() {
-  var out = { names: {}, order: [], unknown: [] };    // names: normalised C1 name -> { name, campuses: { normalised campus: register spelling } }
+  var out = { names: {}, order: [], unknown: [], none: {} };   // none: normalised campus -> register spelling, for campuses that need no C1    // names: normalised C1 name -> { name, campuses: { normalised campus: register spelling } }
   var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_C1);
   if (!sh) return out;
   var vals = sh.getDataRange().getValues();
@@ -1351,6 +1354,7 @@ function c1Assignments_() {
     if (!camp || !nm) continue;
     var canon = lookup_(map, camp);
     if (!canon) { out.unknown.push(camp + ' (' + nm + ')'); continue; }
+    if (NO_C1_NAMES.indexOf(norm_(nm)) >= 0) { out.none[norm_(canon)] = canon; continue; }
     var k = norm_(nm), rec = out.names[k];
     if (!rec) { rec = out.names[k] = { name: nm, campuses: {} }; out.order.push(k); }
     rec.campuses[norm_(canon)] = canon;
@@ -2100,8 +2104,11 @@ function getPayload_(access) {
   var tx = { by: {}, asOf: '' };
   try { tx = txPtaByCampus_(); } catch (err) { tx = { by: {}, asOf: '' }; }
   // each campus's C1 coordinator by name (no email or phone), so a principal knows whom to ask
-  var c1Of = {};
-  try { var asg = c1Assignments_(); asg.order.forEach(function (k) { var rec = asg.names[k]; Object.keys(rec.campuses).forEach(function (c) { c1Of[c] = rec.name; }); }); } catch (err) { c1Of = {}; }
+  var c1Of = {}, noC1 = {};
+  try {
+    var asg = c1Assignments_(); noC1 = asg.none;
+    asg.order.forEach(function (k) { var rec = asg.names[k]; Object.keys(rec.campuses).forEach(function (c) { c1Of[c] = rec.name; }); });
+  } catch (err) { c1Of = {}; noC1 = {}; }
   var flags = {};
   try { flags = flags_(SpreadsheetApp.getActive().getSpreadsheetTimeZone()); } catch (err) { flags = {}; }
   for (var i = 1; i < t.values.length; i++) {
@@ -2117,6 +2124,7 @@ function getPayload_(access) {
       on: String(v[t.col['Org Name']] || '').trim(),
       d: act.map(function (it) { return CFG.STATUS_CODE[String(v[t.col[it.key]] || '').trim()] || 'N'; }).join(''),
       c1: c1Of[norm_(campus)] || '',
+      noc1: !c1Of[norm_(campus)] && !!noC1[norm_(campus)],
       tx: tx.by[norm_(campus)] || null,
       flag: flagRow_(flags, campus, String(v[t.col['School Year']] || '').trim(), staff || !!(c1 && c1.campuses[norm_(campus)]))
     });

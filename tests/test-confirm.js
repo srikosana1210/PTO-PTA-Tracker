@@ -112,3 +112,15 @@ test('Check setup finds a misspelled C1, campuses not on the register, and campu
   ok(g.checkSetup_().problems.some(function (x) { return /Same person\?/.test(x); }), 'Check setup includes it');
   eq(g.editDistance_('andreinasavelli', 'andrieniasavelli'), 3);
 });
+
+test('a campus marked "No C1 needed" on C1 Assignments has no C1 and is not reported as missing one', function () {
+  var g = h.load();
+  var c1 = g.__ss.getSheetByName('C1 Assignments');
+  c1.getRange(2, 1, 2, 2).setValues([['Anderson ES', 'Ms. Lee'], ['Ashford ES', 'No C1 needed']]);
+  var a = g.c1Assignments_();
+  eq(a.order.join(), 'ms. lee', '"No C1 needed" is not a person');
+  var out = g.c1Checks_().join('\n');
+  ok(out.indexOf('Ashford ES') < 0 && out.indexOf('Anderson ES') < 0, out.slice(0, 300));
+  var row = g.getPayload_(null).rows.filter(function (r) { return r.campus === 'Ashford ES'; })[0];
+  eq(row.c1, ''); eq(row.noc1, true);
+});

@@ -760,7 +760,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-30d';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-10-30e';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1037,14 +1037,16 @@ function sortBy(spec) {
 }
 
 /* For signed-in FACE staff: each C1's campuses, what waits on them, and how long their reviews take (from the Submission Log). */
-var NO_C1 = 'No C1 assigned';
+var NO_C1 = 'No C1 assigned', NO_C1_NEEDED = 'No C1 needed';
+/** The C1 row a campus counts under: its C1, "No C1 needed" (marked so on C1 Assignments), or "No C1 assigned". */
+function c1Key(r) { return r.c1 || (r.noc1 ? NO_C1_NEEDED : NO_C1); }
 function renderC1s() {
   var me = payload.me;
   $('#c1Sec').hidden = !(me && me.role === 'staff');
   if ($('#c1Sec').hidden) return;
   var by = {}, turn = (payload.turn || {})[state.year] || {};
   scoped().forEach(function (r) {
-    var k = r.c1 || NO_C1, x = by[k] || (by[k] = { name: k, campuses: 0, yes: 0, leg: 0, reg: 0, wait: 0, oldest: 0, fix: 0, avg: -1, n: 0, order: k === NO_C1 ? 1 : 0 });
+    var k = c1Key(r), x = by[k] || (by[k] = { name: k, campuses: 0, yes: 0, leg: 0, reg: 0, wait: 0, oldest: 0, fix: 0, avg: -1, n: 0, order: k === NO_C1 ? 1 : k === NO_C1_NEEDED ? 2 : 0 });
     x.campuses++;
     if (r.pto === 'Yes') { x.yes++; if (legDone(r)) x.leg++; else if (regDone(r)) x.reg++; }
     x.wait += count(r.d, 'R'); x.fix += count(r.d, 'C') ? 1 : 0;
@@ -1056,7 +1058,7 @@ function renderC1s() {
   var cols = [{ k: 'name', n: 'C1 coordinator' }, { k: 'campuses', n: 'Campuses' }, { k: 'yes', n: 'PTO/PTAs' }, { k: 'leg', n: 'Eligible to Fundraise' }, { k: 'reg', n: 'Registered' },
     { k: 'wait', n: 'Documents to review' }, { k: 'oldest', n: 'Oldest waiting (days)' }, { k: 'fix', n: 'Sent back (campuses)' }, { k: 'avg', n: 'Average days to review' }];
   $('#c1tab').innerHTML = sortTable('c1', cols, Object.keys(by).map(function (k) { return by[k]; }), function (x) {
-    return '<tr><th scope="row"><button type="button" class="linkbtn" data-st="' + esc('c1:' + x.name) + '" title="See ' + esc(x.name === NO_C1 ? 'the campuses with no C1' : x.name + '\'s campuses') + '">' + esc(x.name) + '</button></th>' + cell(x.campuses) + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.wait) + cell(x.oldest) + cell(x.fix) +
+    return '<tr><th scope="row"><button type="button" class="linkbtn" data-st="' + esc('c1:' + x.name) + '" title="See ' + esc(x.name === NO_C1 ? 'the campuses with no C1' : x.name === NO_C1_NEEDED ? 'the campuses that need no C1' : x.name + '\'s campuses') + '">' + esc(x.name) + '</button></th>' + cell(x.campuses) + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.wait) + cell(x.oldest) + cell(x.fix) +
       '<td>' + (x.avg >= 0 ? '<b>' + num(x.avg) + '</b><small> (' + plural(x.n, 'review', 'reviews') + ')</small>' : '<span class="zero">—</span>') + '</td></tr>';
   }) + (others.length ? '<p class="hint" style="margin-top:8px">Reviews by FACE staff: ' + others.join('; ') + '.</p>' : '');
 }
@@ -1140,7 +1142,7 @@ function passW(r, k) {
   if (k === 'review') return docsOf(r).some(function (i) { return r.d[i] === 'R'; });
   if (k === 'fix') return docsOf(r).some(function (i) { return r.d[i] === 'C'; });
   if (k.indexOf('conf:') === 0) return confKind(r) === k.slice(5);
-  if (k.indexOf('c1:') === 0) return (r.c1 || NO_C1) === k.slice(3);
+  if (k.indexOf('c1:') === 0) return c1Key(r) === k.slice(3);
   var w = waitOn(r).who;
   return k === 'wpto' ? w === 'pto' || w === 'both' : k === 'done' ? w === 'done' : true;
 }
@@ -1194,7 +1196,7 @@ function renderChips(base) {
     return '<button type="button" class="chip' + (extra ? ' extra' : '') + '" data-chip="' + esc(f.k) + '" aria-pressed="' + on + '"' + (f.tip ? ' title="' + esc(f.tip) + '"' : '') + '>' + esc(f.n) + ' <b>' + num(n) + '</b></button>';
   }
   var known = FILTERS.some(function (f) { return state.ty === f.ty && state.st === f.st && !state.w; });
-  var extra = known ? '' : chip({ k: '@now', n: EXTRA_LABEL[state.w || state.st || state.ty] || (state.w.indexOf('c1:') === 0 ? (state.w.slice(3) === NO_C1 ? NO_C1 : 'C1: ' + state.w.slice(3)) : 'This list'), ty: state.ty, st: state.st, w: state.w }, true);
+  var extra = known ? '' : chip({ k: '@now', n: EXTRA_LABEL[state.w || state.st || state.ty] || (state.w.indexOf('c1:') === 0 ? (state.w.slice(3) === NO_C1 || state.w.slice(3) === NO_C1_NEEDED ? state.w.slice(3) : 'C1: ' + state.w.slice(3)) : 'This list'), ty: state.ty, st: state.st, w: state.w }, true);
   $('#chips').innerHTML = '<div class="chiprow" role="group" aria-label="Show">' + FILTERS.map(function (f) { return chip(f); }).join('') + extra +
     (payload.me && (payload.me.role === 'c1' || isViewer()) ? '<button type="button" class="chip sep" data-mine="1" aria-pressed="' + state.mine + '">My campuses <b>' + num(scoped().filter(isMine).length) + '</b></button>' : '') + '</div>';
   $('#legend').innerHTML = '<span><span class="ic A">' + ICON.A + '</span>Accepted</span><span><span class="ic R">' + ICON.R + '</span>Waiting for review (not late)</span><span><span class="ic C">' + ICON.C + '</span>Sent back to fix</span><span><span class="ic N">' + ICON.N + '</span>Not received</span><span><span class="ic X">' + ICON.X + '</span>Not needed</span>';
