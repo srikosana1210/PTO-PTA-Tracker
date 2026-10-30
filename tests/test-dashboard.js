@@ -353,6 +353,12 @@ async function signIn(page, name, pass) {
     check('FACE staff see the Documents section', !(await page.isHidden('#docSec')));
     var c1t = await page.textContent('#c1tab');
     check('FACE staff see each C1 with their campuses and what waits for them', !(await page.isHidden('#c1Sec')) && /Ms\. Lee/.test(c1t) && /No C1 assigned/.test(c1t), c1t.slice(0, 300));
+    await page.click('#c1tab [data-st="c1:Ms. Lee"]');
+    var lee = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c'); }); });
+    check('a C1 name opens that C1\'s campuses, with their status', lee.join() === 'Anderson ES,Ashford ES' && /C1: Ms\. Lee\s*2/.test(await page.textContent('#chips .chip.extra')), lee.join());
+    await page.click('[data-tab="overview"]');
+    await page.click('#c1tab [data-st="c1:No C1 assigned"]');
+    check('No C1 assigned opens the campuses with no C1', (await page.$$('#clist .crow')).length > 100 && /No C1 assigned/.test(await page.textContent('#chips .chip.extra')));
     await page.click('[data-tab="review"]');
     var rq = await page.$('#rq');
     check('the review list has a search box and says whose queue it is', !!rq && /whole team's review queue/.test(await page.textContent('#reviewBody')));

@@ -153,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-30b (the Flagged Organizations tile lists every flagged campus)';
+var VERSION = 'Script version 2026-10-30c (C1 names open their campuses; Check setup finds C1 name typos and campuses with no C1)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -275,6 +275,7 @@ function checkSetup_() {
     var oh = table_(CFG.TAB_OFFICERS);
     CFG.OFFICER_HEADERS.forEach(function (h) { if (oh.col[h] === undefined) problems.push('The Officers tab has no column headed "' + h + '".'); });
   }
+  try { c1Checks_().forEach(function (p) { problems.push(p); }); } catch (err) { problems.push(err.message); }
   if (!formId) { problems.push('The form has not been created yet. Run "1. Create the form".'); return { problems: problems, fixed: fixed }; }
   var form;
   try { form = FormApp.openById(formId); } catch (err) { problems.push('The form could not be opened (was it deleted?): ' + err.message); return { problems: problems, fixed: fixed }; }
@@ -1300,6 +1301,42 @@ var PASS_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no 0, O, 1 or I
 var MIN_CUSTOM_PASS = 8;
 
 /** The C1 Assignments tab: which campuses each C1 reviews. One row per campus; a campus may have more than one C1. */
+/**
+ * The C1 Assignments tab, checked (FACE, 2026-10-30): two C1 names that are almost the same (a typo makes a second person), campus names
+ * that are not on the Campus Register, and this year's campuses with no C1. Returns plain sentences, one per problem.
+ */
+function c1Checks_() {
+  var out = [];
+  if (!SpreadsheetApp.getActive().getSheetByName(CFG.TAB_C1)) return out;
+  var a = c1Assignments_(), names = a.order.map(function (k) { return a.names[k].name; });
+  for (var i = 0; i < names.length; i++) for (var j = i + 1; j < names.length; j++) {
+    var x = norm_(names[i]).replace(/[^a-z]/g, ''), y = norm_(names[j]).replace(/[^a-z]/g, '');
+    if (x.length > 4 && y.length > 4 && editDistance_(x, y) <= Math.max(2, Math.floor(Math.min(x.length, y.length) / 5))) out.push('C1 Assignments has "' + names[i] + '" (' + plural_(Object.keys(a.names[a.order[i]].campuses).length, 'campus', 'campuses') + ') and "' + names[j] + '" (' + plural_(Object.keys(a.names[a.order[j]].campuses).length, 'campus', 'campuses') + '). Same person? Correct the spelling on that tab so the dashboard counts them as one.');
+  }
+  if (a.unknown.length) out.push('On C1 Assignments, ' + plural_(a.unknown.length, 'campus name is', 'campus names are') + ' not on the Campus Register: ' + a.unknown.slice(0, 15).join(', ') + (a.unknown.length > 15 ? ', and ' + (a.unknown.length - 15) + ' more' : '') + '. Type each one as it is spelled on the Campus Register.');
+  var assigned = {};
+  a.order.forEach(function (k) { Object.keys(a.names[k].campuses).forEach(function (c) { assigned[c] = 1; }); });
+  var t = table_(CFG.TAB_REGISTER), year = currentYear_(), none = [];
+  for (var r = 1; r < t.values.length; r++) {
+    var v = t.values[r], cp = cellText_(v[t.col['Campus']]);
+    if (cp && cellText_(v[t.col['School Year']]) === year && !assigned[norm_(cp)]) none.push(cp);
+  }
+  if (none.length) out.push(plural_(none.length, 'campus has', 'campuses have') + ' no C1 on C1 Assignments: ' + none.slice(0, 15).join(', ') + (none.length > 15 ? ', and ' + (none.length - 15) + ' more' : '') + '. Add a row for each, with its C1.');
+  return out;
+}
+
+/** How many letters must change to turn one word into the other (Levenshtein). */
+function editDistance_(a, b) {
+  var prev = [], cur, i, j;
+  for (j = 0; j <= b.length; j++) prev[j] = j;
+  for (i = 1; i <= a.length; i++) {
+    cur = [i];
+    for (j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
 function c1Assignments_() {
   var out = { names: {}, order: [], unknown: [] };    // names: normalised C1 name -> { name, campuses: { normalised campus: register spelling } }
   var sh = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_C1);

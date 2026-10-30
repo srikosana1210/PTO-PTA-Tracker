@@ -98,3 +98,17 @@ test('only FACE staff flag and unflag; a reason each time; everyone sees the fla
   var acts = g.openDetail_(g.buildDetail_(true, 'America/Chicago'))['Anderson ES||2026-27'].a.map(function (e) { return e[4] || ''; });
   ok(acts.some(function (x) { return /^Flagged: operations paused while FACE reviews\. Reason: Fundraising complaint$/.test(x); }), acts.join(' / '));
 });
+
+/* ---------- Check setup: the C1 Assignments tab (2026-10-30) ---------- */
+test('Check setup finds a misspelled C1, campuses not on the register, and campuses with no C1', function () {
+  var g = h.load();
+  var c1 = g.__ss.getSheetByName('C1 Assignments');
+  c1.getRange(2, 1, 4, 2).setValues([['Anderson ES', 'Andreina Savelli'], ['Ashford ES', 'Andreina Savelli'], ['Askew ES', 'Andrienia Savelli'], ['Nowhere Academy', 'Eunice Vela']]);
+  var out = g.c1Checks_();
+  ok(out.some(function (x) { return /"Andreina Savelli" \(2 campuses\) and "Andrienia Savelli" \(1 campus\)\. Same person\?/.test(x); }), out.join('\n'));
+  ok(out.some(function (x) { return /not on the Campus Register: Nowhere Academy \(Eunice Vela\)/.test(x); }), out.join('\n'));
+  ok(out.some(function (x) { return /campuses have no C1 on C1 Assignments: Atherton ES/.test(x); }), out.join('\n'));
+  ok(!out.some(function (x) { return /Eunice Vela" .*Same person/.test(x); }), 'different people are not flagged');
+  ok(g.checkSetup_().problems.some(function (x) { return /Same person\?/.test(x); }), 'Check setup includes it');
+  eq(g.editDistance_('andreinasavelli', 'andrieniasavelli'), 3);
+});
