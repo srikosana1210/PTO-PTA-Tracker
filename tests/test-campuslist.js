@@ -47,16 +47,14 @@ test('the campus list: duplicates merged, FACE\'s short names, every campus in a
   eq(regRow(g, 'SOAR Center')['Area Office'], 'OOA');
   eq(regRow(g, 'Energized MS')['Area Office'], 'COSO');
   eq(regRow(g, 'Kinder HSPVA')['Area Office'], '1882');
-  ok(!regRow(g, 'Collaborative For Children Pre-K'), 'a program, not a campus (FACE, 2026-10-30)');
-  ok(regRow(g, 'Rogers T H') && !regRow(g, 'Rogers T H H S'), 'Rogers T H H S is part of Rogers T H');
-  eq(g.lookup_(g.campusMap_(), 'Rogers TH HS'), 'Rogers T H', 'a form naming Rogers T H H S lands on Rogers T H');
+  ok(regRow(g, 'Collaborative For Children Pre-K'), 'a campus missing from the register is added');
   var noArea = rows(g).filter(function (v) { return !String(v[col(g, 'Area Office')]).trim(); }).map(function (v) { return v[col(g, 'Campus')]; });
   eq(noArea.join(), '', 'no campus without an Area Office');
-  eq(rows(g).length, 262, 'exactly FACE\'s 262 campuses');
+  eq(rows(g).length, 264, 'exactly FACE\'s 264 campuses');
   ok(logRows(g).some(function (x) { return x[2] === 'Cage ES'; }), 'the log follows');
   var again = g.applyCampusList_();
   ok(again.ok && !again.lines.some(function (l) { return /Merged/.test(l); }), 'safe to run twice');
-  eq(rows(g).length, 262);
+  eq(rows(g).length, 264);
 });
 
 test('the officer import no longer adds a campus under a different spelling', function () {
@@ -90,10 +88,10 @@ test('running the update again removes old-spelling rows that were left behind',
   g.writeInputRows_(t, g.firstEmptyRow_(t), ['Cage ES (@Lantrip ES)', 'White, Ed. ES', 'Barbara Jordan Career Center', 'Virtual Launchpad'].map(function (n) {
     return { 'School Year': '2026-27', 'Campus': n, 'Area Office': /Jordan|Launchpad/.test(n) ? 'Programs/Charters' : 'NES Elementary', 'Has PTO or PTA': /Cage/.test(n) ? 'No' : 'Not Yet Confirmed' };
   }));
-  eq(rows(g).length, 266);
+  eq(rows(g).length, 268);
   var r = g.applyCampusList_();
   ok(r.ok, r.lines.join('\n'));
-  eq(rows(g).length, 262, r.lines.join('\n'));
+  eq(rows(g).length, 264, r.lines.join('\n'));
   eq(regRow(g, 'Cage ES')['Has PTO or PTA'], 'Yes', 'the kept Cage ES still has its officer form');
   eq(regRow(g, 'White E ES')['Officer Information'], 'Accepted');
 });

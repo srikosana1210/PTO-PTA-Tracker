@@ -62,7 +62,7 @@ var CFG = {
   NOPTO_ALIASES: { 'ed white es': 'White E ES', 'fleming ms': 'Fleming McReynolds MS' },
   // Older spellings of a campus (the first Area Office file, the old register, the officer form) -> FACE's short name (2026-10-26).
   // lookup_ uses these everywhere, so a form, a list or a log line that uses an old spelling still finds the campus.
-  CAMPUS_RENAMES: { 'rogers t h h s': 'Rogers T H', 'rogers th hs': 'Rogers T H', 'rogers t h hs': 'Rogers T H', 'white, ed. es': 'White E ES', 'ed white es': 'White E ES', 'cage es (@lantrip es)': 'Cage ES', 'benavides es': 'Benavidez ES',
+  CAMPUS_RENAMES: { 'white, ed. es': 'White E ES', 'ed white es': 'White E ES', 'cage es (@lantrip es)': 'Cage ES', 'benavides es': 'Benavidez ES',
     'energized for stem acad hs': 'Energized for STEM Academy HS', 'energized for stem acad ms': 'Energized for STEM Academy MS', 'fondern es': 'Fondren ES',
     'gregory lincoln es': 'Gregory-Lincoln PK-8', 'harper/secondary daep': 'Secondary DAEP', 'harper daep': 'Secondary DAEP', 'hobby es (@lawson ms)': 'Hobby ES',
     'jones futures hs': 'Jones HS', 'law & justice hs': 'HSLJ', 'mc fraga ec hs': 'Middle College HS - Fraga', 'reagan k-8': 'Reagan Ed Ctr K-8',
@@ -153,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-30e (a campus can be marked No C1 needed on C1 Assignments; Rogers T H H S is part of Rogers T H)';
+var VERSION = 'Script version 2026-10-30f (Rogers T H H S and Collaborative For Children Pre-K stay on the campus list, with no C1 needed)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 

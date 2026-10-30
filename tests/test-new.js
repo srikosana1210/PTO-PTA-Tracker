@@ -14,12 +14,12 @@ function col(g, name) { return g.table_('Campus Register').col[name]; }
 /* ---------- R4: every campus of every Area Office, and the Texas PTA roster ---------- */
 test('the Area Office list adds every missing campus once, and matches the 152 the register has', function () {
   var g = h.load();
-  eq(withAreaTab(g), 262);
+  eq(withAreaTab(g), 264);
   var r = g.addAreaCampuses_();
-  eq(r.listed, 262);
-  eq(r.added, 110, 'added');
+  eq(r.listed, 264);
+  eq(r.added, 112, 'added');
   var rows = campuses(g);
-  eq(rows.length, 264, 'register rows: 154 + 110');
+  eq(rows.length, 266, 'register rows: 154 + 112');
   var names = {}; rows.forEach(function (v) { var n = v[col(g, 'Campus')]; ok(!names[n], 'duplicate ' + n); names[n] = 1; });
   ok(names['Highland Heights ES'] && !names['Highland Height ES'], 'the register spelling is kept for a campus the two lists spell differently');
   var again = g.addAreaCampuses_();
@@ -60,7 +60,7 @@ test('the October update: Articles no longer needed, Not Needed added, Email col
   ok(st.some(function (r) { return r.indexOf('Not Needed') >= 0; }), 'Not Needed in the Item Status list');
   var si = g.__ss.getSheetByName('Dashboard Sign-ins').values()[0];
   ok(si.indexOf('Email') >= 0, 'Email column');
-  eq(campuses(g).length, 264);
+  eq(campuses(g).length, 266);
   var t = g.table_('Campus Register');
   ok(t.sh.validation[t.col['Bylaws']].rule.values.indexOf('Not Needed') >= 0, 'dropdown offers Not Needed');
   var start = g.__ss.getSheetByName('Start Here').values().map(function (r) { return r[0]; });
@@ -69,7 +69,7 @@ test('the October update: Articles no longer needed, Not Needed added, Email col
   ok(!/articles of incorporation,/.test(leg.split('.')[0]), 'Articles is not in the Legalized list');
   var again = g.applyOctober2026_({ reset: false });
   ok(again.ok, 'safe to run again');
-  eq(campuses(g).length, 264);
+  eq(campuses(g).length, 266);
 });
 
 test('the October update can set campuses that sent nothing back to Not Yet Confirmed, keeping ones that sent something', function () {
@@ -244,10 +244,10 @@ test('the Registered and Legalized lists read in FACE\'s order and wording', fun
 });
 
 /* ---------- the template for a new setup already has the October changes ---------- */
-test('the template: 262 campuses, every one in an Area Office, 11 PTAs, Legalized = six documents, Not Needed and Email ready', function () {
+test('the template: 264 campuses, every one in an Area Office, 11 PTAs, Legalized = six documents, Not Needed and Email ready', function () {
   var g = h.load({ fixture: 'template' });
   var rows = campuses(g);
-  eq(rows.length, 262);
+  eq(rows.length, 264);
   ok(rows.every(function (v) { return v[col(g, 'Area Office')]; }), 'no campus without an Area Office');
   eq(rows.filter(function (v) { return v[col(g, 'Has PTO or PTA')] === 'Yes'; }).length, 11);
   ok(g.table_('Campus Register').headers.indexOf('Bank Verification Letter') >= 0, 'renamed column');
@@ -258,9 +258,9 @@ test('the template: 262 campuses, every one in an Area Office, 11 PTAs, Legalize
   ok(/Not Needed/.test(t.sh.getRange(2, t.col['Legalization Items Accepted'] + 1).getFormulas()[0][0]));
   var again = g.applyOctober2026_({ reset: false });
   ok(again.ok && again.lines.some(function (l) { return /already means the six/.test(l); }), again.lines.join(' / '));
-  eq(campuses(g).length, 262, 'running the update on the template changes nothing');
+  eq(campuses(g).length, 264, 'running the update on the template changes nothing');
   var cl = g.applyCampusList_();
-  ok(cl.ok && campuses(g).length === 262, 'the campus list update on the template is already done: ' + cl.lines.join(' / '));
+  ok(cl.ok && campuses(g).length === 264, 'the campus list update on the template is already done: ' + cl.lines.join(' / '));
   g.diagnose().forEach(function (st) { ok(st[1], st[0]); });
 });
 
