@@ -306,7 +306,7 @@ details.links summary { cursor: pointer; font-weight: 600; color: var(--link); }
 .pill.Legalized, .pill.Eligible-to-Fundraise { background: var(--leg-bg); color: var(--leg-ink); }
 .pill.Registered { background: var(--reg-bg); color: var(--reg-ink); }
 .pill.In-progress { background: var(--prog-bg); color: var(--prog-ink); }
-.pill.Not-started { background: var(--ns-bg); color: var(--ns-ink); }
+.pill.Not-confirmed { background: var(--ns-bg); color: var(--ns-ink); }
 .pill.Not-yet-confirmed { background: var(--warn-bg); color: var(--warn-ink); }
 .pill.Nothing-received-yet { background: var(--ns-bg); color: var(--ns-ink); }
 .pill.No-PTO-PTA { background: var(--ns-bg); color: var(--ns-ink); }
@@ -761,7 +761,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-11-02b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-11-02c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -839,10 +839,10 @@ function grpOf(i) { return isReg(i) ? 0 : isReq(i) ? 1 : 2; }
 function statusOf(r) {
   if (r.flag) return 'Flagged';        // operations paused while FACE reviews (2026-10-29); the documents are unchanged
   if (r.pto === 'No') return 'No PTO/PTA';
-  if (r.pto !== 'Yes') return 'Nothing received yet';
+  if (r.pto !== 'Yes') return 'Not confirmed';     // FACE has not confirmed whether it has a PTO/PTA (2026-11-02)
   if (legDone(r)) return 'Eligible to Fundraise';     // FACE's word for Legalized (2026-10-25)
   if (regDone(r)) return 'Registered';
-  return anyIn(r) ? 'In progress' : 'Not started';
+  return anyIn(r) ? 'In progress' : 'Nothing received yet';   // a PTO/PTA that has turned nothing in (FACE, 2026-11-02)
 }
 function yearRows() { return payload.rows.filter(function (r) { return (r.year || '') === state.year; }); }
 function scoped() { return yearRows().filter(function (r) { return !state.area || r.area === state.area; }); }
@@ -1071,7 +1071,7 @@ function renderHist() {
   $('#histSec').hidden = !h.length;
   if (!h.length) return;
   function cell(n) { return '<td' + (n ? '' : ' class="zero"') + '><b>' + num(n) + '</b></td>'; }
-  $('#hist').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Month</th><th scope="col">PTO/PTAs</th><th scope="col">Eligible to Fundraise</th><th scope="col">Registered, not yet eligible to fundraise</th><th scope="col">In progress</th><th scope="col">Not started</th><th scope="col">Documents waiting for review</th></tr></thead><tbody>' +
+  $('#hist').innerHTML = '<div class="tscroll"><table class="ntab"><thead><tr><th scope="col">Month</th><th scope="col">PTO/PTAs</th><th scope="col">Eligible to Fundraise</th><th scope="col">Registered, not yet eligible to fundraise</th><th scope="col">In progress</th><th scope="col">Nothing received yet</th><th scope="col">Documents waiting for review</th></tr></thead><tbody>' +
     h.map(function (x) { var p = x.m.split('-'); return '<tr><th scope="row">' + esc((MONTHS[Number(p[1]) - 1] || p[1]) + ' ' + p[0]) + '</th>' + cell(x.yes) + cell(x.leg) + cell(x.reg) + cell(x.prog) + cell(x.ns) + cell(x.docs) + '</tr>'; }).join('') +
     '</tbody></table></div>';
 }
@@ -1118,10 +1118,11 @@ var FILTERS = [
   { k: 'pto', n: 'PTOs', ty: 'pto', st: '' },
   { k: 'pta', n: 'PTAs', ty: 'pta', st: '' },
   { k: '', n: 'All PTO/PTAs', ty: '', st: '' },
-  { k: 'nyc', n: 'Nothing received yet', ty: 'nyc', st: '' },
-  { k: 'no', n: 'No PTO/PTA', ty: 'no', st: '' }
+  { k: 'nothing', n: 'Nothing received yet', ty: '', st: 'Nothing received yet', tip: 'A PTO or PTA that has not turned anything in' },
+  { k: 'no', n: 'No PTO/PTA', ty: 'no', st: '' },
+  { k: 'nyc', n: 'Not confirmed', ty: 'nyc', st: '', tip: 'FACE has not confirmed whether the campus has a PTO or PTA' }
 ];
-var EXTRA_LABEL = { Flagged: 'Flagged Organizations', 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, not yet eligible to fundraise', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet',
+var EXTRA_LABEL = { Flagged: 'Flagged Organizations', 'In progress': 'In progress', 'Nothing received yet': 'Nothing received yet', 'Registered': 'Registered, not yet eligible to fundraise', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet',
   'conf:ok': 'Principal confirmed', 'conf:wrong': 'Principal reported a problem', 'conf:due': 'Principal confirmation due again', 'conf:not': 'Principal has not answered',
   'conf:has': 'Principal says it has a PTO/PTA', 'conf:none': 'Principal says it has none' };
 function passTy(r, k) {
@@ -1178,7 +1179,7 @@ function heardText(r) { var d = heardDays(r); return d < 0 ? 'never' : d === 0 ?
 /** Who the next step is on: the PTO/PTA (documents still needed or sent back), FACE (documents waiting for review), both, or nobody. */
 function waitOn(r) {
   var org = r.ot === 'PTA' || r.ot === 'PTO' ? 'the ' + r.ot : 'the PTO/PTA';
-  if (r.pto !== 'Yes') return { who: 'none', short: '', text: r.pto === 'No' ? 'This campus reported that it has no PTO/PTA.' : 'Nothing has been received from this campus yet. If it has a PTO/PTA, ask it to send its documents to ' + (payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.' };
+  if (r.pto !== 'Yes') return { who: 'none', short: '', text: r.pto === 'No' ? 'This campus reported that it has no PTO/PTA.' : 'FACE has not confirmed whether this campus has a PTO or PTA. If it has one, ask it to send its documents to ' + (payload.inbox || 'ParentOrgDocs@houstonisd.org') + '.' };
   var st = statusOf(r);
   var need = docsOf(r).filter(function (i) { return (r.d[i] === 'N' && isReq(i)) || r.d[i] === 'C'; });
   var rev = docsOf(r).filter(function (i) { return r.d[i] === 'R'; });
@@ -1552,7 +1553,7 @@ function ensureDetail(r) { payload.detail = payload.detail || {}; var k = r.camp
 
 function headline(r, st, hasAny) {
   if (r.pto === 'No') return 'This campus reported that it has no PTO/PTA.';
-  if (r.pto !== 'Yes') return 'Nothing has been received from this campus yet. It counts as a PTO/PTA once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
+  if (r.pto !== 'Yes') return 'FACE has not confirmed whether this campus has a PTO or PTA. It counts as one once it sends something.' + (hasAny ? ' (It has documents on file: check Has PTO or PTA in the register.)' : '');
   if (st === 'Eligible to Fundraise') return 'Eligible to fundraise. All ' + words(nReq()) + ' documents are done.';
   if (st === 'Registered') return 'Registered. The other documents are still needed before it is eligible to fundraise.';
   return 'Not registered yet.' + (hasAny ? '' : ' Nothing has been received.');

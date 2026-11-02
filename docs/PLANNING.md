@@ -125,6 +125,8 @@ These come from the Start Here tab. Do not undo them without asking FACE.
 31. Rogers T H H S and Collaborative For Children Pre-K (FACE, 2026-10-30f): both stay on FACE's campus list (264 campuses) as their own rows, with no C1 (decision 32). An earlier change (2026-10-30d) took them off and made Rogers T H H S another name for Rogers T H; FACE chose to keep them.
 32. No C1 needed (FACE, 2026-10-30e): on C1 Assignments, a campus whose C1 Coordinator is "No C1 needed" (or None, N/A) has no C1 on purpose: it is not a person, not on the sign-ins or reminders, not reported by Check setup, and shows under its own "No C1 needed" row in By C1 coordinator. Each C1 name in that table opens that C1's campuses.
 33. FACE's list of every campus (FACE, 2026-11-02): pasted into the **No PTO-PTA List** tab (Campus Name, FACE Coordinator 1, PTO/PTA) and applied with *Mark each campus PTO, PTA or No PTO/PTA* (`importNoPto`). **Yes** means Has PTO or PTA = Yes and Org Type **PTO**, or **PTA** when the campus is on the Texas PTA list (PTAs come only from Texas PTA); a Yes also overrides an earlier No. **No** works as before (a campus that sent something, or is on the Texas PTA list, is kept and reported). Old spellings, "*" and "- Charter" are understood. Campuses tab: a **Nothing received yet** filter.
+34. Status words (FACE, 2026-11-02c): **Nothing received yet** is a PTO/PTA (Has PTO or PTA = Yes) that has turned nothing in (it was "Not started"); **Not confirmed** is a campus FACE has not confirmed as having a PTO/PTA or not (it was "Nothing received yet"). Campuses filters: ... Nothing received yet, No PTO/PTA, Not confirmed. The sheet's Status formulas and the Progress History columns keep their old words (they are the API).
+
 
 
 
