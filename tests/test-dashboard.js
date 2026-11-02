@@ -231,7 +231,7 @@ async function signIn(page, name, pass) {
     o = await openPage(browser, w); page = o.page;
     await page.click('[data-tab="campuses"]');
     var chips = await page.$$eval('#chips .chiprow', function (rows) { return rows.map(function (row) { return [].map.call(row.querySelectorAll('[data-chip]'), function (x) { return x.textContent.replace(/\s*\d+$/, '').trim(); }).join(','); }); });
-    check('one row of seven filters (FACE, 2026-10-26)', chips.length === 1 && chips[0] === 'All campuses,Registered,Eligible to Fundraise,PTOs,PTAs,All PTO/PTAs,No PTO/PTA', JSON.stringify(chips));
+    check('one row of filters (FACE, 2026-10-26; Nothing received yet 2026-11-02)', chips.length === 1 && chips[0] === 'All campuses,Registered,Eligible to Fundraise,PTOs,PTAs,All PTO/PTAs,Nothing received yet,No PTO/PTA', JSON.stringify(chips));
     check('All campuses is chosen when the tab opens', (await page.getAttribute('[data-chip="all"]', 'aria-pressed')) === 'true' && (await page.$$('#clist .crow')).length === 264);
     check('the table has Org type, the document names and Waiting on columns', /Campus\s*Org type\s*Status\s*Training\s*Bylaws\s*Officers\s*Budget\s*501\(c\)\s*Bank\s*Waiting on\s*Done/i.test(await page.textContent('.chead')), await page.textContent('.chead'));
     await page.click('[data-chip="pta"]');

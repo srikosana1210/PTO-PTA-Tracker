@@ -760,7 +760,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-10-30f';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-11-02a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1117,6 +1117,7 @@ var FILTERS = [
   { k: 'pto', n: 'PTOs', ty: 'pto', st: '' },
   { k: 'pta', n: 'PTAs', ty: 'pta', st: '' },
   { k: '', n: 'All PTO/PTAs', ty: '', st: '' },
+  { k: 'nyc', n: 'Nothing received yet', ty: 'nyc', st: '' },
   { k: 'no', n: 'No PTO/PTA', ty: 'no', st: '' }
 ];
 var EXTRA_LABEL = { Flagged: 'Flagged Organizations', 'In progress': 'In progress', 'Not started': 'Not started', 'Registered': 'Registered, not yet eligible to fundraise', review: 'Waiting for review', fix: 'Sent back for correction', wpto: 'Waiting on the PTO/PTA', nyc: 'Nothing received yet',

@@ -153,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-10-30f (Rogers T H H S and Collaborative For Children Pre-K stay on the campus list, with no C1 needed)';
+var VERSION = 'Script version 2026-11-02a (FACE\'s list marks each campus PTO, PTA or No PTO/PTA; Nothing received yet filter)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -174,7 +174,7 @@ function onOpen() {
     .addItem('Officer form: import automatically every hour (turn on)', 'turnOnOfficerFeed')
     .addItem('Officer form: stop the automatic import', 'turnOffOfficerFeed')
     .addItem('Import the Texas PTA spreadsheet from the Texas PTA Paste tab', 'importTexasPta')
-    .addItem('Mark the campuses with no PTO/PTA (from the No PTO-PTA List tab)', 'importNoPto')
+    .addItem('Mark each campus PTO, PTA or No PTO/PTA (from the No PTO-PTA List tab)', 'importNoPto')
     .addItem('PTO/PTA count: set campuses that have sent nothing to Not Yet Confirmed', 'resetUnstarted')
     .addSeparator()
     .addItem('Dashboard sign-ins: set up and make passcodes', 'setUpSignIns')
@@ -1037,13 +1037,14 @@ function importNoPto() {
   var ui = SpreadsheetApp.getUi();
   try {
     var r = importNoPto_();
-    if (r.empty) { ui.alert('Paste the list first', 'The ' + CFG.TAB_NOPTO + ' tab is empty. Copy FACE\'s list of campuses with no PTO or PTA (with its headings: Campus Name, Division, FACE Coordinator 1, PTO/PTA), click cell A1 of that tab and paste. Then choose this again.', ui.ButtonSet.OK); return; }
-    ui.alert('Campuses with no PTO/PTA', noPtoSummary_(r), ui.ButtonSet.OK);
+    if (r.empty) { ui.alert('Paste the list first', 'The ' + CFG.TAB_NOPTO + ' tab is empty. Copy FACE\'s campus list (with its headings: Campus Name, FACE Coordinator 1, PTO/PTA), click cell A1 of that tab and paste. Then choose this again.', ui.ButtonSet.OK); return; }
+    ui.alert('PTO, PTA or No PTO/PTA', noPtoSummary_(r), ui.ButtonSet.OK);
   } catch (err) { ui.alert('Nothing was changed', err.message, ui.ButtonSet.OK); }
 }
 
 function noPtoSummary_(r) {
   var L = [plural_(r.marked, 'campus is', 'campuses are') + ' now marked No PTO/PTA (' + plural_(r.already, 'was', 'were') + ' already). The dashboard counts them under No PTO/PTA.'];
+  if (r.pto || r.pta || r.yesAlready) L.push(plural_(r.pto, 'campus is', 'campuses are') + ' now marked as having a PTO, and ' + plural_(r.pta, 'campus', 'campuses') + ' as having a PTA (from the Texas PTA list)' + (r.yesAlready ? '; ' + plural_(r.yesAlready, 'was', 'were') + ' already right' : '') + '.');
   if (r.backup) L.unshift('Backup saved in your Drive: ' + r.backup);
   if (r.kept.length) L.push('', 'Not changed, because they have sent something this year or Texas PTA lists them: ' + r.kept.join(', ') + '. If they really have no PTO/PTA, change Has PTO or PTA on the Campus Register by hand.');
   if (r.unmatched.length) L.push('', 'Not found on the Campus Register: ' + r.unmatched.join(', ') + '. On the ' + CFG.TAB_NOPTO + ' tab, type the campus name as it is in the Campus Register in the "Name in the register" column, then run this again.');
@@ -1057,7 +1058,7 @@ function importNoPto_() {
 }
 
 function importNoPtoLocked_() {
-  var ss = SpreadsheetApp.getActive(), res = { marked: 0, already: 0, kept: [], unmatched: [], empty: false, backup: '' };
+  var ss = SpreadsheetApp.getActive(), res = { marked: 0, already: 0, pto: 0, pta: 0, yesAlready: 0, kept: [], unmatched: [], empty: false, backup: '' };
   var sh = ss.getSheetByName(CFG.TAB_NOPTO) || ss.insertSheet(CFG.TAB_NOPTO);
   var vals = sh.getDataRange().getValues();
   if (vals.length < 2) { res.empty = true; return res; }
@@ -1068,20 +1069,31 @@ function importNoPtoLocked_() {
   var ri = head.indexOf('name in the register'), si = head.indexOf('status');
   if (ri < 0) { ri = Math.max(sh.getLastColumn(), 1); sh.getRange(1, ri + 1).setValue('Name in the register'); }
   if (si < 0) { si = Math.max(sh.getLastColumn(), ri + 1); sh.getRange(1, si + 1).setValue('Status'); }
-  var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before marking campuses with no PTO-PTA ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm:ss'));
+  var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before marking PTO, PTA or no PTO-PTA ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm:ss'));
   res.backup = copy.getName();
   var map = campusMap_(), t = table_(CFG.TAB_REGISTER), year = currentYear_(), sent = sentThisYear_(year), tx = {};
   try { tx = txPtaByCampus_().by; } catch (err) { tx = {}; }
   for (var i = 1; i < vals.length; i++) {
     var name = cellText_(vals[i][ci]);
     if (!name) continue;
-    if (pi >= 0 && cellText_(vals[i][pi]) && norm_(vals[i][pi]) !== 'no') { sh.getRange(i + 1, si + 1).setValue('Skipped: PTO/PTA is not No'); continue; }
+    var said = pi >= 0 ? norm_(vals[i][pi]) : 'no';
+    if (said && said !== 'no' && said !== 'yes') { sh.getRange(i + 1, si + 1).setValue('Skipped: PTO/PTA is not Yes or No'); continue; }
     var typed = ri < vals[i].length ? cellText_(vals[i][ri]) : '';
     var campus = noPtoCampus_(typed || name, map);
     if (!campus) { res.unmatched.push(name); sh.getRange(i + 1, si + 1).setValue('Not found: type the register\'s name in "Name in the register"'); continue; }
     var row = findRow_(t, year, campus);
     if (!row) { res.unmatched.push(name); sh.getRange(i + 1, si + 1).setValue('Not found for ' + year); continue; }
     var v = t.values[row - 1], has = cellText_(v[t.col['Has PTO or PTA']]);
+    if (said === 'yes') {
+      // FACE, 2026-11-02: Yes means a PTO, unless Texas PTA lists the campus: PTAs come only from the Texas PTA list
+      var kind = tx[norm_(campus)] ? 'PTA' : 'PTO', ot = cellText_(v[t.col['Org Type']]);
+      if (has === 'Yes' && orgTypeFrom_(ot) === kind) { res.yesAlready++; sh.getRange(i + 1, si + 1).setValue(kind + ': ' + campus); continue; }
+      if (has !== 'Yes') { setCell_(t, row, 'Has PTO or PTA', 'Yes'); v[t.col['Has PTO or PTA']] = 'Yes'; }
+      if (orgTypeFrom_(ot) !== kind) { setCell_(t, row, 'Org Type', kind); v[t.col['Org Type']] = kind; }
+      res[kind === 'PTA' ? 'pta' : 'pto']++;
+      sh.getRange(i + 1, si + 1).setValue(kind + ': ' + campus);
+      continue;
+    }
     var anything = sent[norm_(campus)] || CFG.ITEMS.some(function (it) { var x = cellText_(v[t.col[it.key]]); return x && x !== 'Not Received' && x !== 'Not Needed'; });
     if (has === 'No') { res.already++; sh.getRange(i + 1, si + 1).setValue('No PTO/PTA: ' + campus); continue; }
     if (anything || tx[norm_(campus)]) { res.kept.push(campus); sh.getRange(i + 1, si + 1).setValue('Not changed: ' + campus + (anything ? ' has sent something this year' : ' is on the Texas PTA list')); continue; }
