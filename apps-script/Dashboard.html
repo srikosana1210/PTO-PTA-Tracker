@@ -381,6 +381,7 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
 @media (max-width: 900px) { .pcols { display: flex; flex-direction: column; } .pcols.ofirst .pside { order: -1; } }
 .pflag { margin-top: 18px; border-radius: 10px; padding: 12px 16px; background: var(--err-bg); color: var(--err-ink); }
 .pflag b { display: block; font-size: 15px; }
+.pflag a { color: inherit; font-weight: 600; }
 .pflag .meta { color: var(--err-ink); opacity: .85; font-size: 12.5px; margin-top: 2px; }
 .pflag .rctl, .pflagbtn { margin-top: 10px; }
 .pflag textarea, .pflagask textarea { width: 100%; box-sizing: border-box; margin-top: 6px; }
@@ -760,7 +761,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-11-02a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-11-02b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1852,7 +1853,12 @@ var flagUI = { ask: '', busy: false, err: '' };
 function isStaff() { return !!(payload.me && payload.me.role === 'staff'); }
 function flagBanner(r) {
   if (!r.flag) return '';
-  return '<b>Flagged: operations paused while FACE reviews</b><p>Reason: ' + esc(r.flag[1]) + '</p><p class="meta">Flagged ' + esc(fmtDay(r.flag[0])) + (r.flag[2] ? ' by ' + esc(r.flag[2]) : '') + '. Its documents are unchanged; it returns to its status when FACE removes the flag.</p>';
+  var mail = payload.contact || 'FACE@houstonisd.org';
+  // FACE's wording (2026-11-02)
+  return '<b>Flagged: operations paused while FACE reviews</b><p>Reason: ' + esc(r.flag[1]) + '</p>' +
+    '<p>This organization\'s operations are paused while FACE reviews. For more information, contact ' + (r.c1 ? 'the campus\'s FACE coordinator, <b>' + esc(r.c1) + '</b>, or email ' : 'FACE at ') +
+    '<a href="mailto:' + esc(mail) + '?subject=' + encodeURIComponent('Flagged PTO/PTA: ' + r.campus) + '">' + esc(mail) + '</a>.</p>' +
+    '<p class="meta">Flagged ' + esc(fmtDay(r.flag[0])) + (r.flag[2] ? ' by ' + esc(r.flag[2]) : '') + '.</p>';
 }
 function panelFlag(r) {
   var can = isStaff() && payload.live && hasGas(), dis = flagUI.busy ? ' disabled' : '';

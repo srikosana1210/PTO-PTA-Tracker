@@ -444,6 +444,8 @@ async function signIn(page, name, pass) {
     var fl = await page.$$eval('#clist .crow', function (rs) { return rs.map(function (r) { return r.getAttribute('data-c') + ':' + r.querySelector('.pill').textContent; }); });
     check('the tile lists the flagged campus, marked Flagged, with its reason', fl.join() === 'Anderson ES:Flagged,Askew ES:Flagged' && /Flagged Organizations\s*2/.test(await page.textContent('#chips')) && /Flagged: Complaint about fundraising/.test(await page.textContent('#clist')), fl.join());
     await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    var pf = await page.textContent('#panel .pflag');
+    check('the flag says whom to contact (FACE, 2026-11-02)', /This organization's operations are paused while FACE reviews\. For more information, contact the campus's FACE coordinator, Ms\. Lee, or email FACE@houstonisd\.org\./.test(pf) && !/documents are unchanged/.test(pf), pf);
     check('without staff sign-in: the reason, but no Flag or Unflag button', /Complaint about fundraising/.test(await page.textContent('#panel')) && !(await page.$('#panel [data-flag]')));
     await page.close();
     o = await openPage(browser, w); page = o.page;

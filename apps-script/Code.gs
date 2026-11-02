@@ -153,7 +153,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-11-02a (FACE\'s list marks each campus PTO, PTA or No PTO/PTA; Nothing received yet filter)';
+var VERSION = 'Script version 2026-11-02b (flag message: contact the FACE coordinator or FACE@houstonisd.org)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
