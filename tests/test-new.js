@@ -194,7 +194,7 @@ test('the old reviewItem still works for a page that has not been updated', func
 });
 
 /* ---------- R1: the email ---------- */
-test('"I sent it" records an email about missing documents, corrections and remarks', function () {
+test('"I sent it" records an email about missing documents and corrections (the overall notes are not emailed, 2026-11-03)', function () {
   var g = h.load();
   var p = withPeople(g);
   var r = g.logResendRequest(p.c1, 'Anderson ES', '2026-27', 'ann@example.org');
@@ -202,7 +202,7 @@ test('"I sent it" records an email about missing documents, corrections and rema
   g.applyOctober2026_({ reset: false });
   g.saveChecklist(p.c1, 'Anderson ES', '2026-27', [{ key: 'Bylaws', status: 'Needs Correction', remark: 'Unsigned' }], 'Thanks!');
   var r2 = g.logResendRequest(p.c1, 'Anderson ES', '2026-27', '');
-  ok(/still needed: Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter; needs correction: Bylaws; remarks$/.test(r2.note), r2.note);
+  ok(/still needed: Officer Information, Training Certificate, Budget or Financial Report, Proof of 501c Status, Bank Verification Letter; needs correction: Bylaws$/.test(r2.note), r2.note);
 });
 
 test('there is nothing to email about once every required document is done and there are no remarks', function () {

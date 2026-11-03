@@ -123,5 +123,6 @@ if (require.main === module) {
   require('./test-confirm');
   require('./test-feed');
   require('./test-facelist');
+  require('./test-officerapproval');
   process.exit(h.report() ? 0 : 1);
 }

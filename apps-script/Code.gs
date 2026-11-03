@@ -150,10 +150,13 @@ var CFG = {
   STATUS_CODE: { 'Accepted': 'A', 'Received': 'R', 'Needs Correction': 'C', 'Not Received': 'N', 'Not Needed': 'X' },
   ITEM_STATUSES: ['Not Received', 'Received', 'Accepted', 'Needs Correction', 'Not Needed'],
   LOG_HEADERS: ['Received', 'Submitted By', 'Campus', 'Document Type', 'File Name', 'File Link', 'School Year', 'Notes'],
+  // Officer updates are approved before they replace the officers (FACE, 2026-11-03). Added after the other columns by
+  // "Update the tracker: approve officer updates"; without them the newest form is the current one, as before.
+  OFFICER_REVIEW_HEADERS: ['Officer Status', 'Reviewed By', 'Reviewed On'],
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-11-03a (sign-in wording: principals and EDs just open the link)';
+var VERSION = 'Script version 2026-11-03b (officer updates are approved before they replace the officers; officer history; overall Notes are not emailed)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -167,6 +170,7 @@ function onOpen() {
     .addItem('Update the tracker: October 2026 changes (run once)', 'updateOctober2026')
     .addItem('Update the tracker: officer form, PTAs and documents (run once)', 'updateOctober15')
     .addItem('Update the tracker: PTAs on every document, from Texas PTA (run once)', 'updatePtaDocs')
+    .addItem('Update the tracker: approve officer updates (run once)', 'updateOfficerApproval')
     .addSeparator()
     .addItem('Add every campus from the Area Office Campuses tab', 'addAreaCampuses')
     .addItem('Update the campus list: FACE\'s short names, Area Offices, duplicates merged (run once)', 'updateCampusList')
@@ -529,6 +533,7 @@ function officerSummary_(r) {
   var L = [];
   L.push('Read ' + plural_(r.read, 'form response', 'form responses') + ': ' + r.added + ' new, ' + r.already + ' already imported.');
   if (r.added) L.push(plural_(r.officers, 'officer was', 'officers were') + ' added to the Officers tab.');
+  if (r.waiting) L.push(plural_(r.waiting, 'form is an update', 'forms are updates') + ' for a campus that already has officers. ' + (r.waiting === 1 ? 'It waits' : 'They wait') + ' for the campus\'s C1 or FACE to approve ' + (r.waiting === 1 ? 'it' : 'them') + ' on the dashboard (Review tab) before the officers change.');
   if (r.registerSet) L.push('Officer Information was marked Accepted for ' + plural_(r.registerSet, 'campus', 'campuses') + '. It counts right away; nobody needs to review it.');
   if (r.newCampuses && r.newCampuses.length) {
     L.push('', plural_(r.newCampuses.length, 'campus was', 'campuses were') + ' not on the Campus Register, so ' + (r.newCampuses.length === 1 ? 'it was' : 'they were') + ' added: ' + r.newCampuses.join(', ') + '. Area Office is blank for ' + (r.newCampuses.length === 1 ? 'it' : 'them') + '; fill it in on the Campus Register.');
@@ -598,6 +603,126 @@ function turnOffOfficerFeed() {
   ui.alert('Officer form: automatic import is off', n ? 'The hourly import is stopped. The ' + CFG.TAB_FEED + ' tab is kept; "Import officers" still reads it.' : 'The automatic import was not on.', ui.ButtonSet.OK);
 }
 
+/* ---------- officer updates are approved before they replace the officers (FACE, 2026-11-03) ---------- */
+/** Menu: adds the Officer Status, Reviewed By and Reviewed On columns to the Officers tab. Safe to run again. */
+function updateOfficerApproval() {
+  var ui = SpreadsheetApp.getUi();
+  var go = ui.alert('Update the tracker: approve officer updates',
+    'From now on, a campus\'s first officer form of the year counts at once, as today. A later form for the same campus is an update: it waits for the campus\'s C1 or FACE to approve it on the dashboard before the officers change, and every earlier list is kept as the officer history.\n\n' +
+    'This adds three columns to the Officers tab (Officer Status, Reviewed By, Reviewed On). For each campus the newest form becomes the current officers and older forms are marked Replaced.\n\n' +
+    'A backup copy of this spreadsheet is saved in your Drive first. Running this again is safe.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
+  if (go !== ui.Button.OK) return;
+  var res;
+  try { res = applyOfficerApproval_(); } catch (err) { ui.alert('Not updated', err.message, ui.ButtonSet.OK); return; }
+  ui.alert('Updated', res.lines.join('\n'), ui.ButtonSet.OK);
+}
+
+function applyOfficerApproval_() {
+  var ss = SpreadsheetApp.getActive(), lines = [];
+  var lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    var tz = ss.getSpreadsheetTimeZone();
+    var copy = DriveApp.getFileById(ss.getId()).makeCopy('PTO-PTA Tracker backup before the officer approval update ' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss'));
+    lines.push('Backup saved in your Drive: ' + copy.getName());
+    ensureTab_(CFG.TAB_OFFICERS, CFG.OFFICER_HEADERS);
+    var ot = table_(CFG.TAB_OFFICERS), added = [];
+    CFG.OFFICER_REVIEW_HEADERS.forEach(function (hd) {
+      if (ot.col[hd] !== undefined) return;
+      var at = Math.max(ot.sh.getLastColumn(), ot.headers.length) + 1;
+      ot.sh.getRange(1, at).setValue(hd).setFontWeight('bold');
+      ot = table_(CFG.TAB_OFFICERS); added.push(hd);
+    });
+    lines.push(added.length ? 'Officers tab: added the ' + added.join(', ') + ' columns.' : 'Officers tab: the approval columns are already there.');
+    // each campus and year: the newest form is current, older forms are replaced (rows that already have a status are left as they are)
+    var c = ot.col, newest = {}, n = { cur: 0, old: 0 };
+    function day(v) { return isDate_(v) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd HH:mm') : cellText_(v); }
+    function rk(v) { return cellText_(v[c['Response ID']]) + '|' + day(v[c['Submitted']]) + '|' + cellText_(v[c['Submitter Email']]).toLowerCase(); }
+    for (var i = 1; i < ot.values.length; i++) {
+      var v = ot.values[i], cp = norm_(v[c['Campus']]);
+      if (!cp || !cellText_(v[c['Added To Register']])) continue;
+      var g = cp + '||' + cellText_(v[c['School Year']]), d = day(v[c['Submitted']]);
+      if (!newest[g] || d > newest[g].d || (d === newest[g].d && i > newest[g].i)) newest[g] = { d: d, k: rk(v), i: i };
+    }
+    for (var j = 1; j < ot.values.length; j++) {
+      var w = ot.values[j], cpj = norm_(w[c['Campus']]);
+      if (!cpj || cellText_(w[c['Officer Status']]) || !cellText_(w[c['Added To Register']])) continue;
+      var gj = cpj + '||' + cellText_(w[c['School Year']]), st = newest[gj] && newest[gj].k === rk(w) ? OFF_CUR : OFF_OLD;
+      ot.sh.getRange(j + 1, c['Officer Status'] + 1).setValue(st);
+      n[st === OFF_CUR ? 'cur' : 'old']++;
+    }
+    lines.push(n.cur || n.old ? plural_(n.cur, 'officer row is', 'officer rows are') + ' now Current (the newest form of each campus) and ' + plural_(n.old, 'row', 'rows') + ' Replaced (older forms, kept as history).' : 'Every officer row already had a status.');
+    lines.push('', 'From now on, a later officer form for a campus waits for its C1 or FACE to approve it (Review tab on the dashboard).');
+    clearPageCache_();
+  } finally { lock.releaseLock(); }
+  return { ok: true, lines: lines };
+}
+
+var OFF_CUR = 'Current', OFF_WAIT = 'Waiting', OFF_OLD = 'Replaced', OFF_NO = 'Not approved';
+var OFF_CODE = { 'Current': 'C', 'Waiting': 'W', 'Replaced': 'R', 'Not approved': 'X' };
+// one person in each of these positions: an update naming a new secretary replaces the old one
+var OFF_ONE_EACH = ['president', 'vice president', 'vice-president', 'secretary', 'treasurer', 'parliamentarian', 'historian', 'reporter'];
+
+/** The Officers tab rows (1-based) of the officers who count now for a campus and school year. */
+function currentOfficers_(ot, campus, year) {
+  var out = [], c = ot.col;
+  for (var i = 1; i < ot.values.length; i++) {
+    var v = ot.values[i];
+    if (norm_(v[c['Campus']]) === norm_(campus) && cellText_(v[c['School Year']]) === year && cellText_(v[c['Officer Status']]) === OFF_CUR) out.push(i + 1);
+  }
+  return out;
+}
+
+/**
+ * Called from the campus panel by the campus's C1 or a FACE staff member, for an officer update that waits for approval.
+ * action 'replace': the update becomes the officer list. 'merge': the people on it are added or replace the same person (same name,
+ * or the same one-person position such as Secretary); everyone else stays. 'reject': nothing changes; reason required.
+ * key is the update's id|submitted day|submitter email, as the page has it. Logged; returns the campus's officers as the page shows them.
+ */
+function reviewOfficers(token, campus, year, key, action, reason) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var who = writerFor_(token, cellText_(campus));
+    campus = cellText_(campus); year = cellText_(year); action = cellText_(action);
+    if (['replace', 'merge', 'reject'].indexOf(action) < 0) throw new Error('That choice is not recognized. Reload the page and try again.');
+    reason = cleanText_(reason, REMARK_MAX);
+    if (action === 'reject' && !reason) throw new Error('Say why the update is not approved.');
+    var ss = SpreadsheetApp.getActive(), tz = ss.getSpreadsheetTimeZone();
+    if (!ss.getSheetByName(CFG.TAB_OFFICERS)) throw new Error('The Officers tab was not found.');
+    var ot = table_(CFG.TAB_OFFICERS), c = ot.col;
+    if (c['Officer Status'] === undefined) throw new Error('Officer updates need the one-time step first: PTO/PTA Tracker > Update the tracker: approve officer updates.');
+    function day(v) { return isDate_(v) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : cellText_(v).slice(0, 10); }
+    var mine = [], current = [];
+    for (var i = 1; i < ot.values.length; i++) {
+      var v = ot.values[i];
+      if (norm_(v[c['Campus']]) !== norm_(campus) || cellText_(v[c['School Year']]) !== year) continue;
+      var st = cellText_(v[c['Officer Status']]);
+      var k = cellText_(v[c['Response ID']]) + '|' + day(v[c['Submitted']]) + '|' + cellText_(v[c['Submitter Email']]).toLowerCase();
+      if (st === OFF_WAIT && k === cellText_(key)) mine.push(i + 1);
+      else if (st === OFF_CUR) current.push(i + 1);
+    }
+    if (!mine.length) throw new Error('This officer update is no longer waiting. Reload the page to see the officers as they are now.');
+    var now = new Date(), by = byLabel_(who), changed = 0;
+    function mark(rows, status) { rows.forEach(function (r) { ot.sh.getRange(r, c['Officer Status'] + 1, 1, 3).setValues([[status, by, now]]); changed++; }); }
+    var note;
+    if (action === 'reject') { mark(mine, OFF_NO); note = 'Officer update not approved: ' + reason; }
+    else if (action === 'replace') { mark(current, OFF_OLD); mark(mine, OFF_CUR); note = 'Officer update approved: the officers are now the ' + plural_(mine.length, 'person', 'people') + ' on the update.'; }
+    else {
+      var names = {}, roles = {};
+      mine.forEach(function (r) { var v = ot.values[r - 1]; names[norm_(v[c['Name']])] = 1; var p = norm_(v[c['Position']]); if (OFF_ONE_EACH.indexOf(p) >= 0) roles[p] = 1; });
+      var gone = current.filter(function (r) { var v = ot.values[r - 1]; return names[norm_(v[c['Name']])] || roles[norm_(v[c['Position']])]; });
+      mark(gone, OFF_OLD); mark(mine, OFF_CUR);
+      note = 'Officer update approved: ' + plural_(mine.length, 'person', 'people') + ' added or changed, ' + plural_(current.length - gone.length, 'officer', 'officers') + ' kept.';
+    }
+    appendLog_([[now, by, cellText_(ot.values[mine[0] - 1][c['Campus']]), '', '', '', year, note]]);
+    clearPageCache_();
+    var only = {}; only[norm_(campus)] = 1;
+    var d = buildDetail_(true, tz, only)[cellText_(ot.values[mine[0] - 1][c['Campus']]) + '||' + year] || { o: [] };
+    return { ok: true, o: d.o, note: note, by: by, date: Utilities.formatDate(now, tz, 'yyyy-MM-dd') };
+  } finally { lock.releaseLock(); }
+}
+
 /** The work of the import, separated from the dialog so it can be tested. */
 function importOfficers_(only) {
   var lock = LockService.getScriptLock();
@@ -610,7 +735,7 @@ function importOfficersLocked_(only) {
   var ss = SpreadsheetApp.getActive();
   var tz = ss.getSpreadsheetTimeZone();
   var settings = readSettings_();
-  var res = { read: 0, added: 0, officers: 0, already: 0, registerSet: 0, pick: 0, bad: 0, noPto: 0, madeYes: 0, empty: 0, booster: 0, newCampuses: [], formSynced: -1 };
+  var res = { read: 0, added: 0, officers: 0, already: 0, registerSet: 0, pick: 0, bad: 0, noPto: 0, madeYes: 0, empty: 0, booster: 0, waiting: 0, newCampuses: [], formSynced: -1 };
 
   // the feed from Power Automate (one row per response, under the column titles) is read when it has any response
   var recs = [], feed = ss.getSheetByName(CFG.TAB_FEED);
@@ -685,7 +810,7 @@ function importOfficersLocked_(only) {
     if (ca && !typed[rowKey(va)]) typed[rowKey(va)] = ca;
   }
 
-  var flagged = {}, applied = {}, warned = {}, setCampuses = {};
+  var flagged = {}, applied = {}, warned = {}, setCampuses = {}, statusOf = {}, hasCurrent = {};
   for (var r = 1; r < ot.values.length; r++) {
     var v = ot.values[r], rowNum = r + 1;
     if (isBlank(v)) continue;
@@ -764,8 +889,20 @@ function importOfficersLocked_(only) {
       applied[wk] = true;
       var n = 0; for (var q = 1; q < ot.values.length; q++) if (!isBlank(ot.values[q]) && rowKey(ot.values[q]) === key) n++;
       var when = isDate_(v[oc['Submitted']]) ? v[oc['Submitted']] : new Date();
-      appendLog_([[when, cellText_(v[oc['Submitter Email']]), campus, 'Officer Information',
-        'Officer form: ' + (orgName || 'organization') + ' (' + plural_(n, 'officer', 'officers') + ')', '', year, '']]);
+      var upd = oc['Officer Status'] !== undefined && !cellText_(v[oc['Officer Status']]) && currentOfficers_(ot, campus, year).length > 0;
+      appendLog_([upd ? [when, cellText_(v[oc['Submitter Email']]), campus, '', '', '', year, 'Officer update received: ' + (orgName || 'organization') + ' (' + plural_(n, 'officer', 'officers') + '), waiting for approval.']
+        : [when, cellText_(v[oc['Submitter Email']]), campus, 'Officer Information', 'Officer form: ' + (orgName || 'organization') + ' (' + plural_(n, 'officer', 'officers') + ')', '', year, '']]);
+    }
+    if (oc['Officer Status'] !== undefined && !cellText_(v[oc['Officer Status']])) {
+      // the campus's first officer form of the year counts at once; a later one waits for its C1 or FACE to approve it
+      var sk = campus + '||' + year;
+      if (statusOf[key + '||' + sk] === undefined) {
+        if (hasCurrent[norm_(sk)] === undefined) hasCurrent[norm_(sk)] = currentOfficers_(ot, campus, year).length > 0;
+        statusOf[key + '||' + sk] = hasCurrent[norm_(sk)] ? OFF_WAIT : OFF_CUR;
+        if (statusOf[key + '||' + sk] === OFF_WAIT) res.waiting++;
+        hasCurrent[norm_(sk)] = true;
+      }
+      setCell_(ot, rowNum, 'Officer Status', statusOf[key + '||' + sk]); v[oc['Officer Status']] = statusOf[key + '||' + sk];
     }
     setCell_(ot, rowNum, 'Added To Register', today);
   }
@@ -1748,7 +1885,7 @@ function emailAsks_(t, row, campus, year) {
   });
   if (need.length) parts.push('still needed: ' + need.join(', '));
   if (fix.length) parts.push('needs correction: ' + fix.join(', '));
-  if (remarksFor_(campus, year).campus) parts.push('remarks');
+  // the overall notes about the PTO/PTA are for the C1 and FACE, not the email (FACE, 2026-11-03)
   return { parts: parts };
 }
 
@@ -2319,6 +2456,14 @@ function waitingByCampus_(year) {
     var items = CFG.ITEMS.filter(function (it) { return sendsItem_(it, pta) && cellText_(v[t.col[it.key]]) === 'Received'; }).map(function (it) { return it.key; });
     out[norm_(campus)] = { campus: campus, items: items, other: false };
   }
+  // officer updates waiting for approval (2026-11-03)
+  try {
+    var ot = SpreadsheetApp.getActive().getSheetByName(CFG.TAB_OFFICERS) ? table_(CFG.TAB_OFFICERS) : null;
+    if (ot && ot.col['Officer Status'] !== undefined) for (var q = 1; q < ot.values.length; q++) {
+      var ov = ot.values[q], ok = norm_(ov[ot.col['Campus']]);
+      if (out[ok] && cellText_(ov[ot.col['School Year']]) === year && cellText_(ov[ot.col['Officer Status']]) === OFF_WAIT) out[ok].officers = true;
+    }
+  } catch (err) { /* reminders still go out for documents */ }
   // "Other documents" files that arrived after the last time anyone checked the campus off
   if (SpreadsheetApp.getActive().getSheetByName(CFG.TAB_LOG)) {
     var lt = table_(CFG.TAB_LOG), c = lt.col, done = {};
@@ -2339,9 +2484,9 @@ function refreshC1Reminders_() {
   var url = dashboardUrl_(), rows = [], res = { year: year, c1s: a.order.length, send: 0, noEmail: [], out: [] };
   a.order.forEach(function (k) {
     var rec = a.names[k], p = people.byKey[k], email = p && p.email ? p.email : '';
-    var list = Object.keys(rec.campuses).map(function (x) { return wait[x]; }).filter(function (w) { return w && (w.items.length || w.other); })
+    var list = Object.keys(rec.campuses).map(function (x) { return wait[x]; }).filter(function (w) { return w && (w.items.length || w.other || w.officers); })
       .sort(function (x, y) { return x.campus.localeCompare(y.campus); });
-    var docs = list.reduce(function (n, w) { return n + w.items.length + (w.other ? 1 : 0); }, 0);
+    var docs = list.reduce(function (n, w) { return n + w.items.length + (w.other ? 1 : 0) + (w.officers ? 1 : 0); }, 0);
     var send = list.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     var note = !list.length ? 'Nothing waiting.' : !email ? 'No email on the ' + CFG.TAB_SIGNINS + ' tab.' : !send ? 'The email does not look right.' : '';
     if (list.length && !send) res.noEmail.push(rec.name);
@@ -2408,6 +2553,7 @@ function reminderMessage_(name, list, year, url) {
   var lines = list.map(function (w) {
     var what = w.items.map(function (key) { var it = itemByKey_(key); return it.label || it.key; });
     if (w.other) what.push('other files to check');
+    if (w.officers) what.push('an officer update to approve');
     return { campus: w.campus, what: what.join('; ') };
   });
   var text = ['Hello ' + name + ',', '', 'These PTO/PTA documents are waiting for your review on the PTO/PTA registration dashboard:', '']
@@ -2476,12 +2622,14 @@ function buildDetail_(staff, tz, only) {
         }
         if (!sub.note) sub.note = cellText_(ov[oc['Additional Info']]);
         var pos = cellText_(ov[oc['Position']]);
-        sub.off.push({ s: Number(ov[oc['Officer #']]) || 0, n: cellText_(ov[oc['Name']]), p: pos, e: cellText_(ov[oc['Email']]), t: cellText_(ov[oc['Phone']]), r: rank[pos.toLowerCase()] || 9 });
+        var ost = oc['Officer Status'] !== undefined ? OFF_CODE[cellText_(ov[oc['Officer Status']])] || '' : '';
+        sub.off.push({ s: Number(ov[oc['Officer #']]) || 0, n: cellText_(ov[oc['Name']]), p: pos, e: cellText_(ov[oc['Email']]), t: cellText_(ov[oc['Phone']]), r: rank[pos.toLowerCase()] || 9, st: ost });
+        if (oc['Reviewed On'] !== undefined && cellText_(ov[oc['Reviewed On']]) && !sub.rv) sub.rv = [day(ov[oc['Reviewed On']]), cellText_(ov[oc['Reviewed By']])];
       }
       order.forEach(function (k) {
         var sb = subs[k], slotObj = slot(sb.c, sb.y);
         sb.off.sort(function (a, b) { return a.r - b.r || a.s - b.s; });
-        slotObj.o.push({ d: sb.d, id: sb.id, g: sb.g, ty: sb.ty, by: sb.by, be: sb.be, bp: sb.bp, note: sb.note, off: sb.off });
+        slotObj.o.push({ d: sb.d, id: sb.id, k: sb.id + '|' + sb.d + '|' + sb.be.toLowerCase(), g: sb.g, ty: sb.ty, by: sb.by, be: sb.be, bp: sb.bp, note: sb.note, off: sb.off, rv: sb.rv || null });
       });
       Object.keys(detail).forEach(function (k) {
         detail[k].o.sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : (Number(b.id) || 0) - (Number(a.id) || 0); });   // newest submission first
@@ -3895,8 +4043,11 @@ function confirmations_(year, tz) {
   var newest = {};
   if (ss.getSheetByName(CFG.TAB_OFFICERS)) {
     var ot = table_(CFG.TAB_OFFICERS), oc = ot.col;
+    var sc = oc['Officer Status'];
     if (oc['Submitted'] !== undefined) for (var j = 1; j < ot.values.length; j++) {
       var ov = ot.values[j], cp = norm_(ov[oc['Campus']]), d = day(ov[oc['Submitted']]);
+      if (sc !== undefined && cellText_(ov[sc]) && cellText_(ov[sc]) !== OFF_CUR) continue;     // only officers that count (approved)
+      if (sc !== undefined && oc['Reviewed On'] !== undefined && cellText_(ov[oc['Reviewed On']])) d = day(ov[oc['Reviewed On']]);
       if (cp && cellText_(ov[oc['School Year']]) === year && d > (newest[cp] || '')) newest[cp] = d;
     }
   }
@@ -4019,6 +4170,7 @@ function publicNote_(note, by) {
   }
   if (n.indexOf('Emailed the PTO/PTA') === 0) return 'Emailed the PTO/PTA about what is still needed.';
   if (n.indexOf('Marked as having a PTO/PTA') === 0) return 'Marked as having a PTO/PTA.';
+  if (n.indexOf('Officer update approved') === 0) return 'Officer update approved.';   // a waiting or refused update stays with the C1 and FACE
   if (n.indexOf('Flagged: ') === 0 || n.indexOf('Flag removed: ') === 0) return n;   // the reason is public (FACE, 2026-10-29)
   return '';
 }
@@ -4034,7 +4186,11 @@ function openDetail_(detail) {
       var what = publicNote_(e[4], e[5]);
       return what ? [e[0], '', '', '', what] : null;
     }).filter(Boolean);
-    d.o = (d.o || []).map(function (sb) { return { d: sb.d, id: sb.id, g: sb.g, ty: sb.ty, off: (sb.off || []).map(function (o) { return { s: o.s, n: o.n, p: o.p, e: o.e, t: o.t, r: o.r }; }) }; });
+    // an officer update still waiting (or not approved) is for the campus's C1 and FACE only (2026-11-03)
+    d.o = (d.o || []).map(function (sb) {
+      var off = (sb.off || []).filter(function (o) { return o.st !== 'W' && o.st !== 'X'; }).map(function (o) { return { s: o.s, n: o.n, p: o.p, e: o.e, t: o.t, r: o.r, st: o.st }; });
+      return off.length ? { d: sb.d, id: sb.id, g: sb.g, ty: sb.ty, off: off, rv: sb.rv ? [sb.rv[0]] : null } : null;
+    }).filter(Boolean);
     delete d.rm;
     if (d.rv) Object.keys(d.rv).forEach(function (key) { d.rv[key] = [d.rv[key][0], d.rv[key][1]]; });   // the date of a decision, not who made it
   });

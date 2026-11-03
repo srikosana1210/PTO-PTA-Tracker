@@ -147,7 +147,7 @@ async function signIn(page, name, pass) {
     check('email lists the correction with its remark', /The organization's bylaws: Please send the signed copy\./.test(body), body);
     check('email lists what is still needed, with the remark', /We also still need these documents:[\s\S]*Annual budget report or meeting minutes showing budget approval \(The approved budget, not the draft\.\)/.test(body), body);
     check('email does not ask for the not-needed document', !/Bank account verification/i.test(body) && !/Articles of incorporation|insurance/i.test(body), body);
-    check('email has the overall remarks', /Remarks:\r?\nThank you for getting started early!/.test(body), body);
+    check('the overall notes are not in the email (FACE, 2026-11-03)', !/Thank you for getting started early!/.test(body) && !/Remarks:/.test(body), body);
     check('Proof of 501(c) status is written correctly', /Proof of 501\(c\) status\r?\n/.test(body + '\n'), body);
     await page.screenshot({ path: path.join(SHOTS, 'checklist-saved.png'), fullPage: false });
     await page.click('#pResend [data-act="mailsent"]');
@@ -467,6 +467,37 @@ async function signIn(page, name, pass) {
     check('unflagged: back to its own status', !/Flagged/.test(await page.textContent('.crow[data-c="Anderson ES"] .pill')));
     w.g.flagCampus(w.p.staff, 'Askew ES', '2026-27', false, 'Test over');
     check('no page errors (flag)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
+    /* ---------- officer updates are approved first (2026-11-03) ---------- */
+    var w2 = world();
+    w2.g.applyOfficerApproval_();
+    var pst = w2.g.__ss.getSheetByName('Officer Form Paste'), pv = pst.values().filter(function (r) { return r.join('') !== ''; });
+    pv.push(['12', new Date(Date.UTC(2026, 10, 2)), 'Anderson ES', 'Anderson PTO', 'Sam Smith', 'Secretary', 'sam@example.org', 'Ann Officer', 'President', 'ann.new@example.org', '', '', '', 'ann@example.org']);
+    pst.getRange(1, 1, pv.length, pv[0].length).setValues(pv);
+    w2.g.importOfficers_();
+    o = await openPage(browser, w2); page = o.page;
+    await page.click('[data-tab="campus"]');
+    await page.selectOption('#pickCampus', 'Anderson ES');
+    await page.click('#campusCard .cmore button');
+    var pubOff = await page.textContent('#pBody');
+    check('without sign-in: the approved officers, no waiting update', /Tom Treasurer/.test(pubOff) && !/Sam Smith/.test(pubOff) && !/waiting for approval/.test(pubOff));
+    await page.close();
+    o = await openPage(browser, w2); page = o.page;
+    await signIn(page, 'Ms. Lee', w2.p.pass['Ms. Lee']);
+    await page.click('[data-tab="review"]');
+    check('Review lists the officer update', /Officer update/.test(await page.textContent('#rlist')));
+    await page.click('#rlist li[data-c="Anderson ES"] .campbtn');
+    await page.waitForSelector('#panel .offupd');
+    var upd = await page.textContent('#panel .offupd');
+    check('the update shows what changes: new, changed, not on the update', /new\s*Sam Smith/.test(upd) && /changed\s*Ann Officer/.test(upd) && /email: ann@example\.org → ann\.new@example\.org/.test(upd) && /not on the update\s*Tom Treasurer/.test(upd), upd);
+    await (await page.$('#panel .offupd')).screenshot({ path: path.join(SHOTS, 'officer-update.png') });
+    await page.click('#panel [data-off="merge"]');
+    await page.waitForFunction(function () { return !document.querySelector('#panel .offupd'); }, null, { timeout: 10000 });
+    var after = await page.textContent('#pBody');
+    check('after approval: the new list, with the history kept', /Sam Smith/.test(after) && /Tom Treasurer/.test(after) && /Officer history \(1\)/.test(after), after.slice(0, 400));
+    check('the email goes to the approved president and secretary', /ann\.new@example\.org; sam@example\.org|sam@example\.org; ann\.new@example\.org/.test(await page.textContent('#pResend')) || /ann\.new@example\.org/.test(await page.textContent('#pResend')), await page.textContent('#pResend'));
+    check('no page errors (officer approval)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
 
     /* ---------- phone width ---------- */

@@ -385,6 +385,15 @@ dialog::backdrop { background: rgba(15,27,29,.6); }
 .pflag .meta { color: var(--err-ink); opacity: .85; font-size: 12.5px; margin-top: 2px; }
 .pflag .rctl, .pflagbtn { margin-top: 10px; }
 .pflag textarea, .pflagask textarea { width: 100%; box-sizing: border-box; margin-top: 6px; }
+.offupd { border-left: 4px solid var(--rev); padding-left: 14px; margin-top: 18px; }
+.odiff > li { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 0 10px; align-items: start; }
+.odiff .role { color: var(--ink2); margin-left: 4px; }
+.odiff .meta { overflow-wrap: anywhere; }
+.ochg { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--prog-ink); background: var(--prog-bg); border-radius: 5px; padding: 1px 6px; display: inline-block; overflow-wrap: anywhere; }
+.odiff li.gone b { color: var(--muted); }
+.okind { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; background: var(--ns-bg); color: var(--ns-ink); }
+.okind.changed { background: var(--prog-bg); color: var(--prog-ink); } .okind.new { background: var(--ok-bg); color: var(--ok-ink); } .okind.gone { background: var(--err-bg); color: var(--err-ink); }
+.offbtns { flex-wrap: wrap; }
 .pflagask { margin-top: 18px; border: 1px solid var(--grid); border-radius: 10px; padding: 12px 16px; background: var(--surface); }
 #panel[hidden], #scrim[hidden] { display: none; }
 #panel:focus { outline: none; }
@@ -761,7 +770,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-11-03a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-11-03b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -904,7 +913,7 @@ function renderHero() {
 /** Documents waiting for review that this person could act on, in the chosen school year. */
 function reviewCount() {
   var n = 0;
-  yearRows().forEach(function (r) { if (canSee(r)) n += count(r.d, 'R') + (newFiles(r) ? 1 : 0); });
+  yearRows().forEach(function (r) { if (canSee(r)) n += count(r.d, 'R') + (newFiles(r) ? 1 : 0) + officerUpdates(r).length; });
   return n;
 }
 /** An "Other documents" file arrived after the last time anyone checked this campus off: a reviewer should look at it. */
@@ -917,7 +926,40 @@ function newFiles(r) {
   }
   return false;
 }
-function waiting(r) { return count(r.d, 'R') > 0 || newFiles(r); }
+function waiting(r) { return count(r.d, 'R') > 0 || newFiles(r) || officerUpdates(r).length > 0; }
+
+/* ---------- officers: the approved list, updates waiting for approval, and the history (FACE, 2026-11-03) ---------- */
+/** { cur: officers who count now, from: the newest form they come from, upd: forms waiting for approval, hist: earlier forms } */
+function officerState(r) {
+  var subs = detailFor(r).o || [];
+  var marked = subs.some(function (sb) { return (sb.off || []).some(function (o) { return o.st; }); });
+  if (!marked) return { cur: subs[0] ? subs[0].off : [], from: subs[0] || null, upd: [], hist: subs.slice(1), marked: false };   // before the one-time update
+  var cur = [], from = null, upd = [], hist = [];
+  subs.forEach(function (sb) {
+    var c = (sb.off || []).filter(function (o) { return o.st === 'C'; });
+    if (c.length) { cur = cur.concat(c); if (!from) from = sb; }
+    if ((sb.off || []).some(function (o) { return o.st === 'W'; })) upd.push(sb);
+    else if ((sb.off || []).some(function (o) { return o.st === 'R' || o.st === 'X'; })) hist.push(sb);
+  });
+  cur.sort(function (a, b) { return a.r - b.r || a.s - b.s; });
+  return { cur: cur, from: from, upd: upd.reverse(), hist: hist, marked: true };     // the oldest waiting update first
+}
+function officerUpdates(r) { return canReview(r) ? officerState(r).upd : []; }
+/** The update compared with the officers now: same, changed (what), new, and the current officers it does not name. */
+function officerDiff(cur, off) {
+  function k(x) { return nk(x || ''); }
+  var used = {}, rows = [];
+  off.forEach(function (o) {
+    var m = -1; cur.forEach(function (c, i) { if (m < 0 && !used[i] && k(c.n) === k(o.n)) m = i; });
+    if (m < 0) { rows.push({ kind: 'new', o: o }); return; }
+    used[m] = 1; var c = cur[m], ch = [];
+    [['p', 'position'], ['e', 'email'], ['t', 'phone']].forEach(function (f) { if (String(c[f[0]] || '').trim() !== String(o[f[0]] || '').trim()) ch.push(f[1] + ': ' + (c[f[0]] || '(none)') + ' → ' + (o[f[0]] || '(none)')); });
+    rows.push({ kind: ch.length ? 'changed' : 'same', o: o, ch: ch });
+  });
+  cur.forEach(function (c, i) { if (!used[i]) rows.push({ kind: 'gone', o: c }); });
+  return rows;
+}
+var offUI = { busy: false, err: '', ask: '' };
 
 function renderBar() {
   var areas = {}; yearRows().forEach(function (r) { areas[r.area] = 1; });
@@ -1315,8 +1357,8 @@ function confHtml(r) {
   var out = '<section class="conf' + (a ? ' ' + confKind(r) : '') + '" aria-labelledby="confH"><h4 id="confH">' + (yes ? 'Are these PTO/PTA details correct?' : 'Does this campus have a PTO or PTA?') + '</h4>';
   if (!c.open) out += '<p class="ctest">Testing: only FACE staff see this. Principals and APs will see it when FACE turns it on.</p>';
   if (yes) {
-    var sb = (detailFor(r).o || [])[0], what = [r.on, r.ot].filter(Boolean).join(' · ');
-    out += '<p class="chint">Please check the organization' + (what ? ' (<b>' + esc(what) + '</b>)' : '') + (sb && sb.off && sb.off.length && seesDetail(r) ? ' and its officers: ' + esc(sb.off.map(function (o) { return (o.n || '?') + (o.p ? ' (' + o.p + ')' : ''); }).join(', ')) : ' and its officers (open <b>See officers and documents</b> below)') + '.</p>';
+    var sbo = officerState(r).cur, what = [r.on, r.ot].filter(Boolean).join(' · ');
+    out += '<p class="chint">Please check the organization' + (what ? ' (<b>' + esc(what) + '</b>)' : '') + (sbo.length && seesDetail(r) ? ' and its officers: ' + esc(sbo.map(function (o) { return (o.n || '?') + (o.p ? ' (' + o.p + ')' : ''); }).join(', ')) : ' and its officers (open <b>See officers and documents</b> below)') + '.</p>';
   } else out += '<p class="chint">FACE has ' + (r.pto === 'No' ? 'this campus down as having no PTO/PTA.' : 'nothing from this campus yet.') + ' Tell us if that is right.</p>';
   if (a) out += '<p class="cstate">' + esc(confLine(a)) + (a[4] ? '<span class="cnote">Note: ' + esc(a[4]) + '</span>' : '') + '</p>';
   if (!can) return out + '</section>';
@@ -1421,7 +1463,7 @@ function reviewList(wait) {
 function refreshReviewList() { var ul = $('#rlist'); if (ul) ul.innerHTML = reviewList(yearRows().filter(canSee).filter(waiting)); }
 function reviewCard(r, ch, cls) {
   var chips = docsOf(r).map(function (i) { return r.d[i] === ch ? '<span class="dchip ' + ch + '">' + esc(DOCS[i].short) + '</span>' : ''; }).join('') +
-    (ch === 'R' && newFiles(r) ? '<span class="dchip R">Other files</span>' : '');
+    (ch === 'R' && newFiles(r) ? '<span class="dchip R">Other files</span>' : '') + (ch === 'R' && officerUpdates(r).length ? '<span class="dchip R">Officer update</span>' : '');
   return '<li data-c="' + esc(r.campus) + '"><button type="button" class="rcard campbtn ' + cls + '" aria-haspopup="dialog"><span><b>' + esc(r.campus) + '</b><span class="ao">' + esc(r.area) + '</span></span>' +
     '<span class="dchips">' + chips + (ch === 'R' && waitDays(r) > 0 ? '<span class="rdays">' + plural(waitDays(r), 'day', 'days') + '</span>' : '') + '</span><span class="rgo">Open</span></button></li>';
 }
@@ -1431,7 +1473,7 @@ function renderReview() {
   var rows = yearRows().filter(canSee);
   var wait = rows.filter(waiting);
   var fix = rows.filter(function (r) { return r.d.indexOf('C') >= 0; }).sort(function (a, b) { return cmp(a.campus, b.campus); });
-  var docs = wait.reduce(function (n, r) { return n + count(r.d, 'R') + (newFiles(r) ? 1 : 0); }, 0);
+  var docs = wait.reduce(function (n, r) { return n + count(r.d, 'R') + (newFiles(r) ? 1 : 0) + officerUpdates(r).length; }, 0);
   var scope = me.role === 'c1' ? 'Your review queue: only your ' + plural(rows.length, 'campus', 'campuses') + (docs ? ', ' + num(wait.length) + ' with something to review.' : '.')
     : 'The whole team\'s review queue: every campus' + (docs ? ', ' + num(wait.length) + ' with something to review.' : '.');
   var out = '<div class="rsum"><h2>' + (docs ? plural(docs, 'document is', 'documents are') + ' waiting for review' : 'Nothing is waiting for review') + '</h2><p>' + esc(scope) + '</p></div>';
@@ -1651,8 +1693,9 @@ function panelDocs(r, d) {
     other.slice(0, 10).map(function (a) { return '<li><span class="d">' + esc(fmtDay(a[0])) + '</span><span>' + link(a[3], a[2] || 'file') + '</span></li>'; }).join('') + '</ul></section>';
   if (rev) {
     var cd = campusDraft(r), dis2 = panel.busy ? ' disabled' : '';
-    out += '<section class="psec crmk"><h3>Remarks for the PTO/PTA<small>overall, added to the email</small></h3><label class="sr" for="crmk">Remarks for the PTO/PTA</label>' +
-      '<textarea id="crmk" maxlength="1000" rows="3" placeholder="For example: Please send all documents to ParentOrgDocs by October 30."' + dis2 + '>' + esc(cd) + '</textarea></section>';
+    // FACE, 2026-11-03: overall notes about this PTO/PTA, for its C1 and FACE; they are not put in the email
+    out += '<section class="psec crmk"><h3>Notes about this ' + esc(r.ot || 'PTO/PTA') + '<small>for the C1 and FACE only, not sent to the PTO/PTA</small></h3><label class="sr" for="crmk">Notes about this PTO/PTA</label>' +
+      '<textarea id="crmk" maxlength="1000" rows="3" placeholder="For example: Spoke with the president on Oct 30. The bank letter is coming next week."' + dis2 + '>' + esc(cd) + '</textarea></section>';
     var dirty = anyEdits(r);
     out += '<div class="savebar">' + (panel.err ? '<div class="rerr" role="alert" style="flex-basis:100%;margin:0 0 4px">' + esc(panel.err) + '</div>' : '') +
       '<button type="button" class="btn primary sm" data-act="save"' + (dirty && !panel.busy ? '' : ' disabled') + '>' + (panel.busy ? 'Saving…' : 'Save') + '</button>' +
@@ -1686,22 +1729,67 @@ function panelOfficers(r, d) {
   if (!seesDetail(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1, to FACE staff, and to the people allowed to view it.' : 'Officer names, contact details and files are shown to C1 coordinators and FACE staff after they sign in.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
   var subs = d.o || [];
   if (!subs.length) return '<section class="psec"><h3>Officers</h3><p class="pnote">No officer update form has been matched to this campus for ' + esc(state.year ? state.year.replace('-', '–') : 'this year') + ' yet.</p></section>';
-  var cur = subs[0], older = subs.slice(1);
-  var out = '<section class="psec"><h3>Officers<small>' + cur.off.length + ' on the form submitted ' + esc(fmtDay(cur.d)) + '</small></h3>';
+  var os = officerState(r), cur = os.from || subs[0];
+  var out = officerUpdateHtml(r, os);
+  out += '<section class="psec"><h3>Officers<small>' + (os.marked ? plural(os.cur.length, 'officer', 'officers') + (cur.rv ? ', approved ' + esc(fmtDay(cur.rv[0])) : ', from the form submitted ' + esc(fmtDay(cur.d))) : cur.off.length + ' on the form submitted ' + esc(fmtDay(cur.d))) + '</small></h3>';
   if (orgLine(cur)) out += '<p class="orgnm">' + esc(orgLine(cur)) + '</p>';
-  out += cur.off.length ? '<ul class="plist off">' + cur.off.map(officerItem).join('') + '</ul>' : '<p class="pnote">That form listed no officers.</p>';
+  out += os.cur.length ? '<ul class="plist off">' + os.cur.map(officerItem).join('') + '</ul>' : '<p class="pnote">No officers are on file.</p>';
   if (cur.note) out += '<div class="xinfo"><b>Additional info on the form</b><p>' + esc(cur.note) + '</p></div>';
   var by = cur.by ? esc(cur.by) : '';
   var byct = contactLinks(cur.be, cur.bp);
   if (by || byct) out += '<div class="subby"><span class="meta">Submitted by</span> ' + (by ? '<b>' + by + '</b>' : '') + (byct ? '<span class="ct">' + byct + '</span>' : '') + '</div>';
-  if (older.length) {
-    out += '<details class="early"><summary>Earlier submissions this year (' + older.length + ')</summary>' + older.map(function (sb) {
-      return '<div class="esub"><div class="meta">Submitted ' + esc(fmtDay(sb.d)) + (orgLine(sb) ? ' · ' + esc(orgLine(sb)) : '') + (sb.by ? ' · by ' + esc(sb.by) : '') + '</div>' +
+  if (os.hist.length) {
+    out += '<details class="early"><summary>' + (os.marked ? 'Officer history' : 'Earlier submissions this year') + ' (' + os.hist.length + ')</summary>' + os.hist.map(function (sb) {
+      var no = (sb.off || []).some(function (o) { return o.st === 'X'; });
+      var tag = !os.marked ? '' : no ? ' · <b>not approved</b>' + (sb.rv ? ' ' + esc(fmtDay(sb.rv[0])) + (sb.rv[1] ? ' by ' + esc(sb.rv[1]) : '') : '') : ' · replaced' + (sb.rv ? ' (approved ' + esc(fmtDay(sb.rv[0])) + ')' : '');
+      return '<div class="esub"><div class="meta">Submitted ' + esc(fmtDay(sb.d)) + (orgLine(sb) ? ' · ' + esc(orgLine(sb)) : '') + (sb.by ? ' · by ' + esc(sb.by) : '') + tag + '</div>' +
         (sb.off.length ? '<ul class="plist off">' + sb.off.map(officerItem).join('') + '</ul>' : '') +
         (sb.note ? '<div class="xinfo"><b>Additional info</b><p>' + esc(sb.note) + '</p></div>' : '') + '</div>';
     }).join('') + '</details>';
   }
   return out + '</section>';
+}
+
+/** An officer update waiting for approval (the campus's C1 and FACE staff): what changes, and Approve / Not approved. */
+function officerUpdateHtml(r, os) {
+  if (!canReview(r) || !os.upd.length) return '';
+  var sb = os.upd[0], rows = officerDiff(os.cur, sb.off || []), dis = offUI.busy ? ' disabled' : '';
+  var LBL = { same: 'same', changed: 'changed', 'new': 'new', gone: 'not on the update' };
+  var out = '<section class="psec offupd"><h3>Officer update waiting for approval<small>submitted ' + esc(fmtDay(sb.d)) + (sb.by ? ' by ' + esc(sb.by) : '') + (os.upd.length > 1 ? ' · ' + plural(os.upd.length - 1, 'more update', 'more updates') + ' after this one' : '') + '</small></h3>' +
+    '<p class="pnote">The officers below do not change until you approve. Everyone else keeps seeing the current officers.</p>' +
+    '<ul class="plist odiff">' +
+    rows.map(function (x) {
+      return '<li class="' + x.kind + '"><span class="okind ' + x.kind + '">' + LBL[x.kind] + '</span><div><b>' + esc(x.o.n || '(no name)') + '</b>' + (x.o.p ? ' <span class="role">' + esc(x.o.p) + '</span>' : '') +
+        '<div class="meta">' + esc([x.o.e, x.o.t].filter(Boolean).join(' · ')) + '</div>' + (x.ch && x.ch.length ? '<div class="ochg">' + esc(x.ch.join('; ')) + '</div>' : '') + '</div></li>';
+    }).join('') + '</ul>';
+  if (offUI.ask === 'reject') {
+    out += '<div class="rmk"><label for="offWhy">Why is it not approved? (kept with the update)</label><textarea id="offWhy" rows="2" maxlength="300"' + dis + '></textarea></div>' +
+      '<div class="rctl"><button type="button" class="btn sm danger" data-off="reject-go" data-k="' + esc(sb.k) + '"' + dis + '>' + (offUI.busy ? 'Saving…' : 'Not approved') + '</button><button type="button" class="btn sm" data-off="cancel"' + dis + '>Cancel</button></div>';
+  } else {
+    out += '<div class="rctl offbtns"><button type="button" class="btn sm primary" data-off="replace" data-k="' + esc(sb.k) + '"' + dis + ' title="The officers become exactly the people on the update">Approve: replace all</button>' +
+      '<button type="button" class="btn sm" data-off="merge" data-k="' + esc(sb.k) + '"' + dis + ' title="Add or change the people on the update; keep everyone else">Approve: update only the people on it</button>' +
+      '<button type="button" class="btn sm" data-off="reject"' + dis + '>Not approved</button></div>' +
+      '<p class="hint">Use <b>update only the people on it</b> when the PTO/PTA sent just the person who changed: someone in the same position (for example a new secretary) replaces the old one.</p>';
+  }
+  if (offUI.err) out += '<p class="rerr" role="alert">' + esc(offUI.err) + '</p>';
+  return out + '</section>';
+}
+function officerGo(action, key) {
+  var r = currentRow(), why = $('#offWhy') ? $('#offWhy').value.trim() : '';
+  if (!r || offUI.busy) return;
+  if (action === 'reject' && !why) { offUI.err = 'Say why the update is not approved.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (!hasGas() || !session.token) { offUI.err = 'Your sign-in has ended. Sign in again.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  offUI.busy = true; offUI.err = ''; keepScroll(function () { renderPanel(panel.all); });
+  google.script.run
+    .withSuccessHandler(function (res) {
+      offUI.busy = false; offUI.ask = '';
+      var d = ensureDetail(r); d.o = res.o || [];
+      d.a.unshift([res.date, '', '', '', res.note, res.by]);
+      $('#pLive').textContent = res.note;
+      keepScroll(function () { renderPanel(panel.all); }); render();
+    })
+    .withFailureHandler(function (e) { offUI.busy = false; offUI.err = e && e.message ? e.message : 'Not saved. Try again.'; keepScroll(function () { renderPanel(panel.all); }); })
+    .reviewOfficers(session.token, r.campus, r.year || '', key, action, why);
 }
 
 function panelActivity(r, d, all) {
@@ -1896,7 +1984,7 @@ function flagGo(on) {
 
 /* edit: the checklist changes not saved yet, by item ({ s: status letter, m: remark }); cr: the overall remarks being typed (null = untouched) */
 var panel = { campus: '', open: false, all: false, edit: {}, cr: null, showRm: {}, busy: false, err: '', saved: false, ask: false, mailBusy: false, mailErr: '', up: null, mv: null, upBusy: false, upErr: '' };
-function resetChecklist() { flagUI.ask = ''; flagUI.err = ''; flagUI.busy = false; panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
+function resetChecklist() { offUI.ask = ''; offUI.err = ''; offUI.busy = false; flagUI.ask = ''; flagUI.err = ''; flagUI.busy = false; panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
 function openCampus(campus, opener) {
   if (panel.open && panel.campus !== campus && !leaveOk()) return;
   panel.campus = campus; resetChecklist(); panel.mailBusy = false; panel.mailErr = '';
@@ -2015,6 +2103,8 @@ function mailSource(r) {
   // then treasurer, then any other officer with an email. With no officer email, whoever submitted the newest officer form.
   // Sending to every officer confused people.
   function rank(o) { var p = String(o.p || '').toLowerCase(); return /vice/.test(p) ? 3 : /president/.test(p) ? 1 : /secretary/.test(p) ? 2 : /treasurer/.test(p) ? 4 : 9; }
+  var os = officerState(r);
+  if (os.marked) subs = [{ off: os.cur, be: os.from ? os.from.be : '' }];     // only the approved officers: a waiting update never gets the email
   for (var s = 0; s < subs.length && !to.length; s++) {
     var offs = (subs[s].off || []).map(function (o, i) { return { o: o, i: i }; }).filter(function (x) { return validEmail(String(x.o.e || '').trim()); });
     offs.sort(function (a, b) { return rank(a.o) - rank(b.o) || a.i - b.i; });
@@ -2033,7 +2123,7 @@ function mailParts(r) {
     if (r.d[i] === 'C') fix.push({ i: i, m: rm.items[i] || '' });
     else if (r.d[i] === 'N' && sends(r, i) && (isPta(r) || isReq(i))) need.push({ i: i, m: rm.items[i] || '' });
   });
-  return { need: need, fix: fix, remarks: rm.campus || '' };
+  return { need: need, fix: fix, remarks: '' };   // the overall notes stay with the C1 and FACE (2026-11-03)
 }
 function mailWorth(r) { var p = mailParts(r); return !!(p.need.length || p.fix.length || p.remarks); }
 
@@ -2101,7 +2191,7 @@ function panelResend(r, d) {
   if (p.fix.length) what.push(plural(p.fix.length, 'needs', 'need') + ' correction');
   if (p.remarks) what.push('remarks');
   return '<section class="psec resend" id="pResend"><h3>Email the PTO/PTA<small>' + esc(what.join(', ')) + '</small></h3>' +
-    '<p class="pnote">Writes the email in Outlook with what is still needed, what needs correction, and your remarks. Nothing is sent until you press Send in Outlook.' + (anyEdits(r) ? ' Save the checklist first so the email has your latest changes.' : '') + '</p>' +
+    '<p class="pnote">Writes the email in Outlook with what is still needed and what needs correction, with your remark on each document. Your notes about the PTO/PTA are not included. Nothing is sent until you press Send in Outlook.' + (anyEdits(r) ? ' Save the checklist first so the email has your latest changes.' : '') + '</p>' +
     '<dl class="mailto"><dt>To</dt><dd>' + (m.to.length ? esc(m.to.join('; ')) : '<em>No email address is on file for this campus. Add one in Outlook.</em>') + '</dd><dt>Cc</dt><dd>' + esc(m.cc.join('; ')) + '</dd></dl>' +
     (bad.length ? '<p class="rerr">Not used, because ' + (bad.length === 1 ? 'it does' : 'they do') + ' not look like an email address: ' + esc(bad.join(', ')) + '. Check the Officers tab.</p>' : '') +
     mailPrefHtml('data-act') +
@@ -2363,6 +2453,14 @@ $('#pClose').addEventListener('click', function () { closePanel(); });
 $('#scrim').addEventListener('click', function () { closePanel(); });
 $('#pBody').addEventListener('click', function (e) {
   if (e.target.id === 'pMore') { var y = $('#panel').scrollTop; renderPanel(true); $('#panel').scrollTop = y; return; }
+  var ob = e.target.closest('button[data-off]');
+  if (ob && !ob.disabled) {
+    var oa = ob.getAttribute('data-off');
+    if (oa === 'reject') { offUI.ask = 'reject'; offUI.err = ''; keepScroll(function () { renderPanel(panel.all); }); var ta2 = $('#offWhy'); if (ta2) ta2.focus(); }
+    else if (oa === 'cancel') { offUI.ask = ''; offUI.err = ''; keepScroll(function () { renderPanel(panel.all); }); }
+    else officerGo(oa === 'reject-go' ? 'reject' : oa, ob.getAttribute('data-k'));
+    return;
+  }
   var fb = e.target.closest('button[data-flag], button[data-flag-go], button[data-flag-cancel]');
   if (fb && !fb.disabled) {
     if (fb.hasAttribute('data-flag')) { flagUI.ask = fb.getAttribute('data-flag'); flagUI.err = ''; keepScroll(function () { renderPanel(panel.all); }); var ta = $('#flagNote'); if (ta) ta.focus(); }
