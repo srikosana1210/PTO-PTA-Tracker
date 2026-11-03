@@ -698,7 +698,7 @@ a.btn.primary { color: var(--btn-ink); }
 <dialog id="signin" aria-labelledby="siTitle">
   <form id="siForm" class="dbody" autocomplete="on">
     <h2 id="siTitle">Sign in</h2>
-    <p class="dsub">For C1 coordinators and FACE staff. SEDs, EDs, principals and APs do not sign in: the dashboard recognizes their district Google account. Anyone can see campus status.</p>
+    <p class="dsub">For C1 coordinators and FACE staff. SEDs, EDs, principals and APs do not sign in: they open the dashboard link and see everything, view only.</p>
     <label for="siName">Your name</label>
     <select id="siName"></select>
     <label for="siPass">Passcode</label>
@@ -761,7 +761,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-11-02c';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-11-03a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1683,7 +1683,7 @@ function officerItem(o) {
 function orgLine(sb) { return [sb.g, sb.ty].filter(Boolean).join(' · '); }
 function panelOfficers(r, d) {
   if (!payload.live) return '<section class="psec"><h3>Officers</h3><p class="pnote">Officer details appear when the dashboard is opened from the tracker\'s web link.</p></section>';
-  if (!seesDetail(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1, to FACE staff, and to the people allowed to view it.' : 'Officer names, contact details and files are shown to C1 coordinators and FACE staff after they sign in, and to the campus\'s principal and Area Office, recognized by their district Google account.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
+  if (!seesDetail(r)) return '<section class="psec"><h3>Officers</h3><p class="pnote">' + (payload.me ? 'Officer names and contact details for this campus are shown to its C1, to FACE staff, and to the people allowed to view it.' : 'Officer names, contact details and files are shown to C1 coordinators and FACE staff after they sign in.') + '</p>' + (!payload.me && hasGas() ? '<p style="margin-top:8px"><button type="button" class="btn sm" data-act="signin">Sign in</button></p>' : '') + '</section>';
   var subs = d.o || [];
   if (!subs.length) return '<section class="psec"><h3>Officers</h3><p class="pnote">No officer update form has been matched to this campus for ' + esc(state.year ? state.year.replace('-', '–') : 'this year') + ' yet.</p></section>';
   var cur = subs[0], older = subs.slice(1);
