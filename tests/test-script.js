@@ -124,5 +124,6 @@ if (require.main === module) {
   require('./test-feed');
   require('./test-facelist');
   require('./test-officerapproval');
+  require('./test-remove');
   process.exit(h.report() ? 0 : 1);
 }

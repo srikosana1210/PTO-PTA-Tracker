@@ -770,7 +770,7 @@ var NO_AREA = 'Area Office not set';   // campuses whose Area Office is empty on
 function areaCmp(a, b) { var i = AREA_ORDER.indexOf(a), j = AREA_ORDER.indexOf(b); if (i < 0) i = 99; if (j < 0) j = 99; return i - j || cmp(a, b); }
 function cmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-var PAGE_STAMP = '2026-11-03b';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
+var PAGE_STAMP = '2026-11-10a';   // must match the stamp in Code.gs VERSION; the footer warns when they differ
 
 var rawData = $('#pto-data').textContent.trim();
 var templateOnly = rawData === '__DA' + 'TA__';   // opened as a bare template, not through the tracker's web app
@@ -1663,10 +1663,11 @@ function panelDocs(r, d) {
     if (saved === 'R' && arrivedDays(r, i) >= 0) meta.push('waiting ' + plural(arrivedDays(r, i), 'day', 'days'));
     if (last[i]) meta.push('last received ' + fmtDay(last[i]));
     var f = (files[i] || []).slice(0, 3).map(function (a) {
-      return link(a[3], a[2] || 'file') + (rev && canUpload(i) ? ' <button type="button" class="linkbtn mvbtn" data-act="mvopen" data-i="' + i + '" data-l="' + esc(a[3]) + '">Wrong document?</button>' : '');
+      return link(a[3], a[2] || 'file') + (rev && canUpload(i) ? ' <button type="button" class="linkbtn mvbtn" data-act="mvopen" data-i="' + i + '" data-l="' + esc(a[3]) + '">Wrong document?</button>' : '') +
+        (rev ? ' <button type="button" class="linkbtn mvbtn" data-act="rmopen" data-i="' + i + '" data-l="' + esc(a[3]) + '">Remove or wrong campus?</button>' : '');
     });
     var out = '<li data-item="' + i + '"' + (rev && isEdited(r, i) ? ' class="edited"' : '') + '><span class="ic ' + c + '" role="img" aria-label="' + esc(t) + '">' + ICON[c] + '</span><div><div class="lab">' + esc(DOCS[i].label) + '</div>' +
-      '<div class="meta">' + esc(meta.join(' · ')) + '</div>' + (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '');
+      '<div class="meta">' + esc(meta.join(' · ')) + '</div>' + (f.length ? '<div class="meta">' + f.join(', ') + '</div>' : '') + (rev && panel.rm && panel.rm.i === i ? removeHtml(r) : '');
     if (fromTx(r, i)) return out + '<div class="meta txsrc">' + esc(txText(r, i)) + '. Updated each week from the Texas PTA report, so it is not checked off here.</div></div></li>';
     if (!rev) return out + (x.m ? '<div class="rnote">Remark: ' + esc(x.m) + '</div>' : '') + '</div></li>';
     var dis = panel.busy ? ' disabled' : '';
@@ -1685,12 +1686,13 @@ function panelDocs(r, d) {
   docsOf(r).forEach(function (i) { groups[grpOf(i)].push(item(i)); });
   var help = rev ? '<p class="pnote rhelp">Open each file, then check off each document: it\'s there, it needs correction, it\'s not there, or it\'s not needed for this PTO/PTA. ' +
     'Remarks go into the email to the PTO/PTA. Nothing is saved until you press Save. Accepted and Not needed both count toward Registered and Eligible to Fundraise. Files open from Google Drive; if one asks for access, ask FACE to share the folder with you. ' +
-    'Got the right file from the PTO/PTA yourself? Use <b>Upload a file</b> under a document. A file under the wrong document? Use <b>Wrong document?</b> next to it.</p>' : '';
+    'Got the right file from the PTO/PTA yourself? Use <b>Upload a file</b> under a document. A file under the wrong document? Use <b>Wrong document?</b> next to it. Sent for another campus, or a duplicate? Use <b>Remove or wrong campus?</b></p>' : '';
   var out = '<section class="psec" id="pChecklist"><h3>' + 'Registration' + '</h3>' + help + '<ul class="plist chk">' + groups[0].join('') + '</ul></section>' +
     (groups[1].length ? '<section class="psec"><h3>Eligible to Fundraise<small>also needed to be eligible to fundraise</small></h3><ul class="plist chk">' + groups[1].join('') + '</ul></section>' : '') +
     (groups[2].length ? '<section class="psec"><h3>Other documents<small>not required</small></h3><ul class="plist chk">' + groups[2].join('') + '</ul></section>' : '');
   if (other.length) out += '<section class="psec"><h3>Other files<small>several documents in one file, or anything else</small></h3><p class="pnote">Open each file and check off above what it contains.</p><ul class="plist act">' +
-    other.slice(0, 10).map(function (a) { return '<li><span class="d">' + esc(fmtDay(a[0])) + '</span><span>' + link(a[3], a[2] || 'file') + '</span></li>'; }).join('') + '</ul></section>';
+    other.slice(0, 10).map(function (a) { var i = -1; return '<li><span class="d">' + esc(fmtDay(a[0])) + '</span><span>' + link(a[3], a[2] || 'file') + (rev ? ' <button type="button" class="linkbtn mvbtn" data-act="rmopen" data-i="' + i + '" data-l="' + esc(a[3]) + '">Remove or wrong campus?</button>' : '') +
+      (rev && panel.rm && panel.rm.i === -1 && panel.rm.link === a[3] ? removeHtml(r) : '') + '</span></li>'; }).join('') + '</ul></section>';
   if (rev) {
     var cd = campusDraft(r), dis2 = panel.busy ? ' disabled' : '';
     // FACE, 2026-11-03: overall notes about this PTO/PTA, for its C1 and FACE; they are not put in the email
@@ -1888,6 +1890,52 @@ function uploadGo(i) {
   };
   reader.readAsDataURL(file);
 }
+/* ---------- a file that does not belong to this campus: remove it, or move it to the right campus (FACE, 2026-11-10) ---------- */
+var RM_REASONS = ['Sent for a different campus', 'Duplicate', 'Not a PTO/PTA document', 'Other'];
+function removeHtml(r) {
+  var busy = panel.upBusy ? ' disabled' : '', mv = panel.rm.mode === 'mv';
+  var others = yearRows().filter(function (x) { return x.campus !== r.campus; }).map(function (x) { return x.campus; }).sort(cmp);
+  return '<div class="upl rmf"><p class="uph">This file does not belong to ' + esc(r.campus) + '.</p>' +
+    '<div class="upmode" role="radiogroup" aria-label="What to do with the file"><label><input type="radio" name="rmw" value="rm"' + (mv ? '' : ' checked') + busy + '> Remove it from this campus</label>' +
+    '<label><input type="radio" name="rmw" value="mv"' + (mv ? ' checked' : '') + busy + '> Move it to the campus it belongs to</label></div>' +
+    (mv ? '<label class="uph" for="rmTo">Campus</label><select id="rmTo"' + busy + '><option value="">Choose the campus…</option>' + others.map(function (c) { return '<option' + (panel.rm.to === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select>' +
+      '<p class="pnote">It arrives there under the same document, waiting for review by that campus\'s C1.</p>' : '') +
+    '<label class="uph" for="rmWhy">Why?</label><select id="rmWhy"' + busy + '>' + RM_REASONS.map(function (x) { return '<option' + (panel.rm.why === x || (!panel.rm.why && mv && x === RM_REASONS[0]) ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
+    '<input type="text" id="rmTxt" maxlength="200" placeholder="More detail (needed for Other)" value="' + esc(panel.rm.txt || '') + '"' + busy + '>' +
+    (mv ? '' : '<p class="pnote">The file goes to the Removed files folder in Drive (it can be recovered). If it was the only file for this document, the document goes back to Not received.</p>') +
+    '<div class="rctl"><button type="button" class="btn sm primary" data-act="rmgo"' + busy + '>' + (panel.upBusy ? 'Saving…' : mv ? 'Move the file' : 'Remove the file') + '</button><button type="button" class="btn sm" data-act="upcancel"' + busy + '>Cancel</button></div>' +
+    (panel.upErr ? '<p class="rerr" role="alert">' + esc(panel.upErr) + '</p>' : '') + '</div>';
+}
+function rmKeep() { if (!panel.rm) return; var to = $('#rmTo'), why = $('#rmWhy'), tx = $('#rmTxt'); if (to) panel.rm.to = to.value; if (why) panel.rm.why = why.value; if (tx) panel.rm.txt = tx.value; }
+function removeGo() {
+  var r = currentRow();
+  if (!r || panel.upBusy || !panel.rm) return;
+  rmKeep();
+  var rm = panel.rm, why = rm.why || RM_REASONS[0], txt = String(rm.txt || '').trim();
+  var reason = why === 'Other' ? txt : why + (txt ? ': ' + txt : '');
+  if (!reason) { panel.upErr = 'Say why the file is removed.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (rm.mode === 'mv' && !rm.to) { panel.upErr = 'Choose the campus the file belongs to.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  if (!hasGas() || !session.token) { panel.upErr = 'Your sign-in has ended. Sign in again.'; keepScroll(function () { renderPanel(panel.all); }); return; }
+  var campus = r.campus, year = r.year || '', key = rm.i >= 0 ? docKey(rm.i) : 'Other documents';
+  panel.upBusy = true; panel.upErr = '';
+  keepScroll(function () { renderPanel(panel.all); });
+  google.script.run
+    .withSuccessHandler(function (res) {
+      var row = rowFor(campus, year);
+      if (!row || !res || !res.ok) { upFail(new Error('The file was not changed. Try again.')); return; }
+      var d = ensureDetail(row), note = (res.dest ? 'Moved to ' + res.dest : 'Removed') + ' (' + res.key + '): ' + reason + '.';
+      d.a.forEach(function (a) { if (a[3] === res.link) { a[1] = ''; a[4] = note; } });
+      if (res.dest) {
+        var dr = rowFor(res.dest, year);
+        if (dr) { if (res.dd) dr.d = res.dd; if (dr.pto !== 'Yes' && dr.pto !== 'No') dr.pto = 'Yes'; ensureDetail(dr).a.unshift([res.date, res.key, res.name, res.link, 'Moved here from ' + campus + ' by ' + res.by + ' (it was sent for the wrong campus).', res.by]); }
+      }
+      panel.rm = null;
+      upDone(row, rm.i, res, res.dest ? 'The file is moved to ' + res.dest + ', waiting for review there.' : 'The file is removed from ' + campus + '.');
+    })
+    .withFailureHandler(upFail)
+    .removeDocument(session.token, campus, year, rm.link, key, reason, rm.mode === 'mv' ? rm.to : '');
+}
+
 function moveGo(i) {
   var r = currentRow(), sel = $('#mvTo');
   if (!r || panel.upBusy || !panel.mv || !sel) return;
@@ -1984,7 +2032,7 @@ function flagGo(on) {
 
 /* edit: the checklist changes not saved yet, by item ({ s: status letter, m: remark }); cr: the overall remarks being typed (null = untouched) */
 var panel = { campus: '', open: false, all: false, edit: {}, cr: null, showRm: {}, busy: false, err: '', saved: false, ask: false, mailBusy: false, mailErr: '', up: null, mv: null, upBusy: false, upErr: '' };
-function resetChecklist() { offUI.ask = ''; offUI.err = ''; offUI.busy = false; flagUI.ask = ''; flagUI.err = ''; flagUI.busy = false; panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
+function resetChecklist() { panel.rm = null; offUI.ask = ''; offUI.err = ''; offUI.busy = false; flagUI.ask = ''; flagUI.err = ''; flagUI.busy = false; panel.edit = {}; panel.cr = null; panel.showRm = {}; panel.busy = false; panel.err = ''; panel.saved = false; panel.ask = false; panel.up = null; panel.mv = null; panel.upBusy = false; panel.upErr = ''; }
 function openCampus(campus, opener) {
   if (panel.open && panel.campus !== campus && !leaveOk()) return;
   panel.campus = campus; resetChecklist(); panel.mailBusy = false; panel.mailErr = '';
@@ -2431,6 +2479,9 @@ $('#sort').addEventListener('change', function (e) { state.sort = e.target.value
 $('#pickCampus').addEventListener('change', function (e) { state.pick = e.target.value; confUI.ask = ''; confUI.msg = ''; confUI.err = ''; renderCampusCard(); });
 $('#pickFind').addEventListener('input', function (e) { state.pickq = e.target.value; renderCampusCard(); });
 $('#reviewBody').addEventListener('input', function (e) { if (e.target.id === 'rq') { state.rq = e.target.value; refreshReviewList(); } });
+$('#pBody').addEventListener('change', function (e) {
+  if (e.target.name === 'rmw' && panel.rm) { rmKeep(); panel.rm.mode = e.target.value; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); }
+});
 $('#reviewBody').addEventListener('change', function (e) { if (e.target.id === 'rsort') { state.rsort = e.target.value; refreshReviewList(); } });
 $('#signinBtn').addEventListener('click', openSignIn);
 $('#signoutBtn').addEventListener('click', function () { endSession(false); });
@@ -2488,7 +2539,9 @@ $('#pBody').addEventListener('click', function (e) {
   }
   else if (act === 'upopen') { panel.up = i; panel.mv = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); var fi = document.getElementById('upf' + i); if (fi) fi.focus(); }
   else if (act === 'mvopen') { panel.mv = { i: i, link: b.getAttribute('data-l') }; panel.up = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); var ms = $('#mvTo'); if (ms) ms.focus(); }
-  else if (act === 'upcancel') { panel.up = null; panel.mv = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); }
+  else if (act === 'upcancel') { panel.up = null; panel.mv = null; panel.rm = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); }
+  else if (act === 'rmopen') { panel.rm = { i: i, link: b.getAttribute('data-l'), mode: 'rm' }; panel.mv = null; panel.up = null; panel.upErr = ''; keepScroll(function () { renderPanel(panel.all); }); }
+  else if (act === 'rmgo') removeGo();
   else if (act === 'upgo') uploadGo(i);
   else if (act === 'mvgo') moveGo(i);
   else if (act === 'addrmk') { panel.showRm[i] = true; keepScroll(function () { renderPanel(panel.all); }); var t = document.getElementById('rmk' + i); if (t) t.focus(); }

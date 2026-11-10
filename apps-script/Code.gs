@@ -156,7 +156,7 @@ var CFG = {
   OFFICER_HEADERS: ['Response ID', 'Submitted', 'School Year', 'Campus', 'Match', 'Officer #', 'Name', 'Position', 'Email', 'Phone',
     'Organization', 'Org Type', 'Submitted By', 'Submitter Email', 'Submitter Phone', 'Additional Info', 'Added To Register', 'Notes']
 };
-var VERSION = 'Script version 2026-11-03b (officer updates are approved before they replace the officers; officer history; overall Notes are not emailed)';
+var VERSION = 'Script version 2026-11-10a (a file sent for the wrong campus can be removed, or moved to the right campus)';
 var NO_AREA = 'Area Office not set';   // a register row with an empty Area Office: fill it in on the Campus Register
 var M_OK = 'Matched', M_PICK = 'Pick a campus', M_NONE = 'School not on the roster', M_HAND = 'Picked by hand', M_BAD = 'Campus name not found';
 
@@ -1993,6 +1993,81 @@ function refileDocument(token, campus, year, fileLink, fromKey, toKey, mode) {
   } finally { lock.releaseLock(); }
 }
 
+/**
+ * Called from the campus panel by the campus's C1 or FACE staff (FACE, 2026-11-10), for a file sent for the wrong campus, a duplicate,
+ * or anything else that does not belong. toCampus empty: the file is removed from the campus (moved to the "Removed files" folder in
+ * Drive, so it can be recovered). toCampus set: the file moves to that campus, under the same document, waiting for review there.
+ * Either way the reason is logged, the file's log lines no longer count for this campus, and the document goes back to Not Received
+ * when that file was all it had. itemKey is the document the file is under, or "Other documents".
+ */
+function removeDocument(token, campus, year, fileLink, itemKey, reason, toCampus) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    campus = cellText_(campus); year = cellText_(year); reason = cleanText_(reason, REMARK_MAX);
+    var who = writerFor_(token, campus), by = byLabel_(who);
+    if (!reason) throw new Error('Say why the file is removed, for example: sent for a different campus.');
+    var other = norm_(itemKey) === norm_(CFG.Q_OTHER), item = other ? null : itemByKey_(cellText_(itemKey));
+    if (!other && !item) throw new Error('That document type is not recognized.');
+    var key = other ? CFG.Q_OTHER : item.key;
+    var t = table_(CFG.TAB_REGISTER), row = findRow_(t, year, campus);
+    if (!row) throw new Error('No register row was found for ' + campus + ' in ' + year + '.');
+    var canon = cellText_(t.values[row - 1][t.col['Campus']]);
+    // the campus it really belongs to
+    var dest = '', drow = 0;
+    if (cellText_(toCampus)) {
+      drow = findRow_(t, year, lookup_(campusMap_(), toCampus) || toCampus);
+      if (!drow) throw new Error(cellText_(toCampus) + ' is not on the Campus Register for ' + year + '.');
+      dest = cellText_(t.values[drow - 1][t.col['Campus']]);
+      if (norm_(dest) === norm_(canon)) throw new Error('Choose a different campus to move the file to.');
+      if (item && !sendsItem_(item, isPtaRow_(t.values[drow - 1], t))) throw new Error('For a PTA, ' + item.key + ' comes from the Texas PTA spreadsheet, so the file cannot be moved to ' + dest + '.');
+    }
+    var link = cellText_(fileLink), lt = table_(CFG.TAB_LOG), c = lt.col, found = 0, name = '', now = new Date();
+    for (var i = 1; i < lt.values.length; i++) {
+      var v = lt.values[i];
+      if (cellText_(v[c['File Link']]) !== link || norm_(v[c['Campus']]) !== norm_(canon) || cellText_(v[c['School Year']]) !== year) continue;
+      if (norm_(v[c['Document Type']]) !== norm_(key) && !(item && itemByKey_(cellText_(v[c['Document Type']])) === item)) continue;
+      name = cellText_(v[c['File Name']]) || name;
+      // the line stays in the log as a record, but no longer counts as a document of this campus
+      lt.sh.getRange(i + 1, c['Document Type'] + 1).setValue('');
+      lt.sh.getRange(i + 1, c['Notes'] + 1).setValue((dest ? 'Moved to ' + dest : 'Removed') + ' (' + key + '): ' + reason + '. By ' + by + ', ' + Utilities.formatDate(now, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd') + '.' + (cellText_(v[c['Notes']]) ? ' ' + cellText_(v[c['Notes']]) : ''));
+      found++;
+    }
+    if (!found) throw new Error('That file was not found under ' + key + ' for ' + canon + '. Reload the page and try again.');
+    // Drive: into the right campus's folder, or into "Removed files" (kept, not deleted)
+    var m = /\/d\/([A-Za-z0-9_-]+)/.exec(link) || /[?&]id=([A-Za-z0-9_-]+)/.exec(link);
+    if (m) {
+      try {
+        var root = rootFolder_(), f = DriveApp.getFileById(m[1]);
+        f.moveTo(dest ? campusFolder_(root, dest) : campusFolder_(root, REMOVED_FOLDER));
+      } catch (err) { /* the record is what counts; the file stays where it was */ }
+    }
+    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), notes = [], logRows = [];
+    // this campus: the document is not there any more when that file was all it had
+    if (item) {
+      var lv = table_(CFG.TAB_LOG).values, left = 0;
+      for (var j = 1; j < lv.length; j++) { var it2 = itemByKey_(cellText_(lv[j][c['Document Type']])); if (it2 === item && norm_(lv[j][c['Campus']]) === norm_(canon) && cellText_(lv[j][c['School Year']]) === year) left++; }
+      var cur = cellText_(t.values[row - 1][t.col[item.key]]);
+      if (!left && cur && cur !== 'Not Received' && cur !== 'Not Needed') {
+        setCell_(t, row, item.key, 'Not Received');
+        notes.push(checkNote_('Not Received', item.key, 'the file was ' + (dest ? 'for ' + dest : 'removed') + ': ' + reason, true));
+      }
+    }
+    notes.forEach(function (n) { logRows.push([now, by, canon, '', '', '', year, n]); });
+    // the right campus: the file arrives there, waiting for review
+    if (dest) {
+      logRows.push([now, by, dest, key, name, link, year, 'Moved here from ' + canon + ' by ' + by + ' (it was sent for the wrong campus).']);
+      if (item) setCell_(t, drow, item.key, 'Received');
+      var has = cellText_(t.values[drow - 1][t.col['Has PTO or PTA']]);
+      if (has !== 'Yes' && has !== 'No') setCell_(t, drow, 'Has PTO or PTA', 'Yes');
+    }
+    appendLog_(logRows);
+    t = table_(CFG.TAB_REGISTER);
+    return { ok: true, d: codesOf_(t, row), dd: dest ? codesOf_(t, drow) : '', dest: dest, date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), by: by, notes: notes, link: link, name: name, key: key };
+  } finally { lock.releaseLock(); }
+}
+var REMOVED_FOLDER = 'Removed files';
+
 /* ---------- passcodes (menu) ---------- */
 
 /**
@@ -2007,7 +2082,7 @@ function setUpSignIns() {
   if (r.createdTab) L.push('The ' + CFG.TAB_SIGNINS + ' tab was missing, so it has been added with one row, FACE Staff.');
   if (r.createdC1Tab) L.push('The ' + CFG.TAB_C1 + ' tab was missing, so it has been added. Put each campus in column A and its C1 Coordinator in column B (one row per campus), then run this again to give each C1 a passcode.');
   L.push(plural_(r.people, 'person can', 'people can') + ' sign in (' + plural_(r.c1Total, 'C1', 'C1s') + ' and ' + plural_(r.staffTotal, 'FACE staff member', 'FACE staff members') + (r.viewerTotal ? ', plus ' + plural_(r.viewerTotal, 'view-only person', 'view-only people') : '') + ').');
-  L.push('SEDs, EDs, principals and APs need no passcode: list them on the ' + CFG.TAB_LEADERS + ' tab (PTO/PTA Tracker > Dashboard leaders) and the dashboard recognizes their district Google account.');
+  L.push('SEDs, EDs, principals and APs need no passcode: they open the dashboard link and see everything, view only.');
   if (r.made.length) L.push('', plural_(r.made.length, 'new passcode was', 'new passcodes were') + ' made. They are on the ' + CFG.TAB_PASS + ' tab. Send each person only their own, then delete that tab. The passcodes are not stored anywhere else and cannot be shown again; use "new passcode for one person" if one is lost.');
   else L.push('', 'Nobody needed a new passcode.');
   if (r.noCampus.length) L.push('', plural_(r.noCampus.length, 'person is', 'people are') + ' on the ' + CFG.TAB_SIGNINS + ' tab as a C1 or viewer but ' + (r.noCampus.length === 1 ? 'has' : 'have') + ' no campuses yet (for a C1, the ' + CFG.TAB_C1 + ' tab; for a viewer, the Can See column), so they cannot sign in yet: ' + r.noCampus.slice(0, 6).join(', ') + (r.noCampus.length > 6 ? ', and ' + (r.noCampus.length - 6) + ' more' : '') + '.');

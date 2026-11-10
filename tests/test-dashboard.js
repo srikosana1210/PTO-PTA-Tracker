@@ -500,6 +500,27 @@ async function signIn(page, name, pass) {
     check('no page errors (officer approval)', o.errors.length === 0, o.errors.join(' | '));
     await page.close();
 
+    /* ---------- a file for the wrong campus: remove it, or move it (2026-11-10) ---------- */
+    var w3 = world();
+    o = await openPage(browser, w3); page = o.page;
+    await signIn(page, 'Ms. Lee', w3.p.pass['Ms. Lee']);
+    await page.click('[data-tab="campuses"]');
+    await page.fill('#q', 'Anderson');
+    await page.click('.crow[data-c="Anderson ES"] .campbtn');
+    await page.click('#panel li[data-item] [data-act="rmopen"]');
+    await page.check('#panel input[name="rmw"][value="mv"]');
+    await page.selectOption('#rmTo', 'Ashford ES');
+    await (await page.$('#panel .rmf')).screenshot({ path: path.join(SHOTS, 'remove-move.png') });
+    await page.click('#panel [data-act="rmgo"]');
+    await page.waitForFunction(function () { return /moved to Ashford ES/.test(document.querySelector('#pLive').textContent); }, null, { timeout: 10000 });
+    check('a file moves to the right campus, waiting for review there', base.regRow(w3.g, 'Ashford ES')['Training Certificate'] === 'Received' && base.regRow(w3.g, 'Anderson ES')['Training Certificate'] === 'Not Received');
+    await page.click('#panel li[data-item] [data-act="rmopen"]');
+    await page.click('#panel [data-act="rmgo"]');
+    await page.waitForFunction(function () { return /is removed from Anderson ES/.test(document.querySelector('#pLive').textContent); }, null, { timeout: 10000 });
+    check('a file is removed, and its document is Not received again', base.regRow(w3.g, 'Anderson ES')['Bylaws'] === 'Not Received');
+    check('no page errors (remove a file)', o.errors.length === 0, o.errors.join(' | '));
+    await page.close();
+
     /* ---------- phone width ---------- */
     o = await openPage(browser, w, 390); page = o.page;
     var sw = await page.evaluate(function () { return document.documentElement.scrollWidth; });
